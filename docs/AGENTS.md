@@ -73,7 +73,7 @@
 - O fechamento da task passa a exigir checks verdes e merge confirmado; PR
   aberta nao conta como concluido
 - PRs do Jules (Google Labs) passam a ter uma excecao controlada `PR-first`,
-  com task retroativa, label `automation:jules` e workspace
+  com task retroativa automatica, label `source:jules`, `Source PR` e workspace
   `jules://github/pr/<numero>`
 - `docs/STUDENT_PACK_PLAN.md` deixa de espelhar task-by-task e passa a apontar para milestone + epics + filtros de issues
 - `docs/AGENTS.md` permanece apenas como estado atual e historico de sessoes
@@ -102,6 +102,21 @@
 ---
 
 ## Sessoes Recentes
+
+### Sessao 39 - 2026-04-12 (Jules-only intake automatica por GitHub Actions)
+- `jules-pr-governance.yml` deixa de apenas orientar e passa a criar ou
+  reconciliar automaticamente a task retroativa do Jules via `pull_request_target`
+- A identificacao do Jules passa a depender dos marcadores no corpo da PR,
+  com label persistente `source:jules`, sem depender apenas do autor
+- A task retroativa passa a registrar `Source PR`, lane/risco inferidos pelo
+  path policy e write-set reconciliado a cada `synchronize`
+- `PR Issue Guardrails` volta a ser estrito para PRs humanas e ignora PRs do
+  Jules porque a governanca desse caso fica centralizada no workflow dedicado
+- Casos ambiguos, domain mix proibido ou paths nao classificados agora falham
+  com pedido explicito de triagem humana e mantem a PR em draft
+- `scripts/register_jules_pr.ps1` deixa de fazer parte do fluxo oficial
+- A configuracao de governanca passa a versionar o intake do Jules em
+  `.github/guardrails/path-policy.json`
 
 ### Sessao 38 - 2026-04-12 (governanca retroativa para PRs do Jules)
 - Novo workflow dedicado para detectar PRs publicadas pelo Jules e orientar a

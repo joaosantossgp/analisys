@@ -17,8 +17,6 @@ permissions:
 jobs:
   validate-pr-issue-contract:
     runs-on: ubuntu-latest
-    env:
-      JULES_GITHUB_LOGIN: ${{ vars.JULES_GITHUB_LOGIN }}
     steps:
       - name: Validate branch, issue, lanes, and critical paths
         uses: actions/github-script@v7
@@ -201,67 +199,56 @@ jobs:
               return riskRank[left] >= riskRank[right] ? left : right;
             }
 
-            function extractLinkedIssueNumber(prBody) {
-              const match = (prBody || "").match(/\bCloses\s+#(\d+)\b/i);
-              return match ? Number(match[1]) : null;
-            }
-
-            function isJulesPr(login) {
-              const normalized = (login || "").trim().toLowerCase();
-              if (!normalized) {
-                return false;
-              }
-
-              const configured = (process.env.JULES_GITHUB_LOGIN || "")
-                .trim()
-                .toLowerCase();
-
-              if (configured) {
-                return normalized === configured;
-              }
-
-              return normalized.includes("jules") && normalized.endsWith("[bot]");
+            function hasJulesMarker(body, markers) {
+              return (markers || []).some((marker) =>
+                (body || "").includes(marker),
+              );
             }
 
             const branch = context.payload.pull_request.head.ref;
             const body = context.payload.pull_request.body || "";
             const prNumber = context.payload.pull_request.number;
-            const prAuthorLogin = context.payload.pull_request.user?.login || "";
-            const julesPr = isJulesPr(prAuthorLogin);
+            const prLabels = context.payload.pull_request.labels.map((label) =>
+              typeof label === "string" ? label : label.name,
+            );
+            const { data: policyFile } = await github.rest.repos.getContent({
+              ...context.repo,
+              path: ".github/guardrails/path-policy.json",
+              ref: context.payload.pull_request.base.sha,
+            });
 
-            let issueNumber = null;
-            let branchSlug = null;
+            const policy = JSON.parse(
+              Buffer.from(policyFile.content, policyFile.encoding).toString("utf8"),
+            );
+            const julesConfig = policy.julesIntake || {};
+            const isJulesPr =
+              prLabels.includes(julesConfig.sourceLabel) ||
+              hasJulesMarker(body, julesConfig.bodyMarkers);
 
-            if (julesPr) {
-              issueNumber = extractLinkedIssueNumber(body);
-              if (!issueNumber) {
-                core.setFailed(
-                  `PR do Jules detectada sem task vinculada. Crie a task issue depois da PR, use "Workspace da task" = "jules://github/pr/${prNumber}", aplique o label "automation:jules" e atualize o corpo da PR com "Closes #<issue>".`,
-                );
-                return;
-              }
-            } else {
-              const branchMatch = branch.match(/^task\/(\d+)-([a-z0-9][a-z0-9-]*)$/);
-              if (!branchMatch) {
-                core.setFailed(
-                  `Branch invalida: "${branch}". Use task/<issue-number>-<slug>.`,
-                );
-                return;
-              }
-
-              issueNumber = Number(branchMatch[1]);
-              branchSlug = branchMatch[2];
-
-              const closesPattern = new RegExp(`\\bCloses\\s+#${issueNumber}\\b`, "i");
-              if (!closesPattern.test(body)) {
-                core.setFailed(
-                  `A PR deve conter "Closes #${issueNumber}" no corpo para fechar a task correta.`,
-                );
-                return;
-              }
+            if (isJulesPr) {
+              core.info(
+                `PR #${prNumber} identificada como Jules-only. Guardrail padrao ignorado.`,
+              );
+              return;
             }
 
+            const branchMatch = branch.match(/^task\/(\d+)-([a-z0-9][a-z0-9-]*)$/);
+            if (!branchMatch) {
+              core.setFailed(
+                `Branch invalida: "${branch}". Use task/<issue-number>-<slug>.`,
+              );
+              return;
+            }
+
+            const issueNumber = Number(branchMatch[1]);
+            const branchSlug = branchMatch[2];
             const closesPattern = new RegExp(`\\bCloses\\s+#${issueNumber}\\b`, "i");
+            if (!closesPattern.test(body)) {
+              core.setFailed(
+                `A PR deve conter "Closes #${issueNumber}" no corpo para fechar a task correta.`,
+              );
+              return;
+            }
 
             const { data: issue } = await github.rest.issues.get({
               ...context.repo,
@@ -287,13 +274,6 @@ jobs:
             if (!labels.includes("kind:task")) {
               core.setFailed(
                 `A issue #${issueNumber} precisa ter o label "kind:task". Epics nao devem ser fechados por PR.`,
-              );
-              return;
-            }
-
-            if (julesPr && !labels.includes("automation:jules")) {
-              core.setFailed(
-                `A issue #${issueNumber} vinculada a uma PR do Jules precisa ter o label "automation:jules".`,
               );
               return;
             }
@@ -516,24 +496,14 @@ jobs:
               }
             }
 
-            if (julesPr) {
-              const expectedWorkspace = `jules://github/pr/${prNumber}`;
-              if (workspace !== expectedWorkspace) {
-                core.setFailed(
-                  `A issue #${issueNumber} vinculada a uma PR do Jules deve declarar "Workspace da task" como "${expectedWorkspace}". Valor atual: "${workspace}".`,
-                );
-                return;
-              }
-            } else {
-              const expectedWorkspaceFragment = normalizePath(
-                `.claude/worktrees/${laneSection}/${issueNumber}-${branchSlug}`,
+            const expectedWorkspaceFragment = normalizePath(
+              `.claude/worktrees/${laneSection}/${issueNumber}-${branchSlug}`,
+            );
+            if (!workspace.includes(expectedWorkspaceFragment)) {
+              core.setFailed(
+                `O workspace da issue #${issueNumber} deve apontar para ".claude/worktrees/${laneSection}/${issueNumber}-${branchSlug}/". Valor atual: "${workspace}".`,
               );
-              if (!workspace.includes(expectedWorkspaceFragment)) {
-                core.setFailed(
-                  `O workspace da issue #${issueNumber} deve apontar para ".claude/worktrees/${laneSection}/${issueNumber}-${branchSlug}/". Valor atual: "${workspace}".`,
-                );
-                return;
-              }
+              return;
             }
 
             const duplicatePrs = await github.paginate(github.rest.pulls.list, {
@@ -552,7 +522,6 @@ jobs:
                 duplicateBody,
               );
               const sameBranchIssue =
-                !julesPr &&
                 typeof pullRequest.head?.ref === "string" &&
                 pullRequest.head.ref.startsWith(`task/${issueNumber}-`);
 
@@ -567,16 +536,6 @@ jobs:
               );
               return;
             }
-
-            const { data: policyFile } = await github.rest.repos.getContent({
-              ...context.repo,
-              path: ".github/guardrails/path-policy.json",
-              ref: context.payload.pull_request.base.sha,
-            });
-
-            const policy = JSON.parse(
-              Buffer.from(policyFile.content, policyFile.encoding).toString("utf8"),
-            );
 
             const changedFiles = await github.paginate(github.rest.pulls.listFiles, {
               ...context.repo,

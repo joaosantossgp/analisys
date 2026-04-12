@@ -3,9 +3,9 @@
 Closes #
 
 > Excecao controlada: se a PR tiver sido publicada pelo Jules, o `Closes #`
-> pode ser adicionado depois que a task retroativa for criada. Use
-> `Workspace da task = jules://github/pr/<numero-da-pr>` e mantenha o label
-> `automation:jules`.
+> pode ser adicionado depois que a automacao criar ou reconciliar a task
+> retroativa. Use `Workspace da task = jules://github/pr/<numero-da-pr>`,
+> registre `Source PR` na issue e mantenha o label `source:jules`.
 
 ## Resumo
 
@@ -38,7 +38,7 @@ Closes #
 
 ## Checklist
 
-- [ ] a branch segue `task/<issue-number>-<slug>` ou a PR foi publicada pelo Jules e ja recebeu task retroativa vinculada
+- [ ] a branch segue `task/<issue-number>-<slug>` ou a PR foi publicada pelo Jules e a automacao ja vinculou a task retroativa
 - [ ] a issue vinculada esta atualizada com checklist/status/evidencias
 - [ ] a issue vinculada registra owner atual, lane oficial, workspace da task, write-set esperado e `risk:*`
 - [ ] docs relevantes foram atualizados quando necessario
