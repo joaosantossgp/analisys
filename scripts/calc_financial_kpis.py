@@ -13,6 +13,7 @@ def load_data(db_path):
         'Receita de Venda de Bens e/ou Serviços',
         'Receitas das Operações',
         'Receitas de Intermediação Financeira',
+        'Receitas da Intermediação Financeira',
         'Resultado Bruto',
         'Lucro/Prejuízo Consolidado do Período',
         'Ativo Total',
@@ -34,6 +35,7 @@ def aggregate_annual(df):
     df['STANDARD_NAME'] = df['STANDARD_NAME'].replace({
         'Receitas das Operações': 'Receita',
         'Receitas de Intermediação Financeira': 'Receita',
+        'Receitas da Intermediação Financeira': 'Receita',
         'Receita de Venda de Bens e/ou Serviços': 'Receita'
     })
     
