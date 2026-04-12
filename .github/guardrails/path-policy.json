@@ -1,4 +1,30 @@
 {
+  "julesIntake": {
+    "sourceLabel": "source:jules",
+    "bodyMarkers": [
+      "PR created automatically by Jules",
+      "jules.google.com/task/"
+    ],
+    "fallbackLane": "ops-quality",
+    "defaultOwner": "Jules (Google Labs)",
+    "defaultPriority": "p1",
+    "defaultStatus": "status:in-progress",
+    "blockedStatus": "status:blocked",
+    "workspacePrefix": "jules://github/pr/",
+    "commentMarker": "<!-- jules-governance-comment -->",
+    "issueManagedStart": "<!-- jules-managed:start -->",
+    "issueManagedEnd": "<!-- jules-managed:end -->",
+    "issueSourceMarkerPrefix": "<!-- jules-source-pr:",
+    "areaByLane": {
+      "frontend": "web",
+      "backend": "core",
+      "ops-quality": "infra"
+    },
+    "backendAreaPatterns": [
+      "apps/api/**",
+      "docs/V2_API_CONTRACT.md"
+    ]
+  },
   "laneAllowlists": {
     "frontend": [
       "apps/web/**",

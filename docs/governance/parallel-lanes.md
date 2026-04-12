@@ -81,10 +81,16 @@ PR-first so e permitido para PRs publicadas pelo Jules (Google Labs).
 - O restante da governanca continua valendo: labels obrigatorios, `write-set`,
   risco, validacao, merge unico e issue vinculada via `Closes #<issue>`.
 - A task retroativa do Jules usa `Workspace da task = jules://github/pr/<numero-da-pr>`.
-- O label `automation:jules` identifica a excecao nos guardrails e na
-  documentacao operacional.
-- A PR do Jules continua bloqueada enquanto a issue retroativa nao existir e
-  nao estiver vinculada.
+- O label `source:jules` identifica a excecao nos guardrails e na documentacao
+  operacional.
+- O intake do Jules depende dos marcadores no corpo da PR
+  `PR created automatically by Jules` ou `jules.google.com/task/`. Nao dependa
+  apenas do autor.
+- O workflow dedicado cria ou reconcilia a task retroativa, preenche `Source PR`
+  e sincroniza lane/risco/write-set a cada `synchronize`.
+- Se a inferencia ficar ambigua, se houver domain mix proibido ou se algum path
+  nao estiver classificado, o workflow deve falhar com mensagem de triagem
+  humana e manter a PR em draft.
 - Essa excecao nao autoriza PR-first para humanos ou para outras IAs.
 
 ## Handoff entre IAs ou humanos

@@ -34,8 +34,9 @@ Before changing any versioned file:
 ### Jules-only exception
 
 - The only allowed `PR-first` exception is for pull requests published by Jules (Google Labs).
-- For a Jules PR, create the task after the PR opens, set `Workspace da task` to `jules://github/pr/<pr-number>`, apply `automation:jules`, and update the PR body with `Closes #<issue>`.
-- Until that retroactive task exists and is linked, the PR must remain blocked by governance checks.
+- Detection must come from the PR body markers `PR created automatically by Jules` or `jules.google.com/task/`; do not rely only on the author login.
+- The dedicated `Jules PR Governance` workflow owns this exception: it applies `source:jules`, creates or reconciles the retroactive task, sets `Workspace da task = jules://github/pr/<pr-number>`, fills `Source PR`, infers lane/risk/write-set, and updates the PR body with `Closes #<issue>`.
+- Until that retroactive intake is valid, the Jules PR must remain blocked and in draft.
 - This exception does not apply to humans, Codex, Claude, or any other agent.
 
 ## Publish and Merge Policy
