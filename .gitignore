@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# Data files (large CSVs, ZIPs, DB)
+data/input/**/*.csv
+data/input/**/*.zip
+data/input/raw/
+data/input/processed/
+data/db/
+data/*.csv
+data/*.xlsx
+data/legacy_archives/
+data/metadata/b3_companies_cache.json
+
+# Output
+output/
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+.DS_Store
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Claude internal
+.claude/plans/
+.claude/settings.local.json
+.claude/worktrees/
+
+# Reference sites (large HTML snapshots)
+docs/references/sites_ex/
+
+# Logs
+*.log
+!.ai-activity.log
+logs/
+
+# Browser test artifacts
+.playwright-cli/

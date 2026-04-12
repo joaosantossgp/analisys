@@ -1,0 +1,186 @@
+name: Task
+description: Unidade executavel de trabalho vinculada a um epic ou objetivo.
+title: "[Task] "
+labels:
+  - kind:task
+  - status:ready
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Toda alteracao em arquivos versionados deve estar vinculada a uma task.
+        Depois de criar esta issue, aplique tambem labels `priority:*`,
+        `area:*`, `risk:*` e `lane:*`.
+        Se esta for uma child task entre lanes, preencha `Task mae`,
+        `Lane solicitante` e `Criterio de consumo`. Se nao for child task, use
+        `n/a` nesses campos e `- nenhuma registrada` em `Tasks filhas`.
+  - type: input
+    id: parent_epic
+    attributes:
+      label: Epic pai
+      description: Informe o numero da issue epic relacionada, se existir.
+      placeholder: "#5"
+    validations:
+      required: false
+  - type: input
+    id: parent_task
+    attributes:
+      label: Task mae
+      description: Informe a task mae se esta issue for uma child task; caso contrario use `n/a`.
+      placeholder: "#37 ou n/a"
+    validations:
+      required: true
+  - type: input
+    id: current_owner
+    attributes:
+      label: Owner atual
+      description: Quem esta responsavel pela task neste momento.
+      placeholder: Codex (thread atual), Claude, humano, etc.
+    validations:
+      required: true
+  - type: dropdown
+    id: official_lane
+    attributes:
+      label: Lane oficial
+      description: Depois de criar a issue, aplique o label `lane:*` correspondente.
+      options:
+        - frontend
+        - backend
+        - ops-quality
+    validations:
+      required: true
+  - type: dropdown
+    id: requesting_lane
+    attributes:
+      label: Lane solicitante
+      description: Use a lane da task mae quando esta for uma child task; caso contrario escolha `n/a`.
+      options:
+        - n/a
+        - frontend
+        - backend
+        - ops-quality
+    validations:
+      required: true
+  - type: input
+    id: task_workspace
+    attributes:
+      label: Workspace da task
+      description: Path relativo da worktree oficial da task.
+      placeholder: .claude/worktrees/frontend/25-exemplo-task/
+    validations:
+      required: true
+  - type: textarea
+    id: write_set
+    attributes:
+      label: Write-set esperado
+      description: Liste as pastas e arquivos versionados que esta task pretende tocar.
+      placeholder: |
+        - apps/api/**
+        - src/**
+        - docs/V2_API_CONTRACT.md
+    validations:
+      required: true
+  - type: dropdown
+    id: risk
+    attributes:
+      label: Classificacao de risco
+      description: Depois de criar a issue, aplique o label `risk:*` correspondente.
+      options:
+        - safe
+        - shared
+        - contract-sensitive
+    validations:
+      required: true
+  - type: textarea
+    id: coordination
+    attributes:
+      label: Dependencias ou write-sets concorrentes
+      description: Use para registrar se esta task depende de outra ou divide write-set com outra frente.
+      placeholder: |
+        Nenhuma no momento.
+        ou
+        - Depende da task #23 antes de tocar docs/V2_API_CONTRACT.md
+    validations:
+      required: false
+  - type: textarea
+    id: child_tasks
+    attributes:
+      label: Tasks filhas
+      description: Na task mae, liste as child tasks abertas/entregues. Se nao houver, use `- nenhuma registrada`.
+      value: |
+        - nenhuma registrada
+    validations:
+      required: true
+  - type: textarea
+    id: consumption_criteria
+    attributes:
+      label: Criterio de consumo
+      description: Descreva como a lane solicitante vai validar/consumir a entrega. Use `n/a` se esta nao for uma child task.
+      placeholder: Descreva a verificacao ou o uso esperado da entrega, ou use n/a.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Contexto
+      description: Problema atual e motivacao da task.
+      placeholder: Explique o contexto que torna esta task necessaria.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Criterios de aceite
+      description: O que precisa ser verdade para considerar a task concluida.
+      placeholder: Liste criterios verificaveis.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area principal
+      description: Aplique o label `area:*` correspondente depois de criar a issue.
+      options:
+        - web
+        - api
+        - core
+        - data
+        - infra
+        - docs
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Prioridade
+      description: Aplique o label `priority:*` correspondente depois de criar a issue.
+      options:
+        - p0
+        - p1
+        - p2
+        - p3
+    validations:
+      required: true
+  - type: textarea
+    id: execution_checklist
+    attributes:
+      label: Checklist de execucao
+      description: Edite esta lista no corpo da issue conforme o trabalho avancar.
+      value: |
+        - [ ] Escopo confirmado
+        - [ ] Owner, lane, workspace, write-set e risco revisados
+        - [ ] Viculos de task mae/tasks filhas/consumo atualizados quando aplicavel
+        - [ ] Implementacao concluida
+        - [ ] Validacao executada
+        - [ ] Issue/docs atualizados
+        - [ ] PR mergeada e issue fechada
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validacao esperada
+      description: Comandos, checagens ou evidencias que devem ser executados.
+      placeholder: Tests, builds, checks, screenshots, links ou outros artefatos.
+    validations:
+      required: true

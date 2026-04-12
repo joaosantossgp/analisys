@@ -1,0 +1,137 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+      - "task/**"
+  pull_request:
+  merge_group:
+
+jobs:
+  test-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install root dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Install API dependencies
+        run: python -m pip install -r apps/api/requirements-dev.txt
+
+      - name: Run V1 test suite
+        run: pytest tests -q
+
+      - name: Run V2 API test suite
+        run: pytest apps/api/tests -q
+
+  coverage-python:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install root dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Install API dependencies
+        run: python -m pip install -r apps/api/requirements-dev.txt
+
+      - name: Install coverage tooling
+        run: python -m pip install pytest-cov>=5.0
+
+      - name: Run Python coverage
+        run: >
+          pytest tests apps/api/tests -q
+          --cov=src
+          --cov=desktop
+          --cov=dashboard
+          --cov=apps/api/app
+          --cov-branch
+          --cov-report=xml:coverage.xml
+          --cov-report=term-missing
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-coverage-xml
+          path: coverage.xml
+
+      - name: Upload coverage to Codecov
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage.xml
+          disable_search: true
+          fail_ci_if_error: false
+          use_oidc: true
+          verbose: true
+
+  test-web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install web dependencies
+        run: npm ci
+
+      - name: Run web lint
+        run: npm run lint
+
+      - name: Run web typecheck
+        run: npm run typecheck
+
+      - name: Run web build
+        run: npm run build
+
+  deploy-api:
+    needs: [test-python]
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    env:
+      RAILWAY_DEPLOY_HOOK: ${{ secrets.RAILWAY_DEPLOY_HOOK }}
+    steps:
+      - name: Skip Railway deploy when hook is missing
+        if: env.RAILWAY_DEPLOY_HOOK == ''
+        run: echo "::warning::RAILWAY_DEPLOY_HOOK is not configured; skipping Railway deploy."
+
+      - name: Trigger Railway deploy
+        if: env.RAILWAY_DEPLOY_HOOK != ''
+        run: curl -fsSL -X POST "$RAILWAY_DEPLOY_HOOK"
+
+  deploy-web:
+    needs: [test-web]
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+    steps:
+      - name: Skip Vercel deploy when hook is missing
+        if: env.VERCEL_DEPLOY_HOOK == ''
+        run: echo "::warning::VERCEL_DEPLOY_HOOK is not configured; skipping Vercel deploy."
+
+      - name: Trigger Vercel deploy
+        if: env.VERCEL_DEPLOY_HOOK != ''
+        run: curl -fsSL -X POST "$VERCEL_DEPLOY_HOOK"
