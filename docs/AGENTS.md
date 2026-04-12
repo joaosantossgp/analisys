@@ -7,7 +7,7 @@
 
 ---
 
-## Estado Atual (2026-04-09)
+## Estado Atual (2026-04-12)
 
 ### Dashboard
 - **3 abas renderizadas** em `dashboard/app.py`: `Visao Geral`, `Demonstracoes`, `Download`
@@ -72,6 +72,9 @@
   lane, mas ainda nao consumida pela lane solicitante
 - O fechamento da task passa a exigir checks verdes e merge confirmado; PR
   aberta nao conta como concluido
+- PRs do Jules (Google Labs) passam a ter uma excecao controlada `PR-first`,
+  com task retroativa, label `automation:jules` e workspace
+  `jules://github/pr/<numero>`
 - `docs/STUDENT_PACK_PLAN.md` deixa de espelhar task-by-task e passa a apontar para milestone + epics + filtros de issues
 - `docs/AGENTS.md` permanece apenas como estado atual e historico de sessoes
 
@@ -99,6 +102,16 @@
 ---
 
 ## Sessoes Recentes
+
+### Sessao 38 - 2026-04-12 (governanca retroativa para PRs do Jules)
+- Novo workflow dedicado para detectar PRs publicadas pelo Jules e orientar a
+  regularizacao da governanca
+- `PR Issue Guardrails` passa a aceitar `PR-first` somente quando a autoria for
+  do Jules e a issue retroativa estiver vinculada
+- Tasks retroativas do Jules passam a usar `Workspace da task` como
+  `jules://github/pr/<numero-da-pr>` e label `automation:jules`
+- `scripts/register_jules_pr.ps1` passa a criar a task retroativa, inferir
+  lane/risco e atualizar a PR com `Closes #<issue>`
 
 ### Sessao 37 - 2026-04-09 (child tasks formais entre lanes)
 - Delegacao entre lanes passa a exigir child task formal em GitHub Issue, nao

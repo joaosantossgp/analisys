@@ -54,6 +54,21 @@ repositorio.
 9. A task so conta como concluida depois do merge confirmado da PR. Epics fecham
    manualmente.
 
+## Excecao controlada para Jules
+
+- A excecao existe apenas para PRs publicadas pelo Jules (Google Labs).
+- Nessas PRs, o fluxo pode comecar por PR e a task issue pode ser criada
+  depois, desde que a governanca seja regularizada imediatamente.
+- A task retroativa do Jules deve:
+  - usar o label `automation:jules`
+  - registrar `Workspace da task` como `jules://github/pr/<numero-da-pr>`
+  - manter `Owner atual`, `Lane oficial`, `Write-set esperado` e
+    `Classificacao de risco` normalmente
+  - atualizar a PR com `Closes #<issue>` assim que a issue existir
+- A excecao nao libera merge sem task. Enquanto a issue nao existir e nao
+  estiver vinculada, a PR do Jules deve permanecer bloqueada pelos guardrails.
+- Fora desse caso especifico, continua valendo o fluxo normal `issue -> branch -> PR`.
+
 ## Regra de commit, push e merge
 
 - Nao deixe trabalho concluido apenas localmente.
