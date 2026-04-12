@@ -57,6 +57,30 @@ INDEXES = [
 ]
 
 
+def _execute_multi(conn, sqls: list[str]) -> None:
+    """Executa múltiplas instruções SQL de forma otimizada."""
+    sqls = [s.strip() for s in sqls if s and s.strip()]
+    if not sqls:
+        return
+
+    combined = ";\n".join(sqls)
+    if conn.dialect.name == "postgresql":
+        # PostgreSQL (psycopg2) suporta múltiplas instruções em um único execute()
+        conn.execute(text(combined))
+    elif conn.dialect.name == "sqlite":
+        # SQLite: executescript é eficiente para múltiplas instruções DDL
+        # Tenta obter a conexão bruta para usar executescript
+        raw_conn = getattr(conn, "driver_connection", getattr(conn, "connection", None))
+        if raw_conn and hasattr(raw_conn, "executescript"):
+            raw_conn.executescript(combined)
+        else:
+            for sql in sqls:
+                conn.execute(text(sql))
+    else:
+        for sql in sqls:
+            conn.execute(text(sql))
+
+
 def _identity_pk(dialect: str) -> str:
     return "INTEGER PRIMARY KEY AUTOINCREMENT" if dialect == "sqlite" else "SERIAL PRIMARY KEY"
 
@@ -96,13 +120,14 @@ def _account_names_ddl(dialect: str) -> str:
 
 def step1_create_indexes(conn, dry_run: bool) -> None:
     log.info("=== Passo 1: Criando indices de performance ===")
-    for idx in INDEXES:
-        if dry_run:
+    if dry_run:
+        for idx in INDEXES:
             log.info("  [DRY-RUN] Criaria %s (%s)", idx["name"], idx["desc"])
-            continue
-        started_at = time.time()
-        conn.execute(text(idx["sql"]))
-        log.info("  OK %s em %.1fs (%s)", idx["name"], time.time() - started_at, idx["desc"])
+        return
+
+    started_at = time.time()
+    _execute_multi(conn, [idx["sql"] for idx in INDEXES])
+    log.info("  OK %d indices criados em %.1fs", len(INDEXES), time.time() - started_at)
 
 
 def step2_create_companies_table(conn, dry_run: bool) -> None:
@@ -111,10 +136,15 @@ def step2_create_companies_table(conn, dry_run: bool) -> None:
         log.info("  [DRY-RUN] Criaria tabela companies + indices auxiliares")
         return
 
-    conn.execute(text(_companies_ddl()))
-    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_companies_setor ON companies(setor_analitico)"))
-    conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uix_companies_cnpj ON companies(cnpj) WHERE cnpj IS NOT NULL"))
-    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_companies_ticker ON companies(ticker_b3) WHERE ticker_b3 IS NOT NULL"))
+    _execute_multi(
+        conn,
+        [
+            _companies_ddl(),
+            "CREATE INDEX IF NOT EXISTS idx_companies_setor ON companies(setor_analitico)",
+            "CREATE UNIQUE INDEX IF NOT EXISTS uix_companies_cnpj ON companies(cnpj) WHERE cnpj IS NOT NULL",
+            "CREATE INDEX IF NOT EXISTS idx_companies_ticker ON companies(ticker_b3) WHERE ticker_b3 IS NOT NULL",
+        ],
+    )
     log.info("  OK tabela companies criada")
     log.info("  Execute scripts/setup_companies_table.py para popular os metadados")
 
@@ -125,8 +155,9 @@ def step3_create_company_refresh_status(conn, dry_run: bool) -> None:
         log.info("  [DRY-RUN] Criaria tabela company_refresh_status + indice")
         return
 
-    conn.execute(
-        text(
+    _execute_multi(
+        conn,
+        [
             """
             CREATE TABLE IF NOT EXISTS company_refresh_status (
                 cd_cvm             INTEGER PRIMARY KEY,
@@ -141,10 +172,10 @@ def step3_create_company_refresh_status(conn, dry_run: bool) -> None:
                 last_rows_inserted INTEGER,
                 updated_at         TEXT
             )
-            """
-        )
+            """,
+            "CREATE INDEX IF NOT EXISTS idx_crs_status ON company_refresh_status(last_status)",
+        ],
     )
-    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_crs_status ON company_refresh_status(last_status)"))
     log.info("  OK tabela company_refresh_status criada")
 
 
@@ -185,8 +216,13 @@ def step4_create_account_names(conn, dry_run: bool, settings, dialect: str) -> N
         log.info("  [DRY-RUN] Criaria tabela account_names e processaria %s linhas", len(payload))
         return
 
-    conn.execute(text(_account_names_ddl(dialect)))
-    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_account_lookup ON account_names(statement_type, cd_conta)"))
+    _execute_multi(
+        conn,
+        [
+            _account_names_ddl(dialect),
+            "CREATE INDEX IF NOT EXISTS idx_account_lookup ON account_names(statement_type, cd_conta)",
+        ],
+    )
 
     insert_sql = text(
         """
