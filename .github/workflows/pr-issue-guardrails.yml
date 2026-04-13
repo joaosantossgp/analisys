@@ -209,7 +209,7 @@ jobs:
             const { data: policyFile } = await github.rest.repos.getContent({
               ...context.repo,
               path: ".github/guardrails/path-policy.json",
-              ref: context.payload.pull_request.base.sha,
+              ref: context.payload.pull_request.base.ref,
             });
 
             const policy = JSON.parse(
@@ -222,11 +222,12 @@ jobs:
             });
             const branch = currentPull.head?.ref || context.payload.pull_request.head.ref;
             const body = currentPull.body || context.payload.pull_request.body || "";
-            const prLabels = (currentPull.labels || context.payload.pull_request.labels || []).map(
-              (label) => (typeof label === "string" ? label : label.name),
+            const currentLabels = currentPull.labels || context.payload.pull_request.labels || [];
+            const currentLabelNames = currentLabels.map((label) =>
+              typeof label === "string" ? label : label.name,
             );
             const isJulesPr =
-              prLabels.includes(julesConfig.sourceLabel) ||
+              currentLabelNames.includes(julesConfig.sourceLabel) ||
               hasJulesMarker(body, julesConfig.bodyMarkers);
 
             if (isJulesPr) {
