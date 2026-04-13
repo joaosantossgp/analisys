@@ -14,6 +14,9 @@ body:
         Se esta for uma child task entre lanes, preencha `Task mae`,
         `Lane solicitante` e `Criterio de consumo`. Se nao for child task, use
         `n/a` nesses campos e `- nenhuma registrada` em `Tasks filhas`.
+        Para PRs abertas primeiro pelo Jules, a task retroativa deve usar
+        `Workspace da task = jules://github/pr/<numero-da-pr>`, preencher
+        `Source PR` e usar o label `source:jules`.
   - type: input
     id: parent_epic
     attributes:
@@ -65,8 +68,16 @@ body:
     id: task_workspace
     attributes:
       label: Workspace da task
-      description: Path relativo da worktree oficial da task.
-      placeholder: .claude/worktrees/frontend/25-exemplo-task/
+      description: Path relativo da worktree oficial da task, ou `jules://github/pr/<numero>` para task retroativa de PR do Jules.
+      placeholder: .claude/worktrees/frontend/25-exemplo-task/ ou jules://github/pr/17
+    validations:
+      required: true
+  - type: input
+    id: source_pr
+    attributes:
+      label: Source PR
+      description: Use `n/a` para tasks normais. Para intake retroativo do Jules, informe `#<numero-da-pr>` ou o link da PR.
+      placeholder: n/a ou #17
     validations:
       required: true
   - type: textarea
