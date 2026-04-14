@@ -172,22 +172,23 @@ def upsert_companies(conn, df: pd.DataFrame, dry_run: bool) -> None:
     )
 
     updated_at = datetime.utcnow().replace(microsecond=0).isoformat()
-    for _, row in df.iterrows():
-        conn.execute(
-            upsert_sql,
-            {
-                "cd_cvm": int(row["cd_cvm"]),
-                "company_name": row["company_name"],
-                "nome_comercial": row["nome_comercial"],
-                "cnpj": row["cnpj"],
-                "setor_cvm": row["setor_cvm"],
-                "setor_analitico": row["setor_analitico"],
-                "company_type": row["company_type"],
-                "ticker_b3": row["ticker_b3"],
-                "is_active": int(row["is_active"]),
-                "updated_at": updated_at,
-            },
-        )
+    records = [
+        {
+            "cd_cvm": int(row["cd_cvm"]),
+            "company_name": row["company_name"],
+            "nome_comercial": row["nome_comercial"],
+            "cnpj": row["cnpj"],
+            "setor_cvm": row["setor_cvm"],
+            "setor_analitico": row["setor_analitico"],
+            "company_type": row["company_type"],
+            "ticker_b3": row["ticker_b3"],
+            "is_active": int(row["is_active"]),
+            "updated_at": updated_at,
+        }
+        for _, row in df.iterrows()
+    ]
+    if records:
+        conn.execute(upsert_sql, records)
 
     totals = conn.execute(
         text(
