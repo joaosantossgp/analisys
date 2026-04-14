@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: cvm-api
+    env: docker
+    dockerfilePath: apps/api/Dockerfile
+    plan: starter
+    region: ohio
+    envVars:
+      - key: PORT
+        value: 8000
