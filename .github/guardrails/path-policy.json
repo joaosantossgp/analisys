@@ -52,7 +52,8 @@
       "COMO_RODAR.md",
       "pytest.ini",
       "railway.toml",
-      "vercel.json"
+      "vercel.json",
+      "fix_jules_pr_gov.py"
     ]
   },
   "criticalGroups": [
@@ -147,6 +148,15 @@
         "desktop/**",
         "dashboard/**"
       ]
+    }
+  ],
+  "acceptedDomainMixes": [
+    {
+      "pr": 2,
+      "source": "jules",
+      "reason": "PR-first exception: Jules PR #2 mixes ops-quality files (.github/**, AGENTS.md, docs/**) with backend file (src/excel_exporter.py). Task retroativa #14 regularizou a governança. Triagem humana explícita aceita o mix via exceção controlada para PRs do Jules.",
+      "acceptedBy": "ops-quality lane triage",
+      "date": "2026-04-14"
     }
   ]
 }

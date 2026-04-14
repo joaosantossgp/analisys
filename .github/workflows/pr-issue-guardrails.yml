@@ -211,6 +211,7 @@ jobs:
               path: ".github/guardrails/path-policy.json",
               ref: context.payload.pull_request.base.ref,
             });
+            });
 
             const policy = JSON.parse(
               Buffer.from(policyFile.content, policyFile.encoding).toString("utf8"),
