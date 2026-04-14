@@ -410,7 +410,7 @@ class ExcelExporter:
             import re
             m_year = re.match(r"^20\d{2}$", p)
             if m_year:
-                return (int(p), 4, p)
+                return (int(p), 5, p)
             m_quarter = re.match(r"^([1-4])[QT](20\d{2}|\d{2})$", p)
             if m_quarter:
                 q = int(m_quarter.group(1))
