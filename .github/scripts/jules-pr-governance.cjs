@@ -762,7 +762,7 @@ module.exports = async function runJulesPrGovernance({ github, context, core }) 
   }
 
   if (summary.shouldForceDraft && !pr.draft) {
-    await convertPrToDraft(pr.node_id);
+    try { await convertPrToDraft(pr.node_id); } catch(e) { core.warning(`Could not convert PR to draft: ${e.message}`); }
   }
 
   const commentBody = buildCommentBody({
