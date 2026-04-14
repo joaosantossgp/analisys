@@ -53,7 +53,8 @@
       "pytest.ini",
       "railway.toml",
       "vercel.json",
-      "fix_jules_pr_gov.py"
+      "fix_jules_pr_gov.py",
+      "data/test_samples/**"
     ]
   },
   "criticalGroups": [
