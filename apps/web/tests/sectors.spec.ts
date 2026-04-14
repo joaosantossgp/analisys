@@ -61,3 +61,38 @@ test("slug inexistente cai em not-found", async ({ page }) => {
     }),
   ).toBeVisible({ timeout: 30_000 });
 });
+
+test("renderiza a visao geral do setor com KPIs agregados", async ({ page }) => {
+  // 1. Navega para a listagem para pegar o primeiro setor real
+  await page.goto("/setores");
+  const firstSectorLink = page.getByTestId("sector-card-link").first();
+  await expect(firstSectorLink).toBeVisible({ timeout: 30_000 });
+  const href = await firstSectorLink.getAttribute("href");
+  expect(href).toBeTruthy();
+
+  // 2. Navega para o detalhe do setor (aba padrao e visao-geral)
+  await page.goto(href!);
+
+  // 3. Verifica o heading da visao geral
+  await expect(
+    page.getByRole("heading", { name: /KPIs agregados do recorte selecionado/i }),
+  ).toBeVisible({ timeout: 30_000 });
+
+  // 4. Verifica os cards de metricas
+  await expect(page.getByText("ROE", { exact: true })).toBeVisible();
+  await expect(page.getByText("Margem EBIT", { exact: true })).toBeVisible();
+  await expect(page.getByText("Margem Liquida", { exact: true })).toBeVisible();
+
+  // 5. Verifica a tabela de serie anual
+  await expect(
+    page.getByRole("heading", { name: /Leitura curta por ano/i }),
+  ).toBeVisible();
+
+  const table = page.locator("table");
+  await expect(table).toBeVisible();
+
+  // A tabela deve ter pelo menos o header e uma linha de dados
+  const rows = table.locator("tr");
+  const rowCount = await rows.count();
+  expect(rowCount).toBeGreaterThan(1);
+});

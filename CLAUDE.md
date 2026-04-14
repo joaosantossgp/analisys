@@ -31,6 +31,14 @@ Before changing any versioned file:
 11. Update the issue and relevant docs before considering the task complete.
 12. Commit validated checkpoints, push them promptly, and merge to `master` when the task is complete and checks are green unless the user explicitly says not to.
 
+### Jules-only exception
+
+- The only allowed `PR-first` exception is for pull requests published by Jules (Google Labs).
+- Detection must come from the PR body markers `PR created automatically by Jules` or `jules.google.com/task/`; do not rely only on the author login.
+- The dedicated `Jules PR Governance` workflow owns this exception: it applies `source:jules`, creates or reconciles the retroactive task, sets `Workspace da task = jules://github/pr/<pr-number>`, fills `Source PR`, infers lane/risk/write-set, and updates the PR body with `Closes #<issue>`.
+- Until that retroactive intake is valid, the Jules PR must remain blocked and in draft.
+- This exception does not apply to humans, Codex, Claude, or any other agent.
+
 ## Publish and Merge Policy
 
 - Do not leave completed work only in the local worktree.

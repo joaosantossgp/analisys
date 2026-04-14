@@ -70,6 +70,29 @@ child tasks. Nao use uma task gigante multi-lane.
    equivalente
 8. Remover a worktree da task
 
+## Excecao controlada para Jules
+
+PR-first so e permitido para PRs publicadas pelo Jules (Google Labs).
+
+### Regras
+
+- A task issue pode ser criada depois da abertura da PR apenas nesse caso.
+- A lane continua sendo unica e deve ser inferida/registrada normalmente.
+- O restante da governanca continua valendo: labels obrigatorios, `write-set`,
+  risco, validacao, merge unico e issue vinculada via `Closes #<issue>`.
+- A task retroativa do Jules usa `Workspace da task = jules://github/pr/<numero-da-pr>`.
+- O label `source:jules` identifica a excecao nos guardrails e na documentacao
+  operacional.
+- O intake do Jules depende dos marcadores no corpo da PR
+  `PR created automatically by Jules` ou `jules.google.com/task/`. Nao dependa
+  apenas do autor.
+- O workflow dedicado cria ou reconcilia a task retroativa, preenche `Source PR`
+  e sincroniza lane/risco/write-set a cada `synchronize`.
+- Se a inferencia ficar ambigua, se houver domain mix proibido ou se algum path
+  nao estiver classificado, o workflow deve falhar com mensagem de triagem
+  humana e manter a PR em draft.
+- Essa excecao nao autoriza PR-first para humanos ou para outras IAs.
+
 ## Handoff entre IAs ou humanos
 
 - Se outra pessoa ou IA assumir a task, atualize primeiro o `Owner atual`.

@@ -381,20 +381,61 @@ class ExcelExporter:
     # Abas de demonstrações (DRE / BPA / BPP / DFC / DVA / DMPL)
     # ──────────────────────────────────────────────────────────────────────
 
+
+    def _get_global_periods(self) -> list[str]:
+        # Coleta todos os períodos únicos de todas as demonstrações e KPIs
+        periods = set()
+
+        # Dos stmts
+        for df in self.stmts.values():
+            if df is not None and not df.empty:
+                id_cols = {"CD_CONTA", "DS_CONTA", "STANDARD_NAME", "LINE_ID_BASE"}
+                for c in df.columns:
+                    if c not in id_cols:
+                        periods.add(str(c))
+
+        # Dos KPIs
+        if self.kpis is not None and not self.kpis.empty:
+            meta_cols = {"CATEGORIA", "KPI_ID", "KPI_NOME", "FORMULA",
+                         "IS_PLACEHOLDER", "FORMAT_TYPE", "HIGHER_IS_BETTER",
+                         "UNIDADE", "DELTA_YOY", "DELTA_YOY_PCT"}
+            for c in self.kpis.columns:
+                if c not in meta_cols:
+                    periods.add(str(c))
+
+        # Sort them by year then quarter (e.g., '2024' < '1Q25' doesn't work out of the box with lexicographical sort if 1Q25 refers to 2025).
+        # Typically the columns are '2020', '2021', '1T25', '1Q25', '2025-03-31'. We need a custom sort key.
+        def _sort_key(p):
+            # If it's a 4-digit year, assume Q4 of that year for sorting purposes.
+            import re
+            m_year = re.match(r"^20\d{2}$", p)
+            if m_year:
+                return (int(p), 4, p)
+            m_quarter = re.match(r"^([1-4])[QT](20\d{2}|\d{2})$", p)
+            if m_quarter:
+                q = int(m_quarter.group(1))
+                y_str = m_quarter.group(2)
+                y = int(y_str) if len(y_str) == 4 else 2000 + int(y_str)
+                return (y, q, p)
+            # Default fallback for other formats
+            return (9999, 9, p)
+
+        try:
+            return sorted(list(periods), key=_sort_key)
+        except Exception:
+            return sorted(list(periods))
+
     def _write_general(self):
         ws = self._wb.add_worksheet("GERAL")
         blocks = build_general_summary_blocks(self.stmts)
 
+        global_periods = self._get_global_periods()
+
         ws.set_column(0, 0, 14)
         ws.set_column(1, 1, 42)
 
-        max_period_cols = 0
-        for block in blocks:
-            period_cols = [c for c in block.rows.columns if c not in {"CD_CONTA", "LABEL", "IS_SUBTOTAL"}]
-            max_period_cols = max(max_period_cols, len(period_cols))
-
-        if max_period_cols > 0:
-            ws.set_column(2, 1 + max_period_cols, 13)
+        if global_periods:
+            ws.set_column(2, 1 + len(global_periods), 13)
 
         if not blocks:
             ws.write(0, 0, "Resumo condensado indisponível", self._fmt["normal"])
@@ -403,14 +444,13 @@ class ExcelExporter:
 
         row = 0
         for block in blocks:
-            period_cols = [c for c in block.rows.columns if c not in {"CD_CONTA", "LABEL", "IS_SUBTOTAL"}]
-            last_col = max(1, 1 + len(period_cols))
+            last_col = max(1, 1 + len(global_periods))
             ws.write(row, 0, block.title, self._fmt["sec_header"])
             for c_idx in range(1, last_col + 1):
                 ws.write_blank(row, c_idx, None, self._fmt["sec_header"])
             row += 1
 
-            headers = ["CD_CONTA", "LINHA"] + [str(col) for col in period_cols]
+            headers = ["CD_CONTA", "LINHA"] + [str(col) for col in global_periods]
             for c_idx, header in enumerate(headers):
                 fmt = self._fmt["col_header_l"] if c_idx < 2 else self._fmt["col_header"]
                 ws.write(row, c_idx, header, fmt)
@@ -422,8 +462,13 @@ class ExcelExporter:
                 ws.write(row, 0, str(stmt_row.get("CD_CONTA", "")), text_fmt)
                 ws.write(row, 1, str(stmt_row.get("LABEL", "")), text_fmt)
 
-                for c_idx, period_col in enumerate(period_cols, start=2):
-                    value = stmt_row.get(period_col)
+                for c_idx, period_col in enumerate(global_periods, start=2):
+                    # It's possible the block doesn't have this period, or it's NaN
+                    if period_col not in block.rows.columns:
+                        value = None
+                    else:
+                        value = stmt_row.get(period_col)
+
                     if pd.isna(value) or value is None:
                         blank_fmt = self._fmt["subtotal_num"] if is_subtotal else self._fmt["normal"]
                         ws.write_blank(row, c_idx, None, blank_fmt)

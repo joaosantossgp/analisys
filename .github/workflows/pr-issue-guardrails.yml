@@ -199,9 +199,46 @@ jobs:
               return riskRank[left] >= riskRank[right] ? left : right;
             }
 
-            const branch = context.payload.pull_request.head.ref;
-            const branchMatch = branch.match(/^task\/(\d+)-([a-z0-9][a-z0-9-]*)$/);
+            function hasJulesMarker(body, markers) {
+              return (markers || []).some((marker) =>
+                (body || "").includes(marker),
+              );
+            }
 
+            const prNumber = context.payload.pull_request.number;
+            const { data: policyFile } = await github.rest.repos.getContent({
+              ...context.repo,
+              path: ".github/guardrails/path-policy.json",
+              ref: context.payload.pull_request.base.ref,
+            });
+            });
+
+            const policy = JSON.parse(
+              Buffer.from(policyFile.content, policyFile.encoding).toString("utf8"),
+            );
+            const julesConfig = policy.julesIntake || {};
+            const { data: currentPull } = await github.rest.pulls.get({
+              ...context.repo,
+              pull_number: prNumber,
+            });
+            const branch = currentPull.head?.ref || context.payload.pull_request.head.ref;
+            const body = currentPull.body || context.payload.pull_request.body || "";
+            const currentLabels = currentPull.labels || context.payload.pull_request.labels || [];
+            const currentLabelNames = currentLabels.map((label) =>
+              typeof label === "string" ? label : label.name,
+            );
+            const isJulesPr =
+              currentLabelNames.includes(julesConfig.sourceLabel) ||
+              hasJulesMarker(body, julesConfig.bodyMarkers);
+
+            if (isJulesPr) {
+              core.info(
+                `PR #${prNumber} identificada como Jules-only. Guardrail padrao ignorado.`,
+              );
+              return;
+            }
+
+            const branchMatch = branch.match(/^task\/(\d+)-([a-z0-9][a-z0-9-]*)$/);
             if (!branchMatch) {
               core.setFailed(
                 `Branch invalida: "${branch}". Use task/<issue-number>-<slug>.`,
@@ -211,9 +248,7 @@ jobs:
 
             const issueNumber = Number(branchMatch[1]);
             const branchSlug = branchMatch[2];
-            const body = context.payload.pull_request.body || "";
             const closesPattern = new RegExp(`\\bCloses\\s+#${issueNumber}\\b`, "i");
-
             if (!closesPattern.test(body)) {
               core.setFailed(
                 `A PR deve conter "Closes #${issueNumber}" no corpo para fechar a task correta.`,
@@ -508,16 +543,6 @@ jobs:
               return;
             }
 
-            const { data: policyFile } = await github.rest.repos.getContent({
-              ...context.repo,
-              path: ".github/guardrails/path-policy.json",
-              ref: context.payload.pull_request.base.sha,
-            });
-
-            const policy = JSON.parse(
-              Buffer.from(policyFile.content, policyFile.encoding).toString("utf8"),
-            );
-
             const changedFiles = await github.paginate(github.rest.pulls.listFiles, {
               ...context.repo,
               pull_number: context.payload.pull_request.number,
@@ -633,7 +658,7 @@ jobs:
             if (
               ["opened", "reopened"].includes(context.payload.action) &&
               requiresDraft &&
-              !context.payload.pull_request.draft
+              !(currentPull.draft ?? context.payload.pull_request.draft)
             ) {
               core.setFailed(
                 `PRs que tocam paths criticos ou compartilhados devem abrir em draft.`,
