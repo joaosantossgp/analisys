@@ -234,20 +234,20 @@ def step4_create_account_names(conn, dry_run: bool, settings, dialect: str) -> N
         """
     )
 
-    inserted = 0
-    for _, row in payload.iterrows():
-        conn.execute(
-            insert_sql,
-            {
-                "statement_type": row["statement_type"],
-                "cd_conta": row["cd_conta"],
-                "standard_name": row["standard_name"],
-                "company_type": row["company_type"],
-                "is_consolidated": int(row["is_consolidated"]) if row["is_consolidated"] is not None else 1,
-                "nivel": int(row["nivel"]) if row["nivel"] is not None and str(row["nivel"]) != "nan" else None,
-            },
-        )
-        inserted += 1
+    parameters = [
+        {
+            "statement_type": row.statement_type,
+            "cd_conta": row.cd_conta,
+            "standard_name": row.standard_name,
+            "company_type": row.company_type,
+            "is_consolidated": int(row.is_consolidated) if pd.notna(row.is_consolidated) else 1,
+            "nivel": int(row.nivel) if pd.notna(row.nivel) else None,
+        }
+        for row in payload.itertuples(index=False)
+    ]
+    if parameters:
+        conn.execute(insert_sql, parameters)
+    inserted = len(parameters)
     log.info("  OK %s linhas processadas em account_names", inserted)
 
 
