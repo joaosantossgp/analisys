@@ -17,6 +17,8 @@ data/*.csv
 data/*.xlsx
 data/legacy_archives/
 data/metadata/b3_companies_cache.json
+!data/test_samples/
+
 
 # Output
 output/
