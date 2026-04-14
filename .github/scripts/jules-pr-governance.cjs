@@ -424,21 +424,25 @@ module.exports = async function runJulesPrGovernance({ github, context, core }) 
   }
 
   async function convertPrToDraft(nodeId) {
-    await github.graphql(
-      `
-        mutation ConvertPullRequestToDraft($pullRequestId: ID!) {
-          convertPullRequestToDraft(input: { pullRequestId: $pullRequestId }) {
-            pullRequest {
-              id
-              isDraft
+    try {
+      await github.graphql(
+        `
+          mutation ConvertPullRequestToDraft($pullRequestId: ID!) {
+            convertPullRequestToDraft(input: { pullRequestId: $pullRequestId }) {
+              pullRequest {
+                id
+                isDraft
+              }
             }
           }
-        }
-      `,
-      {
-        pullRequestId: nodeId,
-      },
-    );
+        `,
+        {
+          pullRequestId: nodeId,
+        },
+      );
+    } catch (error) {
+      console.warn("Could not convert PR to draft via GraphQL:", error);
+    }
   }
 
   function inferArea(summary, config) {
