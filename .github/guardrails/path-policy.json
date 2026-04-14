@@ -54,6 +54,7 @@
       "railway.toml",
       "vercel.json",
       "fix_jules_pr_gov.py",
+      ".gitignore",
       "data/test_samples/**"
     ]
   },
@@ -68,7 +69,8 @@
         "COMO_RODAR.md",
         "docs/AGENTS.md",
         "docs/STUDENT_PACK_PLAN.md",
-        ".github/**"
+        ".github/**",
+        ".gitignore"
       ],
       "ownerLane": "ops-quality",
       "allowedLanes": [

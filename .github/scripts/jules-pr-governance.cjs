@@ -570,7 +570,6 @@ module.exports = async function runJulesPrGovernance({ github, context, core }) 
     path: '.github/guardrails/path-policy.json',
     ref: policyRef,
   });
-  });
   const policy = JSON.parse(
     Buffer.from(policyFile.content, policyFile.encoding).toString('utf8'),
   );
