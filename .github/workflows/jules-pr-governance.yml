@@ -26,6 +26,8 @@ jobs:
 
       - name: Reconcile Jules PR-first intake
         uses: actions/github-script@v7
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           script: |
             const path = require('path');
