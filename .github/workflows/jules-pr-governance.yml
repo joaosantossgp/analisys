@@ -21,12 +21,18 @@ jobs:
       - name: Checkout base repository state
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: refs/heads/${{ github.event.pull_request.base.ref }}
           persist-credentials: false
 
       - name: Reconcile Jules PR-first intake
         uses: actions/github-script@v7
         with:
           script: |
-            const run = require(require('path').resolve(process.env.GITHUB_WORKSPACE, '.github/scripts/jules-pr-governance.cjs'));
+            const path = require('path');
+            const run = require(
+              path.join(
+                process.env.GITHUB_WORKSPACE,
+                '.github/scripts/jules-pr-governance.cjs',
+              ),
+            );
             await run({ github, context, core });

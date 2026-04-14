@@ -564,10 +564,12 @@ module.exports = async function runJulesPrGovernance({ github, context, core }) 
 
   const pr = context.payload.pull_request;
   const prLabels = parseNames(pr.labels);
+  const policyRef = pr.base?.ref || pr.base?.sha;
   const { data: policyFile } = await github.rest.repos.getContent({
     ...context.repo,
     path: '.github/guardrails/path-policy.json',
-    ref: pr.base.sha,
+    ref: policyRef,
+  });
   });
   const policy = JSON.parse(
     Buffer.from(policyFile.content, policyFile.encoding).toString('utf8'),
