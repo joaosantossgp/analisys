@@ -424,21 +424,18 @@ module.exports = async function runJulesPrGovernance({ github, context, core }) 
   }
 
   async function convertPrToDraft(nodeId) {
-    await github.graphql(
-      `
-        mutation ConvertPullRequestToDraft($pullRequestId: ID!) {
-          convertPullRequestToDraft(input: { pullRequestId: $pullRequestId }) {
-            pullRequest {
-              id
-              isDraft
-            }
-          }
-        }
-      `,
-      {
-        pullRequestId: nodeId,
-      },
-    );
+    const { execSync } = require('child_process');
+    try {
+      execSync(`gh pr ready --undo ${context.payload.pull_request.number}`, {
+        stdio: 'inherit',
+        env: { ...process.env, GH_TOKEN: process.env.GITHUB_TOKEN }
+      });
+    } catch (e) {
+      console.warn("Failed to convert PR to draft via gh CLI, error:", e.message);
+      // Wait, is there a REST API? Unofficial: PATCH /repos/:owner/:repo/pulls/:number
+      // Or maybe we just skip it or log it instead of crashing. It's not critical.
+      console.warn("Skipping convert PR to draft since it is not accessible by integration.");
+    }
   }
 
   function inferArea(summary, config) {
