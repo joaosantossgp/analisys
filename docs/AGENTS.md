@@ -39,9 +39,13 @@
 - `pytest tests/ -q` — V1; `pytest apps/api/tests -q` — V2 API
 - `apps/web`: `npm run lint`, `npm run typecheck`, `npm run build`, `npm run test:e2e`
 
+### URLs Publicas
+- **API (Railway):** `https://analisys-production.up.railway.app`
+- **Web (Vercel):** `https://analisys-nine.vercel.app`
+
 ### Pendencias Tecnicas
 - Validacao contra PostgreSQL real pendente (`DATABASE_URL` necessario)
-- Deploy de preview da V2 nao iniciado; Streamlit Cloud pendente
+- Streamlit Cloud pendente
 - P10 (bancos financeiros: Itau, Bradesco) nao iniciado
 
 ---
@@ -108,6 +112,13 @@
 - Merge de 3 PRs do Jules (#23, #25, #29) focadas em performance.
 - Issues retroativas (#24, #26, #30) fechadas automaticamente pelo merge.
 - CI restaurado e validado apos os merges.
+
+### Sessao 46 - 2026-04-15 (deploy pipeline configurado)
+- CI corrigido: branch `master` → `main` em `.github/workflows/ci.yml` (4 ocorrencias).
+- Railway conectado ao GitHub (`main`, Wait for CI ON); `deploy-api` job simplificado.
+- Vercel criado (`analisys-nine.vercel.app`); `VERCEL_DEPLOY_HOOK` configurado no GitHub Secrets.
+- `docs/AGENTS.md` atualizado com URLs publicas da API e Web.
+- Issue #34 fechada via PR.
 
 ### Sessao 45 - 2026-04-15 (context optimizer + clone DB)
 - Agent context optimizer aplicado: startup load reduzido de ~998 para ~687 linhas (-31%).
