@@ -7,8 +7,9 @@ import {
   SectionHeading,
   SurfaceCard,
 } from "@/components/shared/design-system-recipes";
+import { CompanyRequestRefresh } from "@/components/company/company-request-refresh";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import type { CompanyInfo } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -91,15 +92,8 @@ export function CompanyNoDataPage({ company }: CompanyNoDataPageProps) {
             </AlertDescription>
           </Alert>
 
-          <div className="flex flex-wrap gap-3">
-            <Button
-              variant="outline"
-              size="lg"
-              className="rounded-full px-5"
-              disabled
-            >
-              Solicitar dados financeiros
-            </Button>
+          <div className="flex flex-wrap items-start gap-3">
+            <CompanyRequestRefresh cdCvm={company.cd_cvm} />
             <Link
               href="/empresas"
               className={cn(

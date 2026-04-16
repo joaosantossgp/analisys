@@ -60,6 +60,25 @@ export type CompanyInfo = {
   ticker_b3: string | null;
 };
 
+export type RefreshDispatchResponse = {
+  status: "dispatched" | "dispatch_failed";
+  cd_cvm: number;
+};
+
+export type RefreshStatusItem = {
+  cd_cvm: number;
+  company_name: string;
+  source_scope: string | null;
+  last_attempt_at: string | null;
+  last_success_at: string | null;
+  last_status: string | null;
+  last_error: string | null;
+  last_start_year: number | null;
+  last_end_year: number | null;
+  last_rows_inserted: number | null;
+  updated_at: string | null;
+};
+
 export type TabularDataRow = Record<string, string | number | boolean | null>;
 
 export type TabularData = {
@@ -131,6 +150,12 @@ type ApiErrorShape = {
     code?: string;
     message?: string;
   };
+  detail?:
+    | {
+        code?: string;
+        message?: string;
+      }
+    | string;
 };
 
 type ApiFetchOptions<T> = {
@@ -186,6 +211,10 @@ function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string");
 }
 
+function isNullableString(value: unknown): value is string | null {
+  return value === null || typeof value === "string";
+}
+
 function isTabularData(value: unknown): value is TabularData {
   return (
     isRecord(value) &&
@@ -238,6 +267,14 @@ function isCompanyInfo(value: unknown): value is CompanyInfo {
   );
 }
 
+function isRefreshDispatchResponse(value: unknown): value is RefreshDispatchResponse {
+  return (
+    isRecord(value) &&
+    typeof value.cd_cvm === "number" &&
+    (value.status === "dispatched" || value.status === "dispatch_failed")
+  );
+}
+
 function isKPIBundle(value: unknown): value is KPIBundle {
   return (
     isRecord(value) &&
@@ -261,6 +298,27 @@ function isStatementMatrix(value: unknown): value is StatementMatrix {
 
 function isNullableNumber(value: unknown): value is number | null {
   return value === null || typeof value === "number";
+}
+
+function isRefreshStatusItem(value: unknown): value is RefreshStatusItem {
+  return (
+    isRecord(value) &&
+    typeof value.cd_cvm === "number" &&
+    typeof value.company_name === "string" &&
+    isNullableString(value.source_scope) &&
+    isNullableString(value.last_attempt_at) &&
+    isNullableString(value.last_success_at) &&
+    isNullableString(value.last_status) &&
+    isNullableString(value.last_error) &&
+    isNullableNumber(value.last_start_year) &&
+    isNullableNumber(value.last_end_year) &&
+    isNullableNumber(value.last_rows_inserted) &&
+    isNullableString(value.updated_at)
+  );
+}
+
+function isRefreshStatusList(value: unknown): value is RefreshStatusItem[] {
+  return Array.isArray(value) && value.every((item) => isRefreshStatusItem(item));
 }
 
 function isSectorSnapshot(value: unknown): value is SectorSnapshot {
@@ -404,35 +462,55 @@ async function toApiError(response: Response): Promise<ApiClientError> {
 
   const rawCode = payload?.error?.code;
   const rawMessage = payload?.error?.message;
+  const detailCode =
+    isRecord(payload?.detail) && typeof payload.detail.code === "string"
+      ? payload.detail.code
+      : undefined;
+  const detailMessage =
+    isRecord(payload?.detail) && typeof payload.detail.message === "string"
+      ? payload.detail.message
+      : typeof payload?.detail === "string"
+        ? payload.detail
+        : undefined;
+  const code = rawCode ?? detailCode;
+  const message = rawMessage ?? detailMessage;
 
   if (response.status === 404) {
     return new ApiClientError(
-      rawMessage ?? "O recurso solicitado nao foi encontrado.",
+      message ?? "O recurso solicitado nao foi encontrado.",
       response.status,
-      rawCode ?? "not_found",
+      code ?? "not_found",
+    );
+  }
+
+  if (response.status === 429) {
+    return new ApiClientError(
+      message ?? "Solicitacao ja em andamento.",
+      response.status,
+      code ?? "refresh_already_queued",
     );
   }
 
   if (response.status === 422) {
     return new ApiClientError(
-      rawMessage ?? "A requisicao enviada para a API nao foi aceita.",
+      message ?? "A requisicao enviada para a API nao foi aceita.",
       response.status,
-      rawCode ?? "invalid_request",
+      code ?? "invalid_request",
     );
   }
 
   if (response.status >= 500) {
     return new ApiClientError(
-      rawMessage ?? "A API da V2 esta indisponivel no momento.",
+      message ?? "A API da V2 esta indisponivel no momento.",
       response.status,
       "upstream_unavailable",
     );
   }
 
   return new ApiClientError(
-    rawMessage ?? `Falha ao consultar a API (${response.status}).`,
+    message ?? `Falha ao consultar a API (${response.status}).`,
     response.status,
-    rawCode ?? "unknown_error",
+    code ?? "unknown_error",
   );
 }
 
@@ -482,6 +560,63 @@ async function apiFetch<T>(
   if (options?.validate && !options.validate(payload)) {
     throw new ApiClientError(
       options.invalidResponseMessage ?? "A API retornou um formato invalido.",
+      response.status,
+      "invalid_response",
+    );
+  }
+
+  return payload as T;
+}
+
+async function routeFetch<T>(
+  path: string,
+  init?: RequestInit,
+  options?: ApiFetchOptions<T>,
+): Promise<T | null> {
+  let response: Response;
+
+  try {
+    const headers = new Headers(init?.headers);
+    headers.set("Accept", "application/json");
+
+    response = await fetch(path, {
+      ...init,
+      cache: "no-store",
+      headers,
+    });
+  } catch (error) {
+    throw new ApiClientError(
+      isFetchFailureMessage(error instanceof Error ? error.message : undefined)
+        ? "Nao foi possivel conectar o frontend a rota de refresh."
+        : "A conexao com a rota de refresh falhou.",
+      503,
+      "network_error",
+    );
+  }
+
+  if (options?.allowNotFound && response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    throw await toApiError(response);
+  }
+
+  let payload: unknown;
+
+  try {
+    payload = await response.json();
+  } catch {
+    throw new ApiClientError(
+      options?.invalidResponseMessage ?? "A rota retornou um corpo invalido.",
+      response.status,
+      "invalid_response",
+    );
+  }
+
+  if (options?.validate && !options.validate(payload)) {
+    throw new ApiClientError(
+      options.invalidResponseMessage ?? "A rota retornou um formato invalido.",
       response.status,
       "invalid_response",
     );
@@ -619,4 +754,34 @@ export async function fetchCompanyStatement(
       invalidResponseMessage: "A API retornou uma demonstracao invalida para a empresa.",
     },
   )) as StatementMatrix;
+}
+
+export async function fetchRequestRefresh(
+  cdCvm: number,
+): Promise<RefreshDispatchResponse> {
+  return (await routeFetch<RefreshDispatchResponse>(
+    `/api/request-refresh/${cdCvm}`,
+    {
+      method: "POST",
+    },
+    {
+      validate: isRefreshDispatchResponse,
+      invalidResponseMessage:
+        "A rota interna retornou um payload invalido para o dispatch on-demand.",
+    },
+  )) as RefreshDispatchResponse;
+}
+
+export async function fetchRefreshStatus(
+  cdCvm: number,
+): Promise<RefreshStatusItem[]> {
+  return (await routeFetch<RefreshStatusItem[]>(
+    `/api/refresh-status/${cdCvm}`,
+    undefined,
+    {
+      validate: isRefreshStatusList,
+      invalidResponseMessage:
+        "A rota interna retornou um status invalido para o refresh on-demand.",
+    },
+  )) as RefreshStatusItem[];
 }
