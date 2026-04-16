@@ -98,6 +98,23 @@
 - **S23** 2026-04-05 — docs alinhados ao estado real; dashboard 3 abas confirmado
 - **S22** 2026-04-01 — doc-architect overhaul; ~41 scripts arquivados; docs reorganizados em `docs/`
 
+### Sessao 43 - 2026-04-13 (governanca kickoff e merge de PRs Jules)
+- Triagem da lane `ops-quality` realizada via skill kickoff.
+- Issue #14 desbloqueada: `fix_jules_pr_gov.py` classificado no `path-policy.json`.
+- PR #2 mergeada (Excel alignment + unblock infra); PR #6 em processo de merge.
+- Conta do GitHub restaurada apos suspensao 403.
+
+### Sessao 44 - 2026-04-14 (Merge de PRs de Otimizacao do Jules)
+- Merge de 3 PRs do Jules (#23, #25, #29) focadas em performance.
+- Issues retroativas (#24, #26, #30) fechadas automaticamente pelo merge.
+- CI restaurado e validado apos os merges.
+
+### Sessao 45 - 2026-04-15 (context optimizer + clone DB)
+- Agent context optimizer aplicado: startup load reduzido de ~998 para ~687 linhas (-31%).
+- `.claudeignore` criado; `CLAUDE.md` dividido em Level 1 (165 linhas) + `docs/CLAUDE_REFERENCE.md`.
+- `docs/AGENTS.md` comprimido de 271 para 103 linhas; cap de 150 linhas estabelecido.
+- PR #32 mergeada; DB de `cvm_repots_capture` clonada para `data/db/` (762 MB, gitignored).
+
 ---
 
 > **Historico completo (sessoes 1-21):** consulte `git log --oneline`.

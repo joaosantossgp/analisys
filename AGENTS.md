@@ -198,3 +198,16 @@ indicado. Nao assuma contexto de arquitetura sem ter lido.
 - Nao pare com a PR apenas aberta: confirme checks verdes e merge real.
 - Confirme que a issue fechou e que a branch remota foi removida, quando
   aplicavel.
+
+### Sessao 43 - 2026-04-13 (governanca kickoff e merge de PRs Jules)
+- Triagem da lane `ops-quality` realizada via skill kickoff.
+- Issue #14 desbloqueada: `fix_jules_pr_gov.py` classificado no `path-policy.json`.
+- PR #2 mergeada (Excel alignment + unblock infra).
+- PR #6 em processo de merge (setup_db optimizations).
+- Conta do GitHub restaurada apos suspensao 403.
+
+### Sessao 44 - 2026-04-14 (Merge de PRs de Otimizacao do Jules)
+- Regularizacao e merge de 3 PRs do Jules (#23, #25, #29) focadas em performance.
+- Resolucoes de conflitos em arquivos de governanca e infraestrutura compartilhada.
+- Issues retroativas (#24, #26, #30) fechadas automaticamente pelo merge.
+- CI restaurado e validado apos os merges.

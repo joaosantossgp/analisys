@@ -163,3 +163,11 @@ When approaching context limits, compress `docs/AGENTS.md` session history: keep
 Sessions describing active or recent work should remain in full. Binary files, `data/`,
 `archive/`, and `output/` are excluded via `.claudeignore` — do not read or explore them.
 `docs/AGENTS.md` must not exceed 150 lines — compress when it grows past that.
+
+When the agent context auto-compacts, always preserve:
+- Task issue number and current status
+- Design decisions taken in this session and their rationale
+- Files modified in this session (with brief note on what changed)
+- Any test failures identified and their root cause
+- Critical governance rules invoked (lane ownership, risk classification, write-set restrictions)
+- Active worktree path and branch name
