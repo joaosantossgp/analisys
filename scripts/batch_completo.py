@@ -22,6 +22,7 @@ from pathlib import Path
 
 import pandas as pd
 import requests
+from sqlalchemy import text
 
 # Garante UTF-8 no Windows
 if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
@@ -31,6 +32,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from src.contracts import RefreshPolicy, RefreshRequest
+from src.db import build_engine
 from src.refresh_service import HeadlessRefreshService
 from src.settings import build_settings
 from src.startup import collect_startup_report, format_startup_report
@@ -39,6 +41,7 @@ BATCH_SIZE = 10
 DEFAULT_MAX = 150
 DEFAULT_ANOS = [2022, datetime.now().year]
 CVM_MASTER_URL = "https://dados.cvm.gov.br/dados/CIA_ABERTA/CAD/DADOS/cad_cia_aberta.csv"
+ACTIVE_STATUS_VALUES = {"ATIVO", "A"}
 
 logging.basicConfig(
     level=logging.INFO,
@@ -48,27 +51,120 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 
-def get_active_companies(max_n: int, timeout: int) -> list[tuple[int, str]]:
-    """Baixa o cadastro da CVM e retorna ate max_n empresas ativas."""
-    log.info("Baixando lista de empresas ativas da CVM...")
+def _load_cvm_company_catalog(timeout: int) -> pd.DataFrame:
+    """Baixa o cadastro da CVM e normaliza codigo, status e nome exibivel."""
+    log.info("Baixando cadastro da CVM...")
     response = requests.get(CVM_MASTER_URL, timeout=timeout)
     response.raise_for_status()
 
-    df = pd.read_csv(io.BytesIO(response.content), sep=";", encoding="latin1")
-    active = df[df["SIT"] == "ATIVO"].copy()
-    active = active.dropna(subset=["CD_CVM"])
-    active["CD_CVM"] = active["CD_CVM"].astype(int)
+    df = pd.read_csv(
+        io.BytesIO(response.content),
+        sep=";",
+        encoding="latin1",
+        usecols=["CD_CVM", "DENOM_SOCIAL", "DENOM_COMERC", "SIT"],
+        dtype={"CD_CVM": str},
+    )
+    df["CD_CVM"] = pd.to_numeric(df["CD_CVM"], errors="coerce")
+    df = df.dropna(subset=["CD_CVM"]).copy()
+    df["CD_CVM"] = df["CD_CVM"].astype(int)
+    df["SIT"] = df["SIT"].fillna("").astype(str).str.strip().str.upper()
+    df["DENOM_COMERC"] = df["DENOM_COMERC"].fillna("").astype(str).str.strip()
+    df["DENOM_SOCIAL"] = df["DENOM_SOCIAL"].fillna("").astype(str).str.strip()
+    df = df.drop_duplicates(subset="CD_CVM")
 
-    active["NAME"] = active["DENOM_COMERC"].fillna("").str.strip()
-    empty_name_mask = active["NAME"] == ""
-    active.loc[empty_name_mask, "NAME"] = (
-        active.loc[empty_name_mask, "DENOM_SOCIAL"].fillna("").str.strip()
+    df["NAME"] = df["DENOM_COMERC"]
+    empty_name_mask = df["NAME"] == ""
+    df.loc[empty_name_mask, "NAME"] = df.loc[empty_name_mask, "DENOM_SOCIAL"]
+    return df
+
+
+def _load_company_names_from_database(cd_cvms: list[int], settings) -> dict[int, str]:
+    """Busca nomes na tabela companies para codigos nao presentes entre os ativos da CVM."""
+    if not cd_cvms:
+        return {}
+
+    params = {f"code_{index}": int(code) for index, code in enumerate(cd_cvms)}
+    placeholders = ", ".join(f":{key}" for key in params)
+    query = text(
+        f"""
+        SELECT cd_cvm, company_name
+        FROM companies
+        WHERE cd_cvm IN ({placeholders})
+        """
     )
 
-    active = active.drop_duplicates(subset="CD_CVM")
+    try:
+        engine = build_engine(settings)
+        with engine.connect() as conn:
+            rows = conn.execute(query, params).mappings().all()
+    except Exception as exc:
+        log.warning("Nao foi possivel consultar nomes na tabela companies: %s", exc)
+        return {}
+
+    names_by_code: dict[int, str] = {}
+    for row in rows:
+        company_name = str(row.get("company_name") or "").strip()
+        if company_name:
+            names_by_code[int(row["cd_cvm"])] = company_name
+    return names_by_code
+
+
+def get_active_companies(max_n: int, timeout: int) -> list[tuple[int, str]]:
+    """Baixa o cadastro da CVM e retorna ate max_n empresas ativas."""
+    catalog = _load_cvm_company_catalog(timeout)
+    active = catalog[catalog["SIT"].isin(ACTIVE_STATUS_VALUES)].copy()
     companies = list(zip(active["CD_CVM"].tolist(), active["NAME"].tolist()))
     log.info("Empresas ativas na CVM: %s (limitando em %s)", len(companies), max_n)
     return companies[:max_n]
+
+
+def get_companies_by_codes(cd_cvms: list[int], timeout: int, settings) -> list[tuple[int, str]]:
+    """Seleciona apenas os codigos pedidos, com fallback de nome via banco local/remoto."""
+    requested_codes: list[int] = []
+    seen_codes: set[int] = set()
+    for raw_code in cd_cvms:
+        code = int(raw_code)
+        if code in seen_codes:
+            continue
+        seen_codes.add(code)
+        requested_codes.append(code)
+
+    catalog = _load_cvm_company_catalog(timeout)
+    active = catalog[catalog["SIT"].isin(ACTIVE_STATUS_VALUES)].copy()
+    active_names = {
+        int(code): str(name).strip()
+        for code, name in zip(active["CD_CVM"].tolist(), active["NAME"].tolist(), strict=False)
+        if str(name).strip()
+    }
+    missing_codes = [code for code in requested_codes if code not in active_names]
+    database_names = _load_company_names_from_database(missing_codes, settings)
+
+    companies: list[tuple[int, str]] = []
+    for code in requested_codes:
+        if code in active_names:
+            companies.append((code, active_names[code]))
+            continue
+
+        fallback_name = database_names.get(code)
+        if fallback_name:
+            log.info(
+                "Codigo CVM %s nao apareceu entre os ativos da CVM; usando nome da tabela companies: %s",
+                code,
+                fallback_name,
+            )
+            companies.append((code, fallback_name))
+            continue
+
+        generated_name = f"CVM_{code}"
+        log.warning(
+            "Codigo CVM %s nao apareceu no CSV ativo nem na tabela companies; usando fallback %s",
+            code,
+            generated_name,
+        )
+        companies.append((code, generated_name))
+
+    log.info("Empresas selecionadas via --cd-cvms: %s", len(companies))
+    return companies
 
 
 def build_work_plan(
@@ -235,6 +331,7 @@ def parse_args() -> argparse.Namespace:
         epilog=(
             "Exemplos:\n"
             "  python scripts/batch_completo.py --dry-run --max-companies 100\n"
+            "  python scripts/batch_completo.py --dry-run --cd-cvms 9512 19348 --skip-yfinance\n"
             "  python scripts/batch_completo.py --max-companies 500 --start-year 2022 --end-year 2025\n"
             "  python scripts/batch_completo.py --yfinance-only"
         ),
@@ -245,6 +342,13 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=DEFAULT_MAX,
         help=f"Maximo de empresas ativas a processar (padrao: {DEFAULT_MAX})",
+    )
+    parser.add_argument(
+        "--cd-cvms",
+        type=int,
+        nargs="+",
+        default=None,
+        help="Lista de codigos CVM para processar sob demanda; ignora --max-companies",
     )
     parser.add_argument(
         "--start-year",
@@ -330,8 +434,9 @@ def main() -> None:
             raise SystemExit(1)
 
     log.info(
-        "Configuracao: max_companies=%s, anos=%s-%s, batch_size=%s, dry_run=%s, force_refresh=%s, yfinance_only=%s",
+        "Configuracao: max_companies=%s, cd_cvms=%s, anos=%s-%s, batch_size=%s, dry_run=%s, force_refresh=%s, yfinance_only=%s",
         args.max_companies,
+        args.cd_cvms or [],
         start_year,
         end_year,
         args.batch_size,
@@ -346,7 +451,11 @@ def main() -> None:
     service = HeadlessRefreshService(settings=settings)
 
     if not args.yfinance_only:
-        companies = get_active_companies(args.max_companies, settings.company_list_timeout)
+        if args.cd_cvms:
+            log.info("--cd-cvms informado; ignorando --max-companies=%s", args.max_companies)
+            companies = get_companies_by_codes(args.cd_cvms, settings.company_list_timeout, settings)
+        else:
+            companies = get_active_companies(args.max_companies, settings.company_list_timeout)
         work_items, planning_stats = build_work_plan(
             companies,
             start_year=start_year,
