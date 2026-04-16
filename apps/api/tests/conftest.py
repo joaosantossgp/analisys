@@ -74,6 +74,7 @@ def _seed_database(settings: AppSettings) -> None:
             "setor_analitico": "Energia",
             "company_type": "comercial",
             "ticker_b3": "PETR4",
+            "coverage_rank": 1,
             "is_active": 1,
             "updated_at": "2026-04-08T09:00:00",
         },
@@ -86,6 +87,7 @@ def _seed_database(settings: AppSettings) -> None:
             "setor_analitico": "Materiais Basicos",
             "company_type": "comercial",
             "ticker_b3": "VALE3",
+            "coverage_rank": 2,
             "is_active": 1,
             "updated_at": "2026-04-08T09:00:00",
         },
@@ -98,6 +100,7 @@ def _seed_database(settings: AppSettings) -> None:
             "setor_analitico": None,
             "company_type": "comercial",
             "ticker_b3": "SBSP3",
+            "coverage_rank": 3,
             "is_active": 1,
             "updated_at": "2026-04-08T09:00:00",
         },
@@ -110,6 +113,7 @@ def _seed_database(settings: AppSettings) -> None:
             "setor_analitico": "Financeiro",
             "company_type": "comercial",
             "ticker_b3": "SEMD3",
+            "coverage_rank": None,
             "is_active": 1,
             "updated_at": "2026-04-08T09:00:00",
         },
@@ -172,6 +176,7 @@ def _seed_database(settings: AppSettings) -> None:
                     setor_analitico TEXT,
                     company_type TEXT,
                     ticker_b3 TEXT,
+                    coverage_rank INTEGER,
                     is_active INTEGER,
                     updated_at TEXT
                 )
@@ -221,10 +226,12 @@ def _seed_database(settings: AppSettings) -> None:
                 """
                 INSERT INTO companies (
                     cd_cvm, company_name, nome_comercial, cnpj,
-                    setor_cvm, setor_analitico, company_type, ticker_b3, is_active, updated_at
+                    setor_cvm, setor_analitico, company_type, ticker_b3,
+                    coverage_rank, is_active, updated_at
                 ) VALUES (
                     :cd_cvm, :company_name, :nome_comercial, :cnpj,
-                    :setor_cvm, :setor_analitico, :company_type, :ticker_b3, :is_active, :updated_at
+                    :setor_cvm, :setor_analitico, :company_type, :ticker_b3,
+                    :coverage_rank, :is_active, :updated_at
                 )
                 """
             ),

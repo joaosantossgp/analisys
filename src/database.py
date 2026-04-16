@@ -73,6 +73,7 @@ def init_db_tables(engine: Engine) -> None:
                 setor_analitico TEXT,
                 company_type    TEXT NOT NULL DEFAULT 'comercial',
                 ticker_b3       TEXT,
+                coverage_rank   INTEGER,
                 is_active       INTEGER NOT NULL DEFAULT 1,
                 updated_at      TEXT NOT NULL
             )
