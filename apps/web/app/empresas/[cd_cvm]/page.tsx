@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { CompanyDetailTracker } from "@/components/company/company-detail-tracker";
 import { CompanyHeader } from "@/components/company/company-header";
+import { CompanyNoDataPage } from "@/components/company/company-no-data";
 import { CompanyOverview } from "@/components/company/company-overview";
 import { CompanyStatements } from "@/components/company/company-statements";
 import { CompanyUrlTabs } from "@/components/company/company-url-tabs";
@@ -127,7 +128,7 @@ export default async function EmpresaDetailPage({
   }
 
   if (availableYears.length === 0) {
-    notFound();
+    return <CompanyNoDataPage company={company} />;
   }
 
   const currentTab = coerceDetailTab(getFirstParam(resolvedSearchParams.aba));

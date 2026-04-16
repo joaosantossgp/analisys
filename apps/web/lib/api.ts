@@ -15,6 +15,8 @@ export type CompanyDirectoryItem = {
   setor_cvm: string | null;
   sector_name: string;
   sector_slug: string;
+  has_financial_data: boolean;
+  coverage_rank: number | null;
   anos_disponiveis: number[];
   total_rows: number;
 };
