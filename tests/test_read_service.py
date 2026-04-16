@@ -73,6 +73,7 @@ def _seed_sector_read_service(tmp_path):
                 setor_analitico TEXT,
                 company_type TEXT,
                 ticker_b3 TEXT,
+                coverage_rank INTEGER,
                 is_active INTEGER,
                 updated_at TEXT
             )
@@ -99,12 +100,12 @@ def _seed_sector_read_service(tmp_path):
             """
             INSERT INTO companies (
                 cd_cvm, company_name, nome_comercial, cnpj,
-                setor_cvm, setor_analitico, company_type, ticker_b3, is_active, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                setor_cvm, setor_analitico, company_type, ticker_b3, coverage_rank, is_active, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
-                (9512, "PETROBRAS", "Petrobras", "33", "Energia", "Energia", "comercial", "PETR4", 1, "2026"),
-                (11223, "SABESP", "Sabesp", "43", "Saneamento", None, "comercial", "SBSP3", 1, "2026"),
+                (9512, "PETROBRAS", "Petrobras", "33", "Energia", "Energia", "comercial", "PETR4", 1, 1, "2026"),
+                (11223, "SABESP", "Sabesp", "43", "Saneamento", None, "comercial", "SBSP3", 3, 1, "2026"),
             ],
         )
         conn.executemany(
