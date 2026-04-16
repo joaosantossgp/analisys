@@ -148,6 +148,8 @@ class CompanySearchResult:
     sector_slug: str
     anos_disponiveis: tuple[int, ...]
     total_rows: int
+    has_financial_data: bool
+    coverage_rank: int | None
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)

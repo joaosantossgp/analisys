@@ -182,6 +182,9 @@ class CVMReadService:
                 ]
                 snapshot_row = filtered.iloc[0] if not filtered.empty else None
 
+            if latest_year is None:
+                continue
+
             items.append(
                 SectorDirectoryItemDTO(
                     sector_name=sector_name,
@@ -486,6 +489,7 @@ class CVMReadService:
             setor_cvm = self._clean_optional_text(row.get("setor_cvm"))
             raw_sector_name = self._clean_optional_text(row.get("sector_name"))
             sector_name = raw_sector_name or canonical_sector_name(setor_analitico, setor_cvm)
+            raw_coverage_rank = row.get("coverage_rank")
             results.append(
                 CompanySearchResult(
                     cd_cvm=int(row["cd_cvm"]),
@@ -497,6 +501,8 @@ class CVMReadService:
                     sector_slug=sector_slugify(sector_name),
                     anos_disponiveis=_parse_years(row.get("anos_disponiveis")),
                     total_rows=int(row.get("total_rows") or 0),
+                    has_financial_data=bool(int(row.get("has_financial_data") or 0)),
+                    coverage_rank=int(raw_coverage_rank) if raw_coverage_rank is not None and str(raw_coverage_rank) != "nan" else None,
                 )
             )
         return results

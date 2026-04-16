@@ -56,6 +56,8 @@ class CompanySearchResultPayload(BaseModel):
     sector_slug: str
     anos_disponiveis: list[int]
     total_rows: int
+    has_financial_data: bool
+    coverage_rank: int | None = None
 
 
 class CompanyInfoPayload(BaseModel):

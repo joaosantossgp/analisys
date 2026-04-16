@@ -28,15 +28,19 @@ def test_companies_empty_search_returns_paginated_directory(client: TestClient):
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["pagination"]["total_items"] == 3
+    assert payload["pagination"]["total_items"] == 4
     assert payload["pagination"]["page"] == 1
     assert payload["pagination"]["page_size"] == 20
     assert payload["items"][0]["company_name"] == "PETROBRAS"
     assert payload["items"][0]["anos_disponiveis"] == [2023, 2024]
     assert payload["items"][0]["sector_name"] == "Energia"
     assert payload["items"][0]["sector_slug"] == "energia"
+    assert payload["items"][0]["has_financial_data"] is True
     returned_names = [item["company_name"] for item in payload["items"]]
-    assert "SEM DADOS" not in returned_names
+    assert "SEM DADOS" in returned_names
+    sem_dados = next(i for i in payload["items"] if i["company_name"] == "SEM DADOS")
+    assert sem_dados["has_financial_data"] is False
+    assert sem_dados["anos_disponiveis"] == []
 
 
 def test_companies_search_filters_results(client: TestClient):
@@ -57,8 +61,8 @@ def test_companies_pagination_respects_page_and_page_size(client: TestClient):
     assert payload["pagination"] == {
         "page": 2,
         "page_size": 1,
-        "total_items": 3,
-        "total_pages": 3,
+        "total_items": 4,
+        "total_pages": 4,
         "has_next": True,
         "has_previous": True,
     }
@@ -101,6 +105,7 @@ def test_companies_filters_returns_canonical_sector_options(client: TestClient):
     payload = response.json()
     assert payload["sectors"] == [
         {"sector_name": "Energia", "sector_slug": "energia", "company_count": 1},
+        {"sector_name": "Financeiro", "sector_slug": "financeiro", "company_count": 1},
         {"sector_name": "Materiais Basicos", "sector_slug": "materiais-basicos", "company_count": 1},
         {"sector_name": "Saneamento", "sector_slug": "saneamento", "company_count": 1},
     ]

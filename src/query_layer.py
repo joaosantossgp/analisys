@@ -102,7 +102,7 @@ class CVMQueryLayer:
             FROM (
                 SELECT c.cd_cvm
                 FROM companies c
-                JOIN financial_reports fr ON fr."CD_CVM" = c.cd_cvm
+                LEFT JOIN financial_reports fr ON fr."CD_CVM" = c.cd_cvm
                 WHERE {where_sql}
                 GROUP BY c.cd_cvm, c.company_name, c.ticker_b3, c.setor_analitico, c.setor_cvm
             ) company_rows
@@ -126,11 +126,13 @@ class CVMQueryLayer:
                 c.setor_analitico,
                 c.setor_cvm,
                 {_CANONICAL_SECTOR_SQL} AS sector_name,
-                COUNT(*) AS total_rows
+                COALESCE(COUNT(fr."CD_CVM"), 0) AS total_rows,
+                CASE WHEN COUNT(fr."CD_CVM") > 0 THEN 1 ELSE 0 END AS has_financial_data,
+                c.coverage_rank
             FROM companies c
-            JOIN financial_reports fr ON fr."CD_CVM" = c.cd_cvm
+            LEFT JOIN financial_reports fr ON fr."CD_CVM" = c.cd_cvm
             WHERE {where_sql}
-            GROUP BY c.cd_cvm, c.company_name, c.ticker_b3, c.setor_analitico, c.setor_cvm
+            GROUP BY c.cd_cvm, c.company_name, c.ticker_b3, c.setor_analitico, c.setor_cvm, c.coverage_rank
             ORDER BY c.company_name ASC
             {paging_sql}
             """
@@ -145,7 +147,7 @@ class CVMQueryLayer:
                 {_CANONICAL_SECTOR_SQL} AS sector_name,
                 COUNT(DISTINCT c.cd_cvm) AS company_count
             FROM companies c
-            JOIN financial_reports fr ON fr."CD_CVM" = c.cd_cvm
+            LEFT JOIN financial_reports fr ON fr."CD_CVM" = c.cd_cvm
             GROUP BY {_CANONICAL_SECTOR_SQL}
             ORDER BY sector_name ASC
             """

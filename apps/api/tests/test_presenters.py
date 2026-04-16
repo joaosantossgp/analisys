@@ -36,15 +36,17 @@ def test_presenters_serialize_dtos_without_raw_pandas_objects():
         [
             CompanySearchResult(
                 cd_cvm=9512,
-            company_name="PETROBRAS",
-            ticker_b3="PETR4",
-            setor_analitico="Energia",
-            setor_cvm="Energia",
-            sector_name="Energia",
-            sector_slug="energia",
-            anos_disponiveis=(2023, 2024),
-            total_rows=30,
-        )
+                company_name="PETROBRAS",
+                ticker_b3="PETR4",
+                setor_analitico="Energia",
+                setor_cvm="Energia",
+                sector_name="Energia",
+                sector_slug="energia",
+                anos_disponiveis=(2023, 2024),
+                total_rows=30,
+                has_financial_data=True,
+                coverage_rank=1,
+            )
         ]
     )[0]
     assert company_search.anos_disponiveis == [2023, 2024]
@@ -79,6 +81,8 @@ def test_presenters_serialize_dtos_without_raw_pandas_objects():
                     sector_slug="energia",
                     anos_disponiveis=(2023, 2024),
                     total_rows=30,
+                    has_financial_data=True,
+                    coverage_rank=1,
                 ),
             ),
             pagination=CompanyDirectoryPagination(
