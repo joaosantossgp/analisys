@@ -11,6 +11,11 @@ Schema relevante:
                      STANDARD_NAME, QA_CONFLICT, VL_CONTA
   companies:         cd_cvm, company_name, nome_comercial, cnpj, setor_cvm,
                      setor_analitico, company_type, ticker_b3, is_active, updated_at
+
+Note: financial_reports columns were created with quoted uppercase identifiers
+(e.g. "CD_CVM"). PostgreSQL treats quoted identifiers as case-sensitive, so all
+references to those columns must also be double-quoted in raw SQL. The companies
+table uses lowercase unquoted names and needs no quoting.
 """
 from __future__ import annotations
 
@@ -97,7 +102,7 @@ class CVMQueryLayer:
             FROM (
                 SELECT c.cd_cvm
                 FROM companies c
-                JOIN financial_reports fr ON fr.CD_CVM = c.cd_cvm
+                JOIN financial_reports fr ON fr."CD_CVM" = c.cd_cvm
                 WHERE {where_sql}
                 GROUP BY c.cd_cvm, c.company_name, c.ticker_b3, c.setor_analitico, c.setor_cvm
             ) company_rows
@@ -123,7 +128,7 @@ class CVMQueryLayer:
                 {_CANONICAL_SECTOR_SQL} AS sector_name,
                 COUNT(*) AS total_rows
             FROM companies c
-            JOIN financial_reports fr ON fr.CD_CVM = c.cd_cvm
+            JOIN financial_reports fr ON fr."CD_CVM" = c.cd_cvm
             WHERE {where_sql}
             GROUP BY c.cd_cvm, c.company_name, c.ticker_b3, c.setor_analitico, c.setor_cvm
             ORDER BY c.company_name ASC
@@ -140,7 +145,7 @@ class CVMQueryLayer:
                 {_CANONICAL_SECTOR_SQL} AS sector_name,
                 COUNT(DISTINCT c.cd_cvm) AS company_count
             FROM companies c
-            JOIN financial_reports fr ON fr.CD_CVM = c.cd_cvm
+            JOIN financial_reports fr ON fr."CD_CVM" = c.cd_cvm
             GROUP BY {_CANONICAL_SECTOR_SQL}
             ORDER BY sector_name ASC
             """
@@ -150,12 +155,12 @@ class CVMQueryLayer:
     def get_sector_available_years(self, sector_name: str) -> list[int]:
         sql = text(
             f"""
-            SELECT DISTINCT fr.REPORT_YEAR
+            SELECT DISTINCT fr."REPORT_YEAR"
             FROM financial_reports fr
-            JOIN companies c ON c.cd_cvm = fr.CD_CVM
+            JOIN companies c ON c.cd_cvm = fr."CD_CVM"
             WHERE {_CANONICAL_SECTOR_SQL} = :sector_name
-              AND fr.PERIOD_LABEL = CAST(fr.REPORT_YEAR AS TEXT)
-            ORDER BY fr.REPORT_YEAR
+              AND fr."PERIOD_LABEL" = CAST(fr."REPORT_YEAR" AS TEXT)
+            ORDER BY fr."REPORT_YEAR"
             """
         )
         df = pd.read_sql(sql, self.engine, params={"sector_name": str(sector_name)})
@@ -168,9 +173,9 @@ class CVMQueryLayer:
         years: list[int] | None = None,
     ) -> pd.DataFrame:
         where_parts = [
-            "fr.PERIOD_LABEL = CAST(fr.REPORT_YEAR AS TEXT)",
-            "fr.QA_CONFLICT = 0",
-            "fr.CD_CONTA IN ('3.01', '3.05', '3.11', '2.03')",
+            'fr."PERIOD_LABEL" = CAST(fr."REPORT_YEAR" AS TEXT)',
+            'fr."QA_CONFLICT" = false',
+            """fr."CD_CONTA" IN ('3.01', '3.05', '3.11', '2.03')""",
         ]
         params: dict[str, object] = {}
 
@@ -181,7 +186,7 @@ class CVMQueryLayer:
         normalized_years = sorted({int(year) for year in years or []})
         if normalized_years:
             placeholders = ", ".join(f":y{i}" for i in range(len(normalized_years)))
-            where_parts.append(f"fr.REPORT_YEAR IN ({placeholders})")
+            where_parts.append(f'fr."REPORT_YEAR" IN ({placeholders})')
             params.update({f"y{i}": year for i, year in enumerate(normalized_years)})
 
         sql = text(
@@ -191,19 +196,19 @@ class CVMQueryLayer:
                 c.company_name,
                 c.ticker_b3,
                 {_CANONICAL_SECTOR_SQL} AS sector_name,
-                fr.REPORT_YEAR,
-                fr.CD_CONTA,
-                SUM(fr.VL_CONTA) AS account_value
+                fr."REPORT_YEAR",
+                fr."CD_CONTA",
+                SUM(fr."VL_CONTA") AS account_value
             FROM financial_reports fr
-            JOIN companies c ON c.cd_cvm = fr.CD_CVM
+            JOIN companies c ON c.cd_cvm = fr."CD_CVM"
             WHERE {' AND '.join(where_parts)}
             GROUP BY
                 c.cd_cvm,
                 c.company_name,
                 c.ticker_b3,
                 {_CANONICAL_SECTOR_SQL},
-                fr.REPORT_YEAR,
-                fr.CD_CONTA
+                fr."REPORT_YEAR",
+                fr."CD_CONTA"
             """
         )
         df = pd.read_sql(sql, self.engine, params=params)
@@ -280,12 +285,12 @@ class CVMQueryLayer:
         params = {f"cd{i}": cd_cvm for i, cd_cvm in enumerate(unique_ids)}
         sql = text(
             f"""
-            SELECT CD_CVM, REPORT_YEAR
+            SELECT "CD_CVM", "REPORT_YEAR"
             FROM financial_reports
-            WHERE CD_CVM IN ({placeholders})
-              AND PERIOD_LABEL = CAST(REPORT_YEAR AS TEXT)
-            GROUP BY CD_CVM, REPORT_YEAR
-            ORDER BY CD_CVM, REPORT_YEAR
+            WHERE "CD_CVM" IN ({placeholders})
+              AND "PERIOD_LABEL" = CAST("REPORT_YEAR" AS TEXT)
+            GROUP BY "CD_CVM", "REPORT_YEAR"
+            ORDER BY "CD_CVM", "REPORT_YEAR"
             """
         )
         df = pd.read_sql(sql, self.engine, params=params)
@@ -361,11 +366,11 @@ class CVMQueryLayer:
         """
         sql = text(
             """
-            SELECT DISTINCT REPORT_YEAR
+            SELECT DISTINCT "REPORT_YEAR"
             FROM financial_reports
-            WHERE CD_CVM = :cd_cvm
-              AND PERIOD_LABEL = CAST(REPORT_YEAR AS TEXT)
-            ORDER BY REPORT_YEAR
+            WHERE "CD_CVM" = :cd_cvm
+              AND "PERIOD_LABEL" = CAST("REPORT_YEAR" AS TEXT)
+            ORDER BY "REPORT_YEAR"
             """
         )
         df = pd.read_sql(sql, self.engine, params={"cd_cvm": int(cd_cvm)})
@@ -374,10 +379,10 @@ class CVMQueryLayer:
     def get_available_statements(self, cd_cvm: int) -> list[str]:
         sql = text(
             """
-            SELECT DISTINCT STATEMENT_TYPE
+            SELECT DISTINCT "STATEMENT_TYPE"
             FROM financial_reports
-            WHERE CD_CVM = :cd_cvm
-            ORDER BY STATEMENT_TYPE
+            WHERE "CD_CVM" = :cd_cvm
+            ORDER BY "STATEMENT_TYPE"
             """
         )
         df = pd.read_sql(sql, self.engine, params={"cd_cvm": int(cd_cvm)})
@@ -399,15 +404,15 @@ class CVMQueryLayer:
         params["cd_cvm"] = int(cd_cvm)
         params["stmt"] = stmt_type
 
-        conflict_clause = "AND QA_CONFLICT = 0" if exclude_conflicts else ""
+        conflict_clause = 'AND "QA_CONFLICT" = false' if exclude_conflicts else ""
         sql = text(
             f"""
-            SELECT CD_CONTA, DS_CONTA, STANDARD_NAME, LINE_ID_BASE,
-                   PERIOD_LABEL, VL_CONTA
+            SELECT "CD_CONTA", "DS_CONTA", "STANDARD_NAME", "LINE_ID_BASE",
+                   "PERIOD_LABEL", "VL_CONTA"
             FROM financial_reports
-            WHERE CD_CVM = :cd_cvm
-              AND STATEMENT_TYPE = :stmt
-              AND REPORT_YEAR IN ({placeholders})
+            WHERE "CD_CVM" = :cd_cvm
+              AND "STATEMENT_TYPE" = :stmt
+              AND "REPORT_YEAR" IN ({placeholders})
               {conflict_clause}
             """
         )
@@ -452,13 +457,13 @@ class CVMQueryLayer:
 
         sql = text(
             f"""
-            SELECT REPORT_YEAR, PERIOD_LABEL, CD_CONTA, SUM(VL_CONTA) AS VL_CONTA
+            SELECT "REPORT_YEAR", "PERIOD_LABEL", "CD_CONTA", SUM("VL_CONTA") AS "VL_CONTA"
             FROM financial_reports
-            WHERE CD_CVM = :cd_cvm
-              AND REPORT_YEAR IN ({placeholders_y})
-              AND CD_CONTA IN ({placeholders_c})
-              AND QA_CONFLICT = 0
-            GROUP BY REPORT_YEAR, PERIOD_LABEL, CD_CONTA
+            WHERE "CD_CVM" = :cd_cvm
+              AND "REPORT_YEAR" IN ({placeholders_y})
+              AND "CD_CONTA" IN ({placeholders_c})
+              AND "QA_CONFLICT" = false
+            GROUP BY "REPORT_YEAR", "PERIOD_LABEL", "CD_CONTA"
             """
         )
 
@@ -494,13 +499,13 @@ class CVMQueryLayer:
 
         sql = text(
             f"""
-            SELECT REPORT_YEAR, PERIOD_LABEL, CD_CONTA, SUM(VL_CONTA) AS VL_CONTA
+            SELECT "REPORT_YEAR", "PERIOD_LABEL", "CD_CONTA", SUM("VL_CONTA") AS "VL_CONTA"
             FROM financial_reports
-            WHERE CD_CVM = :cd_cvm
-              AND REPORT_YEAR IN ({placeholders_y})
-              AND CD_CONTA IN ({placeholders_c})
-              AND QA_CONFLICT = 0
-            GROUP BY REPORT_YEAR, PERIOD_LABEL, CD_CONTA
+            WHERE "CD_CVM" = :cd_cvm
+              AND "REPORT_YEAR" IN ({placeholders_y})
+              AND "CD_CONTA" IN ({placeholders_c})
+              AND "QA_CONFLICT" = false
+            GROUP BY "REPORT_YEAR", "PERIOD_LABEL", "CD_CONTA"
             """
         )
 
@@ -532,15 +537,15 @@ class CVMQueryLayer:
 
         sql = text(
             f"""
-            SELECT REPORT_YEAR, PERIOD_LABEL, SUM(ABS(VL_CONTA)) AS da_value
+            SELECT "REPORT_YEAR", "PERIOD_LABEL", SUM(ABS("VL_CONTA")) AS da_value
             FROM financial_reports
-            WHERE CD_CVM = :cd_cvm
-              AND STATEMENT_TYPE = 'DFC'
-              AND REPORT_YEAR IN ({placeholders})
-              AND CD_CONTA LIKE '6.01.01%'
-              AND LOWER(DS_CONTA) LIKE '%depreci%'
-              AND QA_CONFLICT = 0
-            GROUP BY REPORT_YEAR, PERIOD_LABEL
+            WHERE "CD_CVM" = :cd_cvm
+              AND "STATEMENT_TYPE" = 'DFC'
+              AND "REPORT_YEAR" IN ({placeholders})
+              AND "CD_CONTA" LIKE '6.01.01%'
+              AND LOWER("DS_CONTA") LIKE '%depreci%'
+              AND "QA_CONFLICT" = false
+            GROUP BY "REPORT_YEAR", "PERIOD_LABEL"
             """
         )
 
@@ -557,15 +562,15 @@ class CVMQueryLayer:
 
         sql = text(
             f"""
-            SELECT REPORT_YEAR, PERIOD_LABEL, SUM(ABS(VL_CONTA)) AS da_value
+            SELECT "REPORT_YEAR", "PERIOD_LABEL", SUM(ABS("VL_CONTA")) AS da_value
             FROM financial_reports
-            WHERE CD_CVM = :cd_cvm
-              AND STATEMENT_TYPE = 'DFC'
-              AND REPORT_YEAR IN ({placeholders})
-              AND CD_CONTA LIKE '6.01.01%'
-              AND LOWER(DS_CONTA) LIKE '%depreci%'
-              AND QA_CONFLICT = 0
-            GROUP BY REPORT_YEAR, PERIOD_LABEL
+            WHERE "CD_CVM" = :cd_cvm
+              AND "STATEMENT_TYPE" = 'DFC'
+              AND "REPORT_YEAR" IN ({placeholders})
+              AND "CD_CONTA" LIKE '6.01.01%'
+              AND LOWER("DS_CONTA") LIKE '%depreci%'
+              AND "QA_CONFLICT" = false
+            GROUP BY "REPORT_YEAR", "PERIOD_LABEL"
             """
         )
 
