@@ -10,6 +10,74 @@ from sqlalchemy.exc import OperationalError
 logger = logging.getLogger(__name__)
 
 SQLITE_WRITE_MAX_RETRIES = 3
+
+
+def init_db_tables(engine: Engine) -> None:
+    """Create all required tables if they do not exist.
+
+    Safe to call multiple times (idempotent). Used by CVMDatabase on init
+    and by the API lifespan to ensure tables exist on a fresh PostgreSQL
+    instance before the healthcheck runs.
+    """
+    dialect = engine.dialect.name
+    if dialect == "sqlite":
+        pk = "INTEGER PRIMARY KEY AUTOINCREMENT"
+        real = "REAL"
+        with engine.connect() as pragma_conn:
+            pragma_conn.execute(text("PRAGMA journal_mode = WAL"))
+            pragma_conn.execute(text("PRAGMA synchronous = OFF"))
+    else:
+        pk = "SERIAL PRIMARY KEY"
+        real = "DOUBLE PRECISION"
+
+    with engine.begin() as conn:
+        conn.execute(text(f"""
+            CREATE TABLE IF NOT EXISTS financial_reports (
+                id {pk},
+                "COMPANY_NAME" TEXT,
+                "CD_CVM" INTEGER,
+                "COMPANY_TYPE" TEXT,
+                "STATEMENT_TYPE" TEXT,
+                "REPORT_YEAR" INTEGER,
+                "PERIOD_LABEL" TEXT,
+                "LINE_ID_BASE" TEXT,
+                "CD_CONTA" TEXT,
+                "DS_CONTA" TEXT,
+                "STANDARD_NAME" TEXT,
+                "QA_CONFLICT" BOOLEAN,
+                "VL_CONTA" {real},
+                UNIQUE("CD_CVM", "STATEMENT_TYPE", "PERIOD_LABEL", "LINE_ID_BASE")
+            )
+        """))
+        conn.execute(text(f"""
+            CREATE TABLE IF NOT EXISTS qa_logs (
+                id {pk},
+                "COMPANY_NAME" TEXT,
+                "CD_CVM" INTEGER,
+                "ERROR_TYPE" TEXT,
+                "STATEMENT_TYPE" TEXT,
+                "PERIOD" TEXT,
+                "LINE_ID_BASE" TEXT,
+                "CD_CONTA" TEXT,
+                "DESCRIPTION" TEXT,
+                "ACTION" TEXT
+            )
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS companies (
+                cd_cvm          INTEGER PRIMARY KEY,
+                company_name    TEXT NOT NULL,
+                nome_comercial  TEXT,
+                cnpj            TEXT,
+                setor_cvm       TEXT,
+                setor_analitico TEXT,
+                company_type    TEXT NOT NULL DEFAULT 'comercial',
+                ticker_b3       TEXT,
+                is_active       INTEGER NOT NULL DEFAULT 1,
+                updated_at      TEXT NOT NULL
+            )
+        """))
+    logger.info("init_db_tables completed dialect=%s", dialect)
 SQLITE_WRITE_BACKOFF_SECONDS = 0.6
 DEFAULT_TO_SQL_CHUNKSIZE = 2000
 SQLITE_SAFE_MAX_VARIABLES = 900
@@ -48,53 +116,7 @@ class CVMDatabase:
 
     def _init_db(self):
         """Creates the necessary tables if they don't exist."""
-        dialect = self._engine.dialect.name  # "sqlite" or "postgresql"
-        if dialect == "sqlite":
-            pk   = "INTEGER PRIMARY KEY AUTOINCREMENT"
-            real = "REAL"
-        else:
-            pk   = "SERIAL PRIMARY KEY"
-            real = "DOUBLE PRECISION"
-
-        # Apply PRAGMAs only for SQLite.
-        if dialect == "sqlite":
-            with self._engine.connect() as pragma_conn:
-                pragma_conn.execute(text("PRAGMA journal_mode = WAL"))
-                pragma_conn.execute(text("PRAGMA synchronous = OFF"))
-
-        with self._engine.begin() as conn:
-            conn.execute(text(f"""
-                CREATE TABLE IF NOT EXISTS financial_reports (
-                    id {pk},
-                    "COMPANY_NAME" TEXT,
-                    "CD_CVM" INTEGER,
-                    "COMPANY_TYPE" TEXT,
-                    "STATEMENT_TYPE" TEXT,
-                    "REPORT_YEAR" INTEGER,
-                    "PERIOD_LABEL" TEXT,
-                    "LINE_ID_BASE" TEXT,
-                    "CD_CONTA" TEXT,
-                    "DS_CONTA" TEXT,
-                    "STANDARD_NAME" TEXT,
-                    "QA_CONFLICT" BOOLEAN,
-                    "VL_CONTA" {real},
-                    UNIQUE("CD_CVM", "STATEMENT_TYPE", "PERIOD_LABEL", "LINE_ID_BASE")
-                )
-            """))
-            conn.execute(text(f"""
-                CREATE TABLE IF NOT EXISTS qa_logs (
-                    id {pk},
-                    "COMPANY_NAME" TEXT,
-                    "CD_CVM" INTEGER,
-                    "ERROR_TYPE" TEXT,
-                    "STATEMENT_TYPE" TEXT,
-                    "PERIOD" TEXT,
-                    "LINE_ID_BASE" TEXT,
-                    "CD_CONTA" TEXT,
-                    "DESCRIPTION" TEXT,
-                    "ACTION" TEXT
-                )
-            """))
+        init_db_tables(self._engine)
 
     def _upsert_company_metadata(self, conn, company_name: str, cvm_code: int,
                                  company_type: str, setor_cvm: str | None = None,

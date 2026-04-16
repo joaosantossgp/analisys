@@ -450,15 +450,13 @@ def test_base_health_returns_snapshot(client: TestClient):
     assert payload["health_status"] in {"ok", "atencao", "critico"}
 
 
-def test_missing_required_table_returns_503(tmp_path: Path):
+def test_unreachable_database_returns_503(tmp_path: Path, monkeypatch):
+    # Point DATABASE_URL at a postgres host that will never accept connections.
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@127.0.0.1:1/nonexistent")
     settings = build_settings(project_root=tmp_path)
-    settings.paths.canonical_accounts_path.parent.mkdir(parents=True, exist_ok=True)
-    settings.paths.canonical_accounts_path.write_text("CD_CONTA,STANDARD_NAME\n1,Ativo\n", encoding="utf-8")
-    settings.paths.db_path.parent.mkdir(parents=True, exist_ok=True)
-    settings.paths.db_path.touch()
 
     app = create_app(settings=settings)
-    with TestClient(app) as client:
+    with TestClient(app, raise_server_exceptions=False) as client:
         response = client.get("/companies")
 
     assert response.status_code == 503

@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import time
+from contextlib import asynccontextmanager
 
 import sentry_sdk
 from fastapi import FastAPI, Request
@@ -18,6 +19,7 @@ from apps.api.app.routes.companies import router as companies_router
 from apps.api.app.routes.health import router as health_router
 from apps.api.app.routes.sectors import router as sectors_router
 from apps.api.app.routes.status import router as status_router
+from src.database import init_db_tables
 from src.read_service import CVMReadService
 from src.settings import AppSettings, get_settings as get_shared_settings
 
@@ -50,10 +52,19 @@ def create_app(
     resolved_settings = settings or get_shared_settings()
     resolved_service = read_service or CVMReadService(settings=resolved_settings)
 
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        try:
+            init_db_tables(resolved_service.engine)
+        except Exception:
+            log.exception("init_db_tables failed; app will start degraded — /health will reflect the error")
+        yield
+
     app = FastAPI(
         title="CVM V2 API",
         version="v2-phase1",
         description="API read-only da Fase 1 da V2, reaproveitando o nucleo headless da V1.",
+        lifespan=lifespan,
     )
     app.state.settings = resolved_settings
     app.state.read_service = resolved_service
