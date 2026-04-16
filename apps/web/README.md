@@ -76,6 +76,15 @@ npm run test:unit
 npm run test:e2e
 ```
 
+## Deploy remoto
+
+- **Web (Vercel):** https://analisys-nine.vercel.app
+- **API (Railway):** https://analisys-production.up.railway.app
+
+`API_BASE_URL` e definido como variavel de ambiente no projeto Vercel. O deploy
+automatico e acionado via `VERCEL_DEPLOY_HOOK` no CI (`.github/workflows/ci.yml`
+job `deploy-web`) a cada push no `main`.
+
 ## Observacoes
 
 - O app usa Server Components por padrao; `"use client"` fica restrito a interacao e URL state.
