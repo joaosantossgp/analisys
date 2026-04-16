@@ -476,6 +476,84 @@ class CVMReadService:
             for row in rows
         ]
 
+    def request_company_refresh(self, cd_cvm: int) -> str:
+        """Dispatch on-demand ingest for one company.
+
+        Returns one of: "dispatched", "dispatch_failed", "already_queued".
+        Raises NotFoundError if cd_cvm is unknown.
+        """
+        from datetime import datetime, timezone, timedelta
+        from src.github_dispatch import dispatch_on_demand_ingest
+
+        with self.engine.connect() as conn:
+            exists = conn.execute(
+                text("SELECT 1 FROM companies WHERE cd_cvm = :cd_cvm"),
+                {"cd_cvm": cd_cvm},
+            ).fetchone()
+            if exists is None:
+                from apps.api.app.dependencies import NotFoundError
+                raise NotFoundError(f"Company cd_cvm={cd_cvm} not found")
+
+            status_row = conn.execute(
+                text(
+                    "SELECT last_status, last_attempt_at, company_name "
+                    "FROM company_refresh_status WHERE cd_cvm = :cd_cvm"
+                ),
+                {"cd_cvm": cd_cvm},
+            ).mappings().fetchone()
+
+            now = datetime.now(timezone.utc)
+            if status_row and status_row["last_status"] == "queued":
+                last_attempt = status_row["last_attempt_at"]
+                if last_attempt:
+                    try:
+                        attempted_at = datetime.fromisoformat(str(last_attempt).replace("Z", "+00:00"))
+                        if attempted_at.tzinfo is None:
+                            attempted_at = attempted_at.replace(tzinfo=timezone.utc)
+                        if (now - attempted_at) < timedelta(minutes=10):
+                            return "already_queued"
+                    except ValueError:
+                        pass
+
+            company_name_row = conn.execute(
+                text("SELECT company_name FROM companies WHERE cd_cvm = :cd_cvm"),
+                {"cd_cvm": cd_cvm},
+            ).mappings().fetchone()
+            company_name = company_name_row["company_name"] if company_name_row else str(cd_cvm)
+
+        now_iso = datetime.now(timezone.utc).isoformat()
+        with self.engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO company_refresh_status
+                        (cd_cvm, company_name, source_scope, last_attempt_at, last_status, updated_at)
+                    VALUES
+                        (:cd_cvm, :company_name, 'on_demand', :now, 'queued', :now)
+                    ON CONFLICT (cd_cvm) DO UPDATE SET
+                        last_status = 'queued',
+                        last_attempt_at = :now,
+                        updated_at = :now
+                    """
+                ),
+                {"cd_cvm": cd_cvm, "company_name": company_name, "now": now_iso},
+            )
+
+        ok, error_msg = dispatch_on_demand_ingest(cd_cvm)
+        if not ok:
+            with self.engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "UPDATE company_refresh_status "
+                        "SET last_status = 'dispatch_failed', last_error = :err, updated_at = :now "
+                        "WHERE cd_cvm = :cd_cvm"
+                    ),
+                    {"cd_cvm": cd_cvm, "err": error_msg, "now": now_iso},
+                )
+            return "dispatch_failed"
+
+        return "dispatched"
+
     def _build_company_results(self, df: pd.DataFrame) -> list[CompanySearchResult]:
         results = []
         if df is None or df.empty:
