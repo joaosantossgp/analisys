@@ -1,0 +1,109 @@
+name: CVM Data Ingestion
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_companies:
+        description: "Max companies to process (default: 150)"
+        required: false
+        default: "150"
+        type: string
+      start_year:
+        description: "Start year (default: 2022)"
+        required: false
+        default: "2022"
+        type: string
+      end_year:
+        description: "End year (default: current year)"
+        required: false
+        default: ""
+        type: string
+      skip_yfinance:
+        description: "Skip yfinance market data cache"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+      dry_run:
+        description: "Dry run — show plan without downloading"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+  schedule:
+    # Runs on the 28th of every month at 02:00 UTC (covers all months)
+    - cron: "0 2 28 * *"
+
+jobs:
+  ingest:
+    name: Ingest CVM financial data
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Resolve end year
+        id: years
+        run: |
+          END_YEAR="${{ github.event.inputs.end_year }}"
+          if [ -z "$END_YEAR" ]; then
+            END_YEAR=$(date +%Y)
+          fi
+          echo "end_year=$END_YEAR" >> "$GITHUB_OUTPUT"
+
+      - name: Build flags
+        id: flags
+        run: |
+          FLAGS=""
+          if [ "${{ github.event.inputs.skip_yfinance }}" = "true" ]; then
+            FLAGS="$FLAGS --skip-yfinance"
+          fi
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            FLAGS="$FLAGS --dry-run"
+          fi
+          # Scheduled runs always skip yfinance to keep runtime under limits
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            FLAGS="$FLAGS --skip-yfinance"
+          fi
+          echo "flags=$FLAGS" >> "$GITHUB_OUTPUT"
+
+      - name: Run batch ingestion
+        run: |
+          python scripts/batch_completo.py \
+            --max-companies "${{ github.event.inputs.max_companies || '150' }}" \
+            --start-year "${{ github.event.inputs.start_year || '2022' }}" \
+            --end-year "${{ steps.years.outputs.end_year }}" \
+            ${{ steps.flags.outputs.flags }}
+
+      - name: Smoke check — verify API responds with data
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          TOTAL=$(curl -sf "https://analisys-production.up.railway.app/companies?page=1&page_size=1" \
+            | python -c "import sys,json; print(json.load(sys.stdin)['pagination']['total_items'])")
+          echo "companies_in_db=$TOTAL"
+          if [ "$TOTAL" -eq 0 ]; then
+            echo "::warning::Ingestion completed but /companies still returns 0 items."
+          else
+            echo "::notice::Database now has $TOTAL companies."
+          fi
