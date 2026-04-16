@@ -33,10 +33,23 @@ jobs:
       - name: Criar tabelas (idempotente)
         run: python scripts/setup_db.py
 
+      - name: Resolver anos de refresh
+        id: anos
+        run: |
+          # Use repo variables if defined; fall back to current and previous year
+          CURR="${{ vars.REFRESH_YEAR_CURR }}"
+          PREV="${{ vars.REFRESH_YEAR_PREV }}"
+          if [ -z "$CURR" ]; then
+            CURR=$(date +%Y)
+          fi
+          if [ -z "$PREV" ]; then
+            PREV=$((CURR - 1))
+          fi
+          echo "curr=$CURR" >> "$GITHUB_OUTPUT"
+          echo "prev=$PREV" >> "$GITHUB_OUTPUT"
+
       - name: Executar refresh incremental
-        run: >
-          python scripts/atualizar_todos.py
-          --anos ${{ vars.REFRESH_YEAR_PREV }} ${{ vars.REFRESH_YEAR_CURR }}
+        run: python scripts/atualizar_todos.py --anos ${{ steps.anos.outputs.prev }} ${{ steps.anos.outputs.curr }}
 
       - name: Upload logs em caso de falha
         if: failure()
