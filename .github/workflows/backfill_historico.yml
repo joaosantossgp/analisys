@@ -1,0 +1,160 @@
+name: Backfill Historico CVM
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_year:
+        description: "Ano inicial do backfill (default: 2010)"
+        required: false
+        default: "2010"
+        type: string
+      end_year:
+        description: "Ano final (default: ano corrente)"
+        required: false
+        default: ""
+        type: string
+      max_companies:
+        description: "Max empresas a processar (default: 500)"
+        required: false
+        default: "500"
+        type: string
+      dry_run:
+        description: "Dry run — mostra plano sem baixar dados"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+  schedule:
+    # Gap-fill trimestral: 1° de jan, abr, jul, out às 03:00 UTC
+    - cron: "0 3 1 */3 *"
+
+jobs:
+  full-load:
+    name: Full historical load (manual dispatch only)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+    steps:
+      - name: Check DATABASE_URL
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::DATABASE_URL secret is not set. Aborting."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Resolve end year
+        id: years
+        run: |
+          END_YEAR="${{ github.event.inputs.end_year }}"
+          if [ -z "$END_YEAR" ]; then
+            END_YEAR=$(date +%Y)
+          fi
+          echo "end_year=$END_YEAR" >> "$GITHUB_OUTPUT"
+
+      - name: Build flags
+        id: flags
+        run: |
+          FLAGS="--skip-yfinance"
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            FLAGS="$FLAGS --dry-run"
+          fi
+          echo "flags=$FLAGS" >> "$GITHUB_OUTPUT"
+
+      - name: Run full historical load
+        run: |
+          python scripts/batch_completo.py \
+            --max-companies "${{ github.event.inputs.max_companies || '500' }}" \
+            --start-year "${{ github.event.inputs.start_year || '2010' }}" \
+            --end-year "${{ steps.years.outputs.end_year }}" \
+            ${{ steps.flags.outputs.flags }}
+
+      - name: Smoke check — verify API responds with data
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          TOTAL=$(curl -sf "https://analisys-production.up.railway.app/companies?page=1&page_size=1" \
+            | python -c "import sys,json; print(json.load(sys.stdin)['pagination']['total_items'])")
+          echo "companies_in_db=$TOTAL"
+          if [ "$TOTAL" -eq 0 ]; then
+            echo "::error::Full load completed but /companies still returns 0 items. Check DATABASE_URL and pipeline logs."
+            exit 1
+          else
+            echo "::notice::Database now has $TOTAL companies after full historical load."
+          fi
+
+  gap-fill:
+    name: Quarterly gap-fill (scheduled)
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      CVM_DATA_DIR: /tmp/cvm_data
+      CVM_LOG_DIR: /tmp/cvm_logs
+      CVM_CANONICAL_ACCOUNTS_PATH: config/canonical_accounts.csv
+
+    steps:
+      - name: Check DATABASE_URL
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::DATABASE_URL secret is not set. Aborting gap-fill."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Criar diretorios de dados temporarios
+        run: mkdir -p /tmp/cvm_data /tmp/cvm_logs
+
+      - name: Resolve end year
+        id: years
+        run: echo "end_year=$(date +%Y)" >> "$GITHUB_OUTPUT"
+
+      - name: Run gap-fill
+        run: |
+          python scripts/restaurar_historico.py \
+            --run \
+            --start-year 2010 \
+            --end-year "${{ steps.years.outputs.end_year }}" \
+            --max 500
+
+      - name: Upload logs em caso de falha
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gap-fill-logs-${{ github.run_id }}
+          path: /tmp/cvm_logs/
+          retention-days: 7
