@@ -1,0 +1,32 @@
+# Data files — large raw inputs, databases, caches
+data/input/
+data/db/
+data/cache/
+data/metadata/
+
+# Output reports
+output/
+
+# Archived/dead scripts — do not explore
+archive/
+
+# Scratchpad and review artifacts — transient, not code
+.workflow/.scratchpad/
+
+# Reference documents — binary, for human reading only
+docs/references/
+
+# Python environment
+.venv/
+
+# Node.js
+apps/web/node_modules/
+apps/web/.next/
+
+# Binary and large files
+*.xlsx
+*.pdf
+*.zip
+*.db
+*.sqlite
+*.docx
