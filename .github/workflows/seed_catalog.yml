@@ -1,0 +1,80 @@
+name: Seed Catalog
+
+on:
+  workflow_dispatch:
+
+jobs:
+  seed-catalog:
+    name: Seed companies catalog
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+    steps:
+      - name: Check DATABASE_URL
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::DATABASE_URL secret is not set. Aborting catalog seed to avoid writing to an unintended database."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Ensure companies schema
+        run: python scripts/setup_db.py --step 2
+
+      - name: Seed CVM catalog
+        run: python scripts/seed_catalog.py
+
+      - name: Smoke check - validate counts and ranking
+        run: |
+          python - <<'PY'
+          import sys
+          from sqlalchemy import text
+
+          from src.db import build_engine
+          from src.settings import build_settings
+
+          settings = build_settings()
+          engine = build_engine(settings)
+          with engine.begin() as conn:
+              total = conn.execute(text("SELECT COUNT(*) FROM companies")).scalar() or 0
+              coverage_ranks = conn.execute(
+                  text(
+                      """
+                      SELECT coverage_rank
+                      FROM companies
+                      WHERE coverage_rank IS NOT NULL
+                      ORDER BY coverage_rank
+                      """
+                  )
+              ).scalars().all()
+
+          expected_ranks = list(range(1, 81))
+          if total < 600:
+              print(f"::error::Expected at least 600 companies after seed, got {total}.")
+              sys.exit(1)
+          if coverage_ranks != expected_ranks:
+              print(
+                  "::error::Expected coverage_rank sequence 1..80 with no gaps; "
+                  f"got {len(coverage_ranks)} ranked rows and sequence {coverage_ranks[:10]}..."
+              )
+              sys.exit(1)
+
+          print(f"::notice::companies={total}")
+          print(f"::notice::coverage_rank_count={len(coverage_ranks)}")
+          PY

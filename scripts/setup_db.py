@@ -19,7 +19,7 @@ import time
 from pathlib import Path
 
 import pandas as pd
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -96,6 +96,7 @@ def _companies_ddl() -> str:
         setor_analitico TEXT,
         company_type    TEXT NOT NULL DEFAULT 'comercial',
         ticker_b3       TEXT,
+        coverage_rank   INTEGER,
         is_active       INTEGER NOT NULL DEFAULT 1,
         updated_at      TEXT NOT NULL
     )
@@ -145,6 +146,13 @@ def step2_create_companies_table(conn, dry_run: bool) -> None:
             "CREATE INDEX IF NOT EXISTS idx_companies_ticker ON companies(ticker_b3) WHERE ticker_b3 IS NOT NULL",
         ],
     )
+    columns = {column["name"] for column in inspect(conn).get_columns("companies")}
+    if "coverage_rank" not in columns:
+        conn.execute(text("ALTER TABLE companies ADD COLUMN coverage_rank INTEGER"))
+        log.info("  OK coluna coverage_rank adicionada")
+    else:
+        log.info("  Coluna coverage_rank ja existente")
+
     log.info("  OK tabela companies criada")
     log.info("  Execute scripts/setup_companies_table.py para popular os metadados")
 
