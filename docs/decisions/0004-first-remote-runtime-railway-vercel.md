@@ -72,6 +72,14 @@ Essa decisao deixa explicito o contrato operacional minimo entre as camadas:
 - O fechamento da task de deploy remoto exige URLs publicas, smoke funcional do
   slice web e evidencia de conexao com `PostgreSQL`.
 
+## Status de deploy
+
+- **Data de ativacao:** 2026-04-16
+- **API publica:** `https://analisys-production.up.railway.app`
+- **Healthcheck:** `GET /health` → `{"status":"ok","database_dialect":"postgresql"}`
+- **Banco:** PostgreSQL (Railway plugin) — tabelas criadas automaticamente via lifespan na inicializacao
+- **Evidencia:** smoke confirmado em producao, sem erros nem warnings
+
 ## Referencias
 
 - [0002 - Stack recomendada para a V2 com GitHub Student Developer Pack](./0002-student-pack-v2-stack.md)
