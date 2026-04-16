@@ -17,8 +17,6 @@ export type CompanyDirectoryItem = {
   sector_slug: string;
   anos_disponiveis: number[];
   total_rows: number;
-  has_financial_data: boolean;
-  coverage_rank: number | null;
 };
 
 export type CompanyDirectoryPage = {
