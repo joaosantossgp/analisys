@@ -203,6 +203,43 @@ def test_sector_detail_keeps_company_row_with_null_metrics_when_accounts_are_par
     ]
 
 
+def test_request_refresh_returns_202_dispatch_failed_without_github_token(client: TestClient):
+    response = client.post("/companies/9512/request-refresh")
+
+    assert response.status_code == 202
+    payload = response.json()
+    assert payload["cd_cvm"] == 9512
+    assert payload["status"] == "dispatch_failed"
+
+
+def test_request_refresh_returns_404_for_unknown_company(client: TestClient):
+    response = client.post("/companies/9999999/request-refresh")
+
+    assert response.status_code == 404
+
+
+def test_request_refresh_returns_429_when_already_queued(client: TestClient):
+    from datetime import datetime, timezone
+    from sqlalchemy import text as sa_text
+
+    engine = client.app.state.read_service.engine
+    now_iso = datetime.now(timezone.utc).isoformat()
+    with engine.begin() as conn:
+        conn.execute(
+            sa_text(
+                "INSERT INTO company_refresh_status "
+                "(cd_cvm, company_name, source_scope, last_status, last_attempt_at, updated_at) "
+                "VALUES (4170, 'VALE', 'on_demand', 'queued', :now, :now)"
+            ),
+            {"now": now_iso},
+        )
+
+    response = client.post("/companies/4170/request-refresh")
+
+    assert response.status_code == 429
+    assert response.json()["detail"]["code"] == "refresh_already_queued"
+
+
 def test_sector_detail_returns_404_for_unknown_slug(client: TestClient):
     response = client.get("/sectors/setor-inexistente")
 

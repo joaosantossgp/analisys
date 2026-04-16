@@ -179,6 +179,11 @@ class StatementSummaryPayload(BaseModel):
     blocks: list[SummaryBlockPayload]
 
 
+class RefreshDispatchPayload(BaseModel):
+    status: str
+    cd_cvm: int
+
+
 class RefreshStatusPayload(BaseModel):
     cd_cvm: int
     company_name: str

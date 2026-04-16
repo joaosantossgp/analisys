@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
 from fastapi.responses import Response
 
 from apps.api.app.dependencies import (
@@ -19,6 +19,7 @@ from apps.api.app.presenters import (
     CompanyFiltersPayload,
     CompanyInfoPayload,
     KPIBundlePayload,
+    RefreshDispatchPayload,
     StatementMatrixPayload,
     StatementSummaryPayload,
     present_company_directory_page,
@@ -93,6 +94,24 @@ def export_companies_excel_batch(
             "Content-Disposition": f'attachment; filename="{filename}"',
         },
     )
+
+
+@router.post(
+    "/companies/{cd_cvm}/request-refresh",
+    response_model=RefreshDispatchPayload,
+    status_code=202,
+    summary="Dispara ingestao on-demand para uma empresa.",
+)
+def request_company_refresh(
+    request: Request,
+    cd_cvm: int = Path(...),
+    service: CVMReadService = Depends(get_read_service),
+) -> RefreshDispatchPayload:
+    ensure_api_ready(get_settings(request))
+    result = service.request_company_refresh(cd_cvm)
+    if result == "already_queued":
+        raise HTTPException(status_code=429, detail={"code": "refresh_already_queued"})
+    return RefreshDispatchPayload(status=result, cd_cvm=cd_cvm)
 
 
 @router.get(
