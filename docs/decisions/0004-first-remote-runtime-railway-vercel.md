@@ -72,6 +72,25 @@ Essa decisao deixa explicito o contrato operacional minimo entre as camadas:
 - O fechamento da task de deploy remoto exige URLs publicas, smoke funcional do
   slice web e evidencia de conexao com `PostgreSQL`.
 
+## URLs de Producao
+
+Confirmadas em 2026-04-16 apos conclusao das issues #33 (backend), #35 (frontend) e #34 (CI/deploy).
+
+| Camada | URL publica |
+|--------|-------------|
+| API (Railway) | `https://analisys-production.up.railway.app` |
+| Web (Vercel) | `https://analisys-nine.vercel.app` |
+
+## Smoke Confirmado
+
+| Check | Resultado |
+|-------|-----------|
+| `GET /health` | `{"status":"ok","database_dialect":"postgresql"}` ✓ |
+| `/` carrega | ok ✓ |
+| `/empresas` lista empresas | ok ✓ |
+| `/empresas/[cd_cvm]` abre detalhe | ok ✓ |
+| Sem erros de CORS | ok ✓ |
+
 ## Referencias
 
 - [0002 - Stack recomendada para a V2 com GitHub Student Developer Pack](./0002-student-pack-v2-stack.md)
