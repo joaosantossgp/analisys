@@ -6,7 +6,8 @@ Uso:
     python scripts/restaurar_historico.py
     python scripts/restaurar_historico.py --run
     python scripts/restaurar_historico.py --run --max 20
-    python scripts/restaurar_historico.py --anos 2022 2023
+    python scripts/restaurar_historico.py --start-year 2010 --end-year 2025
+    python scripts/restaurar_historico.py --anos 2022 2023  # alias retrocompativel
 """
 from __future__ import annotations
 
@@ -14,6 +15,7 @@ import argparse
 import logging
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
 from sqlalchemy import text
@@ -38,8 +40,9 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 BATCH_SIZE = 10
-DEFAULT_MAX = 50
-DEFAULT_ANOS = [2022, 2023, 2024]
+DEFAULT_MAX = 500
+DEFAULT_START_YEAR = 2010
+DEFAULT_END_YEAR = datetime.now().year
 
 
 def load_company_catalog(settings) -> list[tuple[int, str]]:
@@ -145,8 +148,33 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Detecta e restaura anos faltantes no banco CVM")
     parser.add_argument("--run", action="store_true", help="Executa a restauracao; sem isso fica em dry-run")
     parser.add_argument("--max", type=int, default=DEFAULT_MAX, help=f"Maximo de empresas (padrao: {DEFAULT_MAX})")
-    parser.add_argument("--anos", type=int, nargs="+", default=DEFAULT_ANOS, help=f"Anos a verificar (padrao: {DEFAULT_ANOS})")
+    parser.add_argument(
+        "--start-year",
+        type=int,
+        default=DEFAULT_START_YEAR,
+        dest="start_year",
+        help=f"Ano inicial do range a verificar (padrao: {DEFAULT_START_YEAR})",
+    )
+    parser.add_argument(
+        "--end-year",
+        type=int,
+        default=DEFAULT_END_YEAR,
+        dest="end_year",
+        help=f"Ano final do range a verificar (padrao: {DEFAULT_END_YEAR})",
+    )
+    parser.add_argument(
+        "--anos",
+        type=int,
+        nargs="+",
+        default=None,
+        help="[alias retrocompativel] Lista de anos individuais; sobrescreve --start-year/--end-year",
+    )
     args = parser.parse_args()
+
+    if args.anos is not None:
+        anos = sorted(set(args.anos))
+    else:
+        anos = list(range(args.start_year, args.end_year + 1))
 
     settings = build_settings(project_root=ROOT)
     report = collect_startup_report(
@@ -161,7 +189,7 @@ def main() -> None:
             raise SystemExit(1)
 
     service = HeadlessRefreshService(settings=settings)
-    items, stats = build_restore_items(service, settings, args.anos)
+    items, stats = build_restore_items(service, settings, anos)
     items = items[: args.max]
 
     if not items:
@@ -187,7 +215,7 @@ def main() -> None:
         log.info("[DRY-RUN] Use --run para executar a restauracao.")
         return
 
-    run_restore(service, settings, items, args.anos)
+    run_restore(service, settings, items, anos)
     log.info("Restauracao concluida.")
 
 
