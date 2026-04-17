@@ -47,8 +47,13 @@ TOP_COVERAGE_CODES = tuple(list(TICKER_MAP)[:80])
 def _clean_text(value: object) -> str | None:
     if value is None:
         return None
+    try:
+        if pd.isna(value):
+            return None
+    except TypeError:
+        pass
     text_value = str(value).strip()
-    if not text_value or text_value.lower() == "nan":
+    if not text_value or text_value.lower() in {"nan", "<na>"}:
         return None
     return text_value
 
@@ -208,22 +213,7 @@ def upsert_companies(conn, df: pd.DataFrame, dry_run: bool) -> None:
     )
 
     updated_at = datetime.utcnow().replace(microsecond=0).isoformat()
-    records = [
-        {
-            "cd_cvm": int(row["cd_cvm"]),
-            "company_name": row["company_name"],
-            "nome_comercial": row["nome_comercial"],
-            "cnpj": row["cnpj"],
-            "setor_cvm": row["setor_cvm"],
-            "setor_analitico": row["setor_analitico"],
-            "company_type": row["company_type"],
-            "ticker_b3": row["ticker_b3"],
-            "coverage_rank": int(row["coverage_rank"]) if pd.notna(row["coverage_rank"]) else None,
-            "is_active": int(row["is_active"]),
-            "updated_at": updated_at,
-        }
-        for _, row in df.iterrows()
-    ]
+    records = build_upsert_records(df, updated_at)
     if records:
         conn.execute(upsert_sql, records)
 
@@ -256,6 +246,28 @@ def print_summary(conn) -> None:
     log.info("  Ativas em companies: %s", row[1] or 0)
     log.info("  Com ticker_b3: %s", row[2] or 0)
     log.info("  Com coverage_rank: %s", row[3] or 0)
+
+
+def build_upsert_records(df: pd.DataFrame, updated_at: str) -> list[dict[str, object]]:
+    records: list[dict[str, object]] = []
+    for _, row in df.iterrows():
+        cd_cvm = int(row["cd_cvm"])
+        records.append(
+            {
+                "cd_cvm": cd_cvm,
+                "company_name": _clean_text(row["company_name"]) or f"CVM_{cd_cvm}",
+                "nome_comercial": _clean_text(row["nome_comercial"]),
+                "cnpj": _clean_text(row["cnpj"]),
+                "setor_cvm": _clean_text(row["setor_cvm"]),
+                "setor_analitico": _clean_text(row["setor_analitico"]),
+                "company_type": _clean_text(row["company_type"]) or "comercial",
+                "ticker_b3": _clean_text(row["ticker_b3"]),
+                "coverage_rank": int(row["coverage_rank"]) if pd.notna(row["coverage_rank"]) else None,
+                "is_active": int(row["is_active"]),
+                "updated_at": updated_at,
+            }
+        )
+    return records
 
 
 def parse_args() -> argparse.Namespace:
