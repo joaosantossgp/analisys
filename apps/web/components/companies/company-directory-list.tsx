@@ -1,114 +1,105 @@
 import Link from "next/link";
+import { InboxIcon } from "lucide-react";
 
+import { CompanyCard } from "@/components/companies/company-card";
+import { CompanyRow } from "@/components/companies/company-row";
 import { SurfaceCard } from "@/components/shared/design-system-recipes";
-import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import type { CompanyDirectoryItem } from "@/lib/api";
-import { formatInteger, formatYearsLabel } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 
 type CompanyDirectoryListProps = {
   items: CompanyDirectoryItem[];
+  viewMode: "rows" | "cards";
+  viewRowsHref: string;
+  viewCardsHref: string;
+  hasActiveFilters: boolean;
+  clearHref: string;
 };
 
-export function CompanyDirectoryList({ items }: CompanyDirectoryListProps) {
-  if (items.length === 0) {
-    return (
-      <SurfaceCard
-        tone="muted"
-        padding="hero"
-        className="items-center text-center"
-      >
-        <p className="font-heading text-2xl text-foreground">
-          Nenhuma empresa encontrada.
-        </p>
-        <p className="max-w-2xl text-sm leading-7 text-muted-foreground">
-          Ajuste o termo de busca ou remova o filtro setorial para ampliar o
-          diretorio disponivel.
-        </p>
-      </SurfaceCard>
-    );
-  }
+export function CompanyDirectoryList({
+  items,
+  viewMode,
+  viewRowsHref,
+  viewCardsHref,
+  hasActiveFilters,
+  clearHref,
+}: CompanyDirectoryListProps) {
+  const toggleBase =
+    "flex h-8 w-8 items-center justify-center rounded-lg border transition-colors text-sm";
 
   return (
-    <SurfaceCard tone="default" padding="none" className="overflow-hidden">
-      <div className="divide-y divide-border/55">
-        {items.map((item) => {
-          const hasFinancialData = item.has_financial_data !== false;
-
-          return (
-            <article
-              key={item.cd_cvm}
-              className={cn(
-                "grid gap-6 px-6 py-6 transition-colors md:grid-cols-[minmax(0,1fr)_auto]",
-                hasFinancialData ? "group hover:bg-muted/35" : "bg-background/35",
-              )}
-            >
-              <div className="space-y-4">
-                <div className="flex flex-wrap items-center gap-3">
-                  <h2 className="font-heading text-[1.35rem] leading-tight text-foreground">
-                    {item.company_name}
-                  </h2>
-                  {item.ticker_b3 ? (
-                    <Badge
-                      variant="outline"
-                      className="rounded-full border-border/75 bg-background/70 text-[0.68rem] uppercase tracking-[0.16em] text-muted-foreground"
-                    >
-                      {item.ticker_b3}
-                    </Badge>
-                  ) : null}
-                  <Badge
-                    variant="outline"
-                    className="rounded-full border-border/75 bg-secondary/35 text-[0.72rem] text-foreground"
-                  >
-                    {item.sector_name}
-                  </Badge>
-                  {!hasFinancialData ? (
-                    <Badge
-                      variant="secondary"
-                      className="rounded-full bg-muted text-[0.72rem] text-muted-foreground"
-                    >
-                      Sem dados
-                    </Badge>
-                  ) : null}
-                </div>
-
-                <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
-                  <span>CVM {item.cd_cvm}</span>
-                  <span>{formatYearsLabel(item.anos_disponiveis)}</span>
-                  <span>
-                    {hasFinancialData ? `${formatInteger(item.total_rows)} linhas` : "-"}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center md:justify-end">
-                {hasFinancialData ? (
-                  <Link
-                    href={`/empresas/${item.cd_cvm}`}
-                    className={cn(
-                      buttonVariants({ variant: "outline", size: "lg" }),
-                      "rounded-full px-5 transition-transform group-hover:-translate-y-px",
-                    )}
-                  >
-                    Ver empresa
-                  </Link>
-                ) : (
-                  <span
-                    aria-disabled="true"
-                    className={cn(
-                      buttonVariants({ variant: "ghost", size: "lg" }),
-                      "pointer-events-none rounded-full px-5 text-muted-foreground opacity-70",
-                    )}
-                  >
-                    Ver empresa
-                  </span>
-                )}
-              </div>
-            </article>
-          );
-        })}
+    <div className="space-y-4">
+      <div className="flex items-center justify-end gap-1.5">
+        <Link
+          href={viewRowsHref}
+          title="Ver em linhas"
+          className={cn(
+            toggleBase,
+            viewMode === "rows"
+              ? "border-border bg-muted text-foreground"
+              : "border-border/40 text-muted-foreground hover:border-border hover:text-foreground",
+          )}
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+            <rect x="1" y="2" width="12" height="2" rx="0.5" fill="currentColor" />
+            <rect x="1" y="6" width="12" height="2" rx="0.5" fill="currentColor" />
+            <rect x="1" y="10" width="12" height="2" rx="0.5" fill="currentColor" />
+          </svg>
+        </Link>
+        <Link
+          href={viewCardsHref}
+          title="Ver em cards"
+          className={cn(
+            toggleBase,
+            viewMode === "cards"
+              ? "border-border bg-muted text-foreground"
+              : "border-border/40 text-muted-foreground hover:border-border hover:text-foreground",
+          )}
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+            <rect x="1" y="1" width="5" height="5" rx="1" fill="currentColor" />
+            <rect x="8" y="1" width="5" height="5" rx="1" fill="currentColor" />
+            <rect x="1" y="8" width="5" height="5" rx="1" fill="currentColor" />
+            <rect x="8" y="8" width="5" height="5" rx="1" fill="currentColor" />
+          </svg>
+        </Link>
       </div>
-    </SurfaceCard>
+
+      {items.length === 0 ? (
+        <SurfaceCard tone="muted" padding="hero" className="items-center text-center">
+          <InboxIcon className="size-10 text-muted-foreground/50" />
+          <p className="font-heading text-xl text-foreground">
+            Nenhuma empresa encontrada.
+          </p>
+          <p className="max-w-sm text-sm leading-7 text-muted-foreground">
+            Ajuste o termo de busca ou remova o filtro setorial para ampliar o
+            diretório disponível.
+          </p>
+          {hasActiveFilters ? (
+            <Link
+              href={clearHref}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "rounded-full")}
+            >
+              Limpar filtros
+            </Link>
+          ) : null}
+        </SurfaceCard>
+      ) : viewMode === "cards" ? (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {items.map((item) => (
+            <CompanyCard key={item.cd_cvm} item={item} />
+          ))}
+        </div>
+      ) : (
+        <SurfaceCard tone="default" padding="none" className="overflow-hidden">
+          <div className="divide-y divide-border/45">
+            {items.map((item) => (
+              <CompanyRow key={item.cd_cvm} item={item} />
+            ))}
+          </div>
+        </SurfaceCard>
+      )}
+    </div>
   );
 }

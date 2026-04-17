@@ -1,10 +1,9 @@
 "use client";
 
-import { SearchIcon } from "lucide-react";
+import { SearchIcon, XIcon } from "lucide-react";
 import { startTransition, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { SurfaceCard } from "@/components/shared/design-system-recipes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -35,6 +34,7 @@ export function CompanyDirectoryFilters({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState(currentSearch);
+
   const hasCurrentSector = sectors.some(
     (sector) => sector.sector_slug === currentSector,
   );
@@ -43,7 +43,11 @@ export function CompanyDirectoryFilters({
       ? "all"
       : currentSector ?? "all";
 
-  function pushFilters(updates: Record<string, string | number | null | undefined>) {
+  const hasActiveFilters = Boolean(currentSearch || currentSector);
+
+  function pushFilters(
+    updates: Record<string, string | number | null | undefined>,
+  ) {
     const query = mergeSearchParams(searchParams.toString(), updates);
     const href = query ? `/empresas?${query}` : "/empresas";
 
@@ -70,68 +74,85 @@ export function CompanyDirectoryFilters({
     });
   }
 
+  function handleClear() {
+    setSearch("");
+    pushFilters({ busca: null, setor: null, pagina: null });
+  }
+
   return (
-    <SurfaceCard tone="subtle" padding="md">
-      <form
-        onSubmit={handleSubmit}
-        className="flex flex-col gap-3 lg:flex-row lg:items-center"
-      >
-        <div className="flex flex-1 items-center gap-3 rounded-[1.15rem] border border-border/65 bg-muted/55 px-4 py-3">
-          <SearchIcon className="size-4 text-muted-foreground" />
+    <form onSubmit={handleSubmit} className="space-y-5">
+      <p className="eyebrow text-muted-foreground">Filtros</p>
+
+      <div className="space-y-1.5">
+        <label className="text-xs font-medium text-foreground">Busca</label>
+        <div className="flex items-center gap-2 rounded-[1rem] border border-border/65 bg-muted/55 px-3 py-2.5">
+          <SearchIcon className="size-3.5 shrink-0 text-muted-foreground" />
           <Input
             type="search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Buscar por nome, ticker ou codigo CVM"
-            className="h-auto border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
+            placeholder="Nome, ticker ou CVM"
+            className="h-auto border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0"
           />
         </div>
+      </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row lg:w-auto">
-          <Select
-            value={selectValue}
-            disabled={sectorFilterUnavailable}
-            onValueChange={(value) => {
-              const nextSector = value === "all" ? null : value;
-              track("companies_filter_changed", {
-                search,
-                sector: nextSector,
-                source: "sector",
-              });
-              pushFilters({
-                setor: nextSector,
-                pagina: null,
-              });
-            }}
-          >
-            <SelectTrigger className="h-11 min-w-56 rounded-[1.15rem] bg-background px-4">
-              <SelectValue
-                placeholder={
-                  sectorFilterUnavailable
-                    ? "Filtro setorial indisponivel"
-                    : "Todos os setores"
-                }
-              />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectItem value="all">Todos os setores</SelectItem>
-                {!sectorFilterUnavailable
-                  ? sectors.map((sector) => (
-                      <SelectItem key={sector.sector_slug} value={sector.sector_slug}>
-                        {sector.sector_name} - {sector.company_count}
-                      </SelectItem>
-                    ))
-                  : null}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
+      <div className="space-y-1.5">
+        <label className="text-xs font-medium text-foreground">Setor</label>
+        <Select
+          value={selectValue}
+          disabled={sectorFilterUnavailable}
+          onValueChange={(value) => {
+            const nextSector = value === "all" ? null : value;
+            track("companies_filter_changed", {
+              search,
+              sector: nextSector,
+              source: "sector",
+            });
+            pushFilters({ setor: nextSector, pagina: null });
+          }}
+        >
+          <SelectTrigger className="h-10 w-full rounded-[1rem] bg-background px-3 text-sm">
+            <SelectValue
+              placeholder={
+                sectorFilterUnavailable
+                  ? "Filtro indisponível"
+                  : "Todos os setores"
+              }
+            />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              <SelectItem value="all">Todos os setores</SelectItem>
+              {!sectorFilterUnavailable
+                ? sectors.map((sector) => (
+                    <SelectItem
+                      key={sector.sector_slug}
+                      value={sector.sector_slug}
+                    >
+                      {sector.sector_name} · {sector.company_count}
+                    </SelectItem>
+                  ))
+                : null}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      </div>
 
-          <Button type="submit" size="lg" className="h-11 rounded-full px-5">
-            Aplicar filtros
-          </Button>
-        </div>
-      </form>
-    </SurfaceCard>
+      <Button type="submit" size="sm" className="w-full rounded-full">
+        Aplicar filtros
+      </Button>
+
+      {hasActiveFilters ? (
+        <button
+          type="button"
+          onClick={handleClear}
+          className="flex w-full items-center justify-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <XIcon className="size-3" />
+          Limpar filtros
+        </button>
+      ) : null}
+    </form>
   );
 }
