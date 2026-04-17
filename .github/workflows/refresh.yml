@@ -1,9 +1,9 @@
-name: Atualizacao Semanal CVM
+name: Atualizacao Mensal CVM
 
 on:
   schedule:
-    - cron: "0 9 * * 0"   # Domingos 09h UTC (06h BRT)
-  workflow_dispatch:        # trigger manual para testes
+    - cron: "0 9 1 * *"   # Dia 1 de cada mes, 09h UTC (06h BRT)
+  workflow_dispatch:
 
 jobs:
   refresh:
@@ -36,7 +36,7 @@ jobs:
       - name: Resolver anos de refresh
         id: anos
         run: |
-          # Use repo variables if defined; fall back to current and previous year
+          # Usa repo vars se definidas; caso contrario, verifica apenas ano atual e anterior.
           CURR="${{ vars.REFRESH_YEAR_CURR }}"
           PREV="${{ vars.REFRESH_YEAR_PREV }}"
           if [ -z "$CURR" ]; then

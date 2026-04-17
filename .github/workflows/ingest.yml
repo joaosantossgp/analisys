@@ -27,17 +27,13 @@ on:
           - "false"
           - "true"
       dry_run:
-        description: "Dry run — show plan without downloading"
+        description: "Dry run - show plan without downloading"
         required: false
         default: "false"
         type: choice
         options:
           - "false"
           - "true"
-
-  schedule:
-    # Runs on the 1st and 15th of every month at 02:00 UTC
-    - cron: "0 2 1,15 * *"
 
 jobs:
   ingest:
@@ -78,13 +74,7 @@ jobs:
             END_YEAR=$(date +%Y)
           fi
           echo "end_year=$END_YEAR" >> "$GITHUB_OUTPUT"
-
-          # Scheduled runs use full history (2010–present); manual dispatch uses the input value
-          if [ "${{ github.event_name }}" = "schedule" ]; then
-            echo "start_year=2010" >> "$GITHUB_OUTPUT"
-          else
-            echo "start_year=${{ github.event.inputs.start_year || '2022' }}" >> "$GITHUB_OUTPUT"
-          fi
+          echo "start_year=${{ github.event.inputs.start_year || '2022' }}" >> "$GITHUB_OUTPUT"
 
       - name: Build flags
         id: flags
@@ -96,10 +86,6 @@ jobs:
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
             FLAGS="$FLAGS --dry-run"
           fi
-          # Scheduled runs always skip yfinance to keep runtime under limits
-          if [ "${{ github.event_name }}" = "schedule" ]; then
-            FLAGS="$FLAGS --skip-yfinance"
-          fi
           echo "flags=$FLAGS" >> "$GITHUB_OUTPUT"
 
       - name: Run batch ingestion
@@ -110,7 +96,7 @@ jobs:
             --end-year "${{ steps.years.outputs.end_year }}" \
             ${{ steps.flags.outputs.flags }}
 
-      - name: Smoke check — verify API responds with data
+      - name: Smoke check - verify API responds with data
         if: github.event.inputs.dry_run != 'true'
         run: |
           TOTAL=$(curl -sf "https://analisys-production.up.railway.app/companies?page=1&page_size=1" \

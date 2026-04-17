@@ -64,13 +64,13 @@ jobs:
                   )
               ).scalars().all()
 
-          expected_ranks = list(range(1, 81))
+          expected_ranks = list(range(1, 121))
           if total < 600:
               print(f"::error::Expected at least 600 companies after seed, got {total}.")
               sys.exit(1)
           if coverage_ranks != expected_ranks:
               print(
-                  "::error::Expected coverage_rank sequence 1..80 with no gaps; "
+                  "::error::Expected coverage_rank sequence 1..120 with no gaps; "
                   f"got {len(coverage_ranks)} ranked rows and sequence {coverage_ranks[:10]}..."
               )
               sys.exit(1)

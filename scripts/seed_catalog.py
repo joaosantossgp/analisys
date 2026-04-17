@@ -5,7 +5,7 @@ Seed idempotente da tabela `companies` a partir do cadastro CVM.
 - Insere ou atualiza todas as empresas ativas do catalogo.
 - Mantem ticker_b3 e company_type ja existentes quando o catalogo nao traz
   informacao melhor.
-- Atribui coverage_rank de 1 a 80 para os primeiros cd_cvm definidos em
+- Atribui coverage_rank de 1 a 120 para os primeiros cd_cvm definidos em
   src.ticker_map.TICKER_MAP.
 """
 from __future__ import annotations
@@ -41,7 +41,7 @@ log = logging.getLogger(__name__)
 
 CVM_MASTER_URL = "https://dados.cvm.gov.br/dados/CIA_ABERTA/CAD/DADOS/cad_cia_aberta.csv"
 ACTIVE_STATUS_VALUES = {"ATIVO", "A"}
-TOP_COVERAGE_CODES = tuple(list(TICKER_MAP)[:80])
+TOP_COVERAGE_CODES = tuple(list(TICKER_MAP)[:120])
 
 
 def _clean_text(value: object) -> str | None:

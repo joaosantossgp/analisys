@@ -5,7 +5,7 @@ import math
 
 import pandas as pd
 
-from scripts.seed_catalog import build_upsert_records
+from scripts.seed_catalog import TOP_COVERAGE_CODES, build_upsert_records
 
 
 def test_build_upsert_records_normalizes_nullable_fields_to_none():
@@ -43,3 +43,8 @@ def test_build_upsert_records_normalizes_nullable_fields_to_none():
             "updated_at": "2026-04-17T00:00:00",
         }
     ]
+
+
+def test_top_coverage_codes_expanded_to_120_without_duplicates():
+    assert len(TOP_COVERAGE_CODES) == 120
+    assert len(set(TOP_COVERAGE_CODES)) == 120
