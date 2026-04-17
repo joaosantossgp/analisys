@@ -1,3 +1,21 @@
+export const SECTOR_COLOR: Record<string, string> = {
+  Financeiro:   '#1E88E5',
+  Tecnologia:   '#D32F2F',
+  'Saúde':      '#43A047',
+  Industrial:   '#FFB300',
+  Varejo:       '#E91E63',
+  Utilidades:   '#00897B',
+  Energia:      '#FF6F00',
+  'Mineração':  '#8D6E63',
+  'Agronegócio':'#558B2F',
+  'Imobiliário':'#7B1FA2',
+};
+
+export function getSectorColor(sector: string | null | undefined): string {
+  if (!sector) return '#64748B';
+  return SECTOR_COLOR[sector] ?? '#64748B';
+}
+
 export const HOME_QUICK_LINKS = [
   {
     label: "Comparar",
