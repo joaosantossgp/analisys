@@ -450,9 +450,6 @@ class HealthYearCoverage:
 class HealthPriority:
     cd_cvm: int
     company_name: str
-    coverage_rank: int | None
-    last_status: str | None
-    excluded_from_queue: bool
     risk_level: str
     priority_score: int
     missing_years_count: int
@@ -460,6 +457,9 @@ class HealthPriority:
     years_missing: tuple[int, ...]
     recommended_action: str
     reason: str
+    coverage_rank: int | None = None
+    last_status: str | None = None
+    excluded_from_queue: bool = False
 
     @classmethod
     def from_payload(cls, payload: dict[str, Any]) -> "HealthPriority":

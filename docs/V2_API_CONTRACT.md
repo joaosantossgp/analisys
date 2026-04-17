@@ -409,51 +409,6 @@ Resposta exemplo:
 ]
 ```
 
-### `POST /companies/request-refresh/top-ranked?limit=&start_year=&end_year=`
-
-Parametros:
-- `limit`: opcional, default `80`, maximo `80`
-- `start_year`: opcional, default `2010`
-- `end_year`: opcional, default `ultimo ano fechado`
-
-DTO de saida:
-- `src.contracts.RankedRefreshQueueResult`
-
-Resposta exemplo:
-
-```json
-{
-  "start_year": 2023,
-  "end_year": 2024,
-  "requested_limit": 3,
-  "total_ranked": 3,
-  "queued_count": 1,
-  "already_queued_count": 0,
-  "no_data_excluded_count": 1,
-  "already_complete_count": 1,
-  "dispatch_failed_count": 0,
-  "items": [
-    {
-      "cd_cvm": 4170,
-      "company_name": "VALE",
-      "coverage_rank": 2,
-      "status": "queued",
-      "last_status": null,
-      "missing_years_count": 1,
-      "years_missing": [2023],
-      "note": "Workflow enfileirado para backfill anual entre 2023 e 2024."
-    }
-  ]
-}
-```
-
-Regras do endpoint:
-- a fila usa `coverage_rank ASC` como universo operacional
-- nao reenfileira empresas com `last_status = no_data`
-- trata `last_status = queued` recente como `already_queued`
-- empresas com cobertura anual completa na janela saem como `already_complete`
-- para empresas com cobertura parcial, o workflow recebe a janela completa e o pipeline reaproveita anos ja completos internamente
-
 ### `GET /base-health?start_year=&end_year=&force_refresh=`
 
 Parametros:
@@ -471,68 +426,20 @@ Resposta exemplo:
   "generated_at": "2026-04-08T09:00:00",
   "start_year": 2023,
   "end_year": 2024,
-  "total_cells": 8,
-  "completed_cells": 4,
-  "missing_cells": 4,
-  "pct": 50.0,
-  "health_score": 54.5,
-  "health_status": "critico",
-  "eta_hours": null,
-  "throughput_per_hour": null,
-  "throughput_confidence": "low",
-  "per_year": [
-    {
-      "year": 2023,
-      "total_companies": 4,
-      "completed": 1,
-      "missing": 3,
-      "pct": 25.0,
-      "eta_hours": null
-    },
-    {
-      "year": 2024,
-      "total_companies": 4,
-      "completed": 3,
-      "missing": 1,
-      "pct": 75.0,
-      "eta_hours": null
-    }
-  ],
-  "prioritized_companies": [
-    {
-      "cd_cvm": 4170,
-      "company_name": "VALE",
-      "coverage_rank": 2,
-      "last_status": null,
-      "excluded_from_queue": false,
-      "risk_level": "alto",
-      "priority_score": 7925,
-      "missing_years_count": 1,
-      "gap_to_leader_years": 1,
-      "years_missing": [2023],
-      "recommended_action": "queue_historical_backfill",
-      "reason": "Empresa com dados parciais; falta backfill anual dos anos ausentes."
-    }
-  ],
-  "raw": {
-    "scope": "database_backed",
-    "ranked_backlog": {
-      "total_ranked": 3,
-      "companies_with_some_data": 3,
-      "fully_covered_companies": 1,
-      "queue_eligible_companies": 2,
-      "already_queued_companies": 0,
-      "no_data_excluded_companies": 0
-    }
-  }
+  "total_cells": 4,
+  "completed_cells": 3,
+  "missing_cells": 1,
+  "pct": 75.0,
+  "health_score": 82.5,
+  "health_status": "atencao",
+  "eta_hours": 1.5,
+  "throughput_per_hour": 2.0,
+  "throughput_confidence": "medium",
+  "per_year": [],
+  "prioritized_companies": [],
+  "raw": {}
 }
 ```
-
-Regras do endpoint:
-- a cobertura anual e calculada diretamente do banco em `financial_reports`
-- uma celula so conta como concluida quando o ano possui `BPA + BPP + DRE + DFC` com `PERIOD_LABEL = REPORT_YEAR`
-- o campo `raw.ranked_backlog` resume a fila operacional das empresas ranqueadas por `coverage_rank`
-- `prioritized_companies` expande a fila ranqueada com `coverage_rank`, `last_status` e `excluded_from_queue`
 
 ## Regras de interface
 

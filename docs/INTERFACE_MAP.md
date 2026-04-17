@@ -237,7 +237,6 @@ de produto. Nao consome endpoints de API.
 | `GET /sectors` | `/setores` |
 | `GET /sectors/{slug}` | `/setores/[slug]` |
 | `GET /refresh-status` | Nao consumido pelo frontend ainda |
-| `POST /companies/request-refresh/top-ranked` | Nao consumido pelo frontend ainda |
 | `GET /base-health` | `/` (parcialmente, se trust strip expandir) |
 
 ---
