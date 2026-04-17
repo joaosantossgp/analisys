@@ -27,12 +27,20 @@ export function CompanyHeader({
   }
   const compareHref = `/comparar?${compareParams.toString()}`;
   const latestSelectedYear = selectedYears[selectedYears.length - 1] ?? null;
+  const earliestSelectedYear = selectedYears[0] ?? null;
   const sectorHref =
     company.sector_slug && latestSelectedYear
       ? `/setores/${company.sector_slug}?ano=${latestSelectedYear}`
       : company.sector_slug
         ? `/setores/${company.sector_slug}`
         : null;
+
+  const freshnessLabel =
+    earliestSelectedYear && latestSelectedYear
+      ? earliestSelectedYear === latestSelectedYear
+        ? `Dados ${latestSelectedYear}`
+        : `Dados ${earliestSelectedYear}\u2013${latestSelectedYear}`
+      : "Fonte CVM";
 
   return (
     <div className="space-y-5">
@@ -56,27 +64,28 @@ export function CompanyHeader({
         </ol>
       </nav>
 
-      <SurfaceCard tone="default" padding="lg">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+      <SurfaceCard tone="hero" padding="hero">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <InfoChip tone="brand">PG-03 - Detalhe da empresa</InfoChip>
+            <div className="flex flex-wrap items-center gap-2">
+              <InfoChip tone="brand">Detalhe da companhia</InfoChip>
               <InfoChip>CVM {company.cd_cvm}</InfoChip>
+              <InfoChip tone="muted">Fonte CVM &middot; {freshnessLabel}</InfoChip>
             </div>
 
             <div className="space-y-3">
               <h1 className="font-heading text-4xl tracking-[-0.05em] text-foreground sm:text-5xl">
                 {company.company_name}
               </h1>
-              <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                 <span>{company.ticker_b3 ?? "Sem ticker"}</span>
+                <span aria-hidden="true">&middot;</span>
                 <span>{company.sector_name}</span>
-                <span>{selectedYears.join(", ")}</span>
               </div>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <ExcelDownloadButton
               endpoint={`/api/companies/${company.cd_cvm}/excel`}
               fallbackFilename={`${company.ticker_b3 ?? `cvm${company.cd_cvm}`}.xlsx`}
@@ -94,17 +103,17 @@ export function CompanyHeader({
               <Link
                 href={sectorHref}
                 className={cn(
-                  buttonVariants({ variant: "outline", size: "lg" }),
-                  "rounded-full px-5",
+                  buttonVariants({ variant: "ghost", size: "lg" }),
+                  "rounded-full px-4",
                 )}
               >
                 Ver setor
               </Link>
             ) : (
               <Button
-                variant="outline"
+                variant="ghost"
                 size="lg"
-                className="rounded-full px-5"
+                className="rounded-full px-4"
                 disabled
               >
                 Setor indisponivel
@@ -113,11 +122,11 @@ export function CompanyHeader({
             <Link
               href={compareHref}
               className={cn(
-                buttonVariants({ variant: "outline", size: "lg" }),
-                "rounded-full px-5",
+                buttonVariants({ variant: "ghost", size: "lg" }),
+                "rounded-full px-4",
               )}
             >
-              Comparar empresa
+              Comparar
             </Link>
           </div>
         </div>
