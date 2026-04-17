@@ -106,21 +106,7 @@ jobs:
       - name: Run web build
         run: npm run build
 
-  deploy-api:
-    needs: [test-python]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    runs-on: ubuntu-latest
-    env:
-      RAILWAY_DEPLOY_HOOK: ${{ secrets.RAILWAY_DEPLOY_HOOK }}
-    steps:
-      - name: Skip Railway deploy when hook is missing
-        if: env.RAILWAY_DEPLOY_HOOK == ''
-        run: echo "::warning::RAILWAY_DEPLOY_HOOK is not configured; skipping Railway deploy."
-
-      - name: Trigger Railway deploy
-        if: env.RAILWAY_DEPLOY_HOOK != ''
-        run: curl -fsSL -X POST "$RAILWAY_DEPLOY_HOOK"
-
+  # The API deploys from Railway's native GitHub autodeploy on pushes to main.
   deploy-web:
     needs: [test-web]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
