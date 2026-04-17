@@ -62,7 +62,7 @@ export function CompanyNoDataPage({ company }: CompanyNoDataPageProps) {
 
         <SurfaceCard tone="hero" padding="hero" className="space-y-8">
           <div className="flex flex-wrap items-center gap-3">
-            <InfoChip tone="brand">PG-03 - Detalhe da empresa</InfoChip>
+            <InfoChip tone="brand">Detalhe da companhia</InfoChip>
             <InfoChip>CVM {company.cd_cvm}</InfoChip>
             {company.ticker_b3 ? <InfoChip tone="muted">{company.ticker_b3}</InfoChip> : null}
           </div>

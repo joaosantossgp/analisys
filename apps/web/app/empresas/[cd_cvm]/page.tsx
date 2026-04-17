@@ -10,6 +10,7 @@ import { CompanyStatements } from "@/components/company/company-statements";
 import { CompanyUrlTabs } from "@/components/company/company-url-tabs";
 import { CompanyYearSelector } from "@/components/company/company-year-selector";
 import {
+  InfoChip,
   PageShell,
   SectionHeading,
   SurfaceCard,
@@ -48,15 +49,17 @@ function DetailPageError({
 }) {
   return (
     <PageShell density="relaxed" className="max-w-4xl">
-      <SurfaceCard tone="hero" padding="hero" className="space-y-6">
+      <SurfaceCard tone="default" padding="lg" className="space-y-6">
+        <div className="flex flex-wrap items-center gap-2">
+          <InfoChip tone="brand">Detalhe da companhia</InfoChip>
+        </div>
         <SectionHeading
-          eyebrow="PG-03 - Detalhe da empresa"
-          title="Leitura detalhada indisponivel"
+          title="Detalhes indisponiveis"
           titleAs="h1"
-          description="A superficie de detalhe nao conseguiu carregar os dados desta companhia agora."
+          description="Nao foi possivel carregar os dados desta companhia agora."
         />
         <Alert className="rounded-[1.75rem] border border-destructive/25 bg-destructive/6 px-5 py-5 text-left">
-          <AlertTitle>Falha controlada da leitura detalhada</AlertTitle>
+          <AlertTitle>Falha na leitura detalhada</AlertTitle>
           <AlertDescription>{message}</AlertDescription>
         </Alert>
         <Link
@@ -168,24 +171,16 @@ export default async function EmpresaDetailPage({
 
       <CompanyHeader company={company} selectedYears={selectedYears} />
 
-      <SurfaceCard tone="subtle" padding="md" className="space-y-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.26em] text-muted-foreground">
-              Filtro temporal
-            </p>
-            <p className="text-sm leading-7 text-muted-foreground">
-              Quando nenhum parametro e informado, a pagina usa os tres anos mais
-              recentes disponiveis.
-            </p>
-          </div>
-          <CompanyYearSelector
-            pathname={pathname}
-            availableYears={availableYears}
-            selectedYears={selectedYears}
-          />
-        </div>
-      </SurfaceCard>
+      <div className="flex flex-wrap items-center gap-3 px-1">
+        <span className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
+          Periodo
+        </span>
+        <CompanyYearSelector
+          pathname={pathname}
+          availableYears={availableYears}
+          selectedYears={selectedYears}
+        />
+      </div>
 
       <CompanyUrlTabs
         pathname={pathname}
@@ -207,13 +202,13 @@ export default async function EmpresaDetailPage({
           </Alert>
         )
       ) : (
-        <div className="space-y-6">
-          <SurfaceCard tone="subtle" padding="md" className="space-y-4">
+        <SurfaceCard tone="default" padding="lg" className="space-y-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <SectionHeading
               eyebrow="Tipo de demonstracao"
-              title="Escolha a visao contabil disponivel"
+              title="Escolha a visao contabil"
               titleAs="h3"
-              description="A tabela abaixo respeita os anos selecionados e troca apenas a demonstracao ativa."
+              description="A tabela respeita os anos selecionados e troca apenas a demonstracao ativa."
               descriptionClassName="text-sm leading-7"
             />
             <CompanyUrlTabs
@@ -223,7 +218,7 @@ export default async function EmpresaDetailPage({
               options={Array.from(STATEMENT_OPTIONS)}
               eventName="company_statement_changed"
             />
-          </SurfaceCard>
+          </div>
           {statement ? (
             <CompanyStatements matrix={statement} />
           ) : (
@@ -235,7 +230,7 @@ export default async function EmpresaDetailPage({
               </AlertDescription>
             </Alert>
           )}
-        </div>
+        </SurfaceCard>
       )}
     </PageShell>
   );
