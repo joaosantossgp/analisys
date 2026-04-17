@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 
 import {
   InfoChip,
-  SurfaceCard,
   surfaceVariants,
 } from "@/components/shared/design-system-recipes";
 import { buttonVariants } from "@/components/ui/button";
@@ -122,129 +121,118 @@ export function CompanySearchHero({
   }
 
   return (
-    <SurfaceCard
-      tone="hero"
-      padding="hero"
-      className="relative overflow-visible"
-    >
-      <div className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[radial-gradient(circle_at_top_left,_rgba(183,110,44,0.14),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(25,78,55,0.1),_transparent_32%)]" />
-
-      <div className="relative space-y-7">
-        <div className="space-y-4">
-          <InfoChip tone="secondary">Descoberta orientada a analise</InfoChip>
-          <div className="space-y-4">
-            <h1 className="max-w-4xl font-heading text-4xl leading-[1.02] tracking-[-0.05em] text-foreground sm:text-5xl lg:text-6xl">
-              Entre por empresa e va direto ao historico que importa.
-            </h1>
-            <p className="max-w-2xl text-base leading-8 text-muted-foreground sm:text-lg">
-              Busque companhias abertas pelo nome, ticker ou codigo CVM e caia
-              direto em uma leitura publica, rapida e rastreavel dos numeros.
-            </p>
-          </div>
-        </div>
-
-        <form
-          action="/empresas"
-          className="space-y-4"
-          method="get"
-          onSubmit={handleSubmit}
-        >
-          <div className="relative">
-            <div className="flex flex-col gap-3 rounded-[1.5rem] border border-border/70 bg-background/92 p-3 shadow-[0_18px_45px_-40px_rgba(16,30,24,0.22)] sm:flex-row sm:items-center">
-              <div className="flex flex-1 items-center gap-3 rounded-[1.2rem] border border-border/60 bg-muted/55 px-4 py-3">
-                <SearchIcon className="size-4.5 text-muted-foreground" />
-                <Input
-                  name="busca"
-                  type="search"
-                  value={query}
-                  placeholder="PETROBRAS, VALE3 ou 9512"
-                  className="h-auto border-0 bg-transparent p-0 text-base shadow-none ring-0 focus-visible:ring-0"
-                  onChange={(event) => setQuery(event.target.value)}
-                  aria-label="Buscar empresa"
-                />
-              </div>
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <button
-                  type="submit"
-                  className={cn(
-                    buttonVariants({ size: "lg" }),
-                    "rounded-full px-5",
-                  )}
-                  disabled={isPending}
-                >
-                  Buscar empresa
-                  <ArrowRightIcon data-icon="inline-end" />
-                </button>
-                <Link
-                  href="/empresas"
-                  className={cn(
-                    buttonVariants({ variant: "outline", size: "lg" }),
-                    "rounded-full px-5",
-                  )}
-                >
-                  Ir para empresas
-                </Link>
-              </div>
-            </div>
-
-            {apiAvailable &&
-            (loadingSuggestions || suggestions.length > 0 || suggestionError) ? (
-              <div
-                className={cn(
-                  surfaceVariants({ tone: "default", padding: "none" }),
-                  "absolute inset-x-0 top-[calc(100%+0.75rem)] z-20 overflow-hidden",
-                )}
-              >
-                {loadingSuggestions ? (
-                  <p className="px-5 py-4 text-sm text-muted-foreground">
-                    Buscando sugestoes...
-                  </p>
-                ) : suggestionError ? (
-                  <p className="px-5 py-4 text-sm text-destructive">
-                    {suggestionError}
-                  </p>
-                ) : (
-                  <ul className="divide-y divide-border/50">
-                    {suggestions.map((item) => (
-                      <li key={item.cd_cvm}>
-                        <button
-                          type="button"
-                          className="flex w-full items-start justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/45"
-                          onClick={() => handleSuggestionSelection(item)}
-                        >
-                          <div className="space-y-1.5">
-                            <p className="font-medium text-foreground">
-                              {item.company_name}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {item.ticker_b3 ?? "Sem ticker"} - CVM {item.cd_cvm}
-                            </p>
-                          </div>
-                          <div className="space-y-1 text-right">
-                            <p className="text-sm text-foreground">
-                              {item.sector_name}
-                            </p>
-                            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                              {formatYearsLabel(item.anos_disponiveis)}
-                            </p>
-                          </div>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            ) : null}
-          </div>
-        </form>
-
-        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-          <InfoChip>{apiAvailable ? "API pronta para busca" : "API indisponivel"}</InfoChip>
-          {totalCompanies !== null ? (
-            <InfoChip>{formatCompactInteger(totalCompanies)} empresas com dados</InfoChip>
-          ) : null}
-        </div>
+    <div className="w-full max-w-[680px] mx-auto space-y-7 text-center">
+      <div className="space-y-5">
+        <h1 className="font-heading text-[clamp(2.5rem,5.5vw,4.25rem)] leading-[1.02] tracking-[-0.045em] text-foreground">
+          Análise financeira<br />
+          <span className="text-muted-foreground italic font-normal">
+            de quem está na bolsa.
+          </span>
+        </h1>
+        <p className="max-w-[560px] mx-auto text-[1.0625rem] leading-[1.55] text-muted-foreground">
+          Pesquise qualquer companhia aberta brasileira. Leia DRE, balanço e KPIs com 10+ anos de histórico, direto da CVM.
+        </p>
       </div>
-    </SurfaceCard>
+
+      <form
+        action="/empresas"
+        method="get"
+        onSubmit={handleSubmit}
+        className="relative"
+      >
+        <div className="flex flex-col gap-3 rounded-[1.5rem] border border-border/70 bg-background/92 p-3 shadow-[0_18px_45px_-40px_rgba(16,30,24,0.22)] sm:flex-row sm:items-center">
+          <div className="flex flex-1 items-center gap-3 rounded-[1.2rem] border border-border/60 bg-muted/55 px-4 py-3">
+            <SearchIcon className="size-4.5 text-muted-foreground" />
+            <Input
+              name="busca"
+              type="search"
+              value={query}
+              placeholder="PETROBRAS, VALE3 ou 9512"
+              className="h-auto border-0 bg-transparent p-0 text-base shadow-none ring-0 focus-visible:ring-0"
+              onChange={(event) => setQuery(event.target.value)}
+              aria-label="Buscar empresa"
+            />
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <button
+              type="submit"
+              className={cn(
+                buttonVariants({ size: "lg" }),
+                "rounded-full px-5",
+              )}
+              disabled={isPending}
+            >
+              Buscar empresa
+              <ArrowRightIcon data-icon="inline-end" />
+            </button>
+            <Link
+              href="/empresas"
+              className={cn(
+                buttonVariants({ variant: "outline", size: "lg" }),
+                "rounded-full px-5",
+              )}
+            >
+              Ir para empresas
+            </Link>
+          </div>
+        </div>
+
+        {apiAvailable &&
+        (loadingSuggestions || suggestions.length > 0 || suggestionError) ? (
+          <div
+            className={cn(
+              surfaceVariants({ tone: "default", padding: "none" }),
+              "absolute inset-x-0 top-[calc(100%+0.75rem)] z-20 overflow-hidden text-left",
+            )}
+          >
+            {loadingSuggestions ? (
+              <p className="px-5 py-4 text-sm text-muted-foreground">
+                Buscando sugestoes...
+              </p>
+            ) : suggestionError ? (
+              <p className="px-5 py-4 text-sm text-destructive">
+                {suggestionError}
+              </p>
+            ) : (
+              <ul className="divide-y divide-border/50">
+                {suggestions.map((item) => (
+                  <li key={item.cd_cvm}>
+                    <button
+                      type="button"
+                      className="flex w-full items-start justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/45"
+                      onClick={() => handleSuggestionSelection(item)}
+                    >
+                      <div className="space-y-1.5">
+                        <p className="font-medium text-foreground">
+                          {item.company_name}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {item.ticker_b3 ?? "Sem ticker"} - CVM {item.cd_cvm}
+                        </p>
+                      </div>
+                      <div className="space-y-1 text-right">
+                        <p className="text-sm text-foreground">
+                          {item.sector_name}
+                        </p>
+                        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                          {formatYearsLabel(item.anos_disponiveis)}
+                        </p>
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ) : null}
+      </form>
+
+      <div className="flex flex-wrap justify-center items-center gap-3 text-sm text-muted-foreground">
+        <InfoChip>{apiAvailable ? "API pronta para busca" : "API indisponivel"}</InfoChip>
+        {totalCompanies !== null ? (
+          <InfoChip>{formatCompactInteger(totalCompanies)} empresas com dados</InfoChip>
+        ) : null}
+      </div>
+    </div>
   );
 }
