@@ -41,9 +41,14 @@ def get_base_health(
     service: CVMReadService = Depends(get_read_service),
 ) -> HealthSnapshotPayload:
     ensure_api_ready(get_settings(request))
-    snapshot = service.get_health_snapshot(
-        start_year=start_year,
-        end_year=end_year,
-        force_refresh=force_refresh,
-    )
+    try:
+        snapshot = service.get_health_snapshot(
+            start_year=start_year,
+            end_year=end_year,
+            force_refresh=force_refresh,
+        )
+    except ValueError as exc:
+        from apps.api.app.dependencies import InvalidRequestError
+
+        raise InvalidRequestError(str(exc)) from exc
     return present_health_snapshot(snapshot)

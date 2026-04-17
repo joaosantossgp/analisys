@@ -19,6 +19,7 @@ from apps.api.app.presenters import (
     CompanyFiltersPayload,
     CompanyInfoPayload,
     KPIBundlePayload,
+    RankedRefreshQueuePayload,
     RefreshDispatchPayload,
     StatementMatrixPayload,
     StatementSummaryPayload,
@@ -26,6 +27,7 @@ from apps.api.app.presenters import (
     present_company_filters,
     present_company_info,
     present_kpis,
+    present_ranked_refresh_queue,
     present_statement,
     present_statement_summary,
 )
@@ -112,6 +114,31 @@ def request_company_refresh(
     if result == "already_queued":
         raise HTTPException(status_code=429, detail={"code": "refresh_already_queued"})
     return RefreshDispatchPayload(status=result, cd_cvm=cd_cvm)
+
+
+@router.post(
+    "/companies/request-refresh/top-ranked",
+    response_model=RankedRefreshQueuePayload,
+    status_code=202,
+    summary="Enfileira o backlog historico das empresas mais relevantes por coverage_rank.",
+)
+def request_top_ranked_refresh(
+    request: Request,
+    limit: int = Query(default=80, ge=1, le=80, description="Quantidade maxima de empresas ranqueadas."),
+    start_year: int = Query(default=2010, description="Ano inicial da fila historica."),
+    end_year: int | None = Query(default=None, description="Ano final da fila historica. Default: ultimo ano fechado."),
+    service: CVMReadService = Depends(get_read_service),
+) -> RankedRefreshQueuePayload:
+    ensure_api_ready(get_settings(request))
+    try:
+        dto = service.request_top_ranked_historical_refresh(
+            limit=limit,
+            start_year=start_year,
+            end_year=end_year,
+        )
+    except ValueError as exc:
+        raise InvalidRequestError(str(exc)) from exc
+    return present_ranked_refresh_queue(dto)
 
 
 @router.get(

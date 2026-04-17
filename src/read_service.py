@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import io
 import zipfile
+from collections import defaultdict
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import pandas as pd
-from sqlalchemy import inspect, text
+from sqlalchemy import bindparam, inspect, text
 
 from desktop.services import IntelligentSelectorService
 from src.contracts import (
@@ -18,6 +20,8 @@ from src.contracts import (
     CompanySearchResult,
     HealthSnapshot,
     KPIBundle,
+    RankedRefreshQueueItem,
+    RankedRefreshQueueResult,
     RefreshStatusDTO,
     SectorCompanyMetricDTO,
     SectorDetailDTO,
@@ -59,6 +63,14 @@ def _parse_years(raw_years: str | None) -> tuple[int, ...]:
 
 
 class CVMReadService:
+    REQUIRED_PACKAGE_STATEMENTS = ("BPA", "BPP", "DRE", "DFC")
+    BASE_HEALTH_OK_THRESHOLD = 90.0
+    BASE_HEALTH_CRITICAL_THRESHOLD = 70.0
+    THROUGHPUT_WINDOW_HOURS = 24
+    THROUGHPUT_MIN_SUCCESS_SAMPLES = 3
+    RANKED_REFRESH_QUEUE_WINDOW_MINUTES = 10
+    PRIORITIZED_BACKLOG_STALE_HOURS = 12
+
     def __init__(self, settings: AppSettings | None = None):
         self.settings = settings or get_settings()
         self.engine = build_engine(self.settings)
@@ -430,10 +442,14 @@ class CVMReadService:
         *,
         force_refresh: bool = False,
     ) -> HealthSnapshot:
-        payload = self.operational_service.build_base_health_snapshot(
+        del force_refresh
+        resolved_start_year, resolved_end_year = self._resolve_refresh_range(
             start_year=start_year,
             end_year=end_year,
-            force_refresh=force_refresh,
+        )
+        payload = self._build_db_health_snapshot(
+            start_year=resolved_start_year,
+            end_year=resolved_end_year,
         )
         return HealthSnapshot.from_payload(payload)
 
@@ -485,77 +501,769 @@ class CVMReadService:
         Returns one of: "dispatched", "dispatch_failed", "already_queued".
         Raises NotFoundError if cd_cvm is unknown.
         """
-        from datetime import datetime, timezone, timedelta
+        start_year, end_year = self._resolve_refresh_range(start_year=2010, end_year=None)
+        return self._dispatch_refresh_request(
+            cd_cvm=cd_cvm,
+            start_year=start_year,
+            end_year=end_year,
+            source_scope="on_demand",
+            already_queued_window=timedelta(minutes=self.RANKED_REFRESH_QUEUE_WINDOW_MINUTES),
+        )
+
+    def request_top_ranked_historical_refresh(
+        self,
+        *,
+        limit: int = 80,
+        start_year: int = 2010,
+        end_year: int | None = None,
+    ) -> RankedRefreshQueueResult:
+        resolved_start_year, resolved_end_year = self._resolve_refresh_range(
+            start_year=start_year,
+            end_year=end_year,
+        )
+        backlog = self._build_ranked_backlog(
+            limit=int(limit),
+            start_year=resolved_start_year,
+            end_year=resolved_end_year,
+        )
+
+        queue_window = timedelta(hours=self.PRIORITIZED_BACKLOG_STALE_HOURS)
+        items: list[RankedRefreshQueueItem] = []
+        counters = {
+            "queued_count": 0,
+            "already_queued_count": 0,
+            "no_data_excluded_count": 0,
+            "already_complete_count": 0,
+            "dispatch_failed_count": 0,
+        }
+
+        for row in backlog["items"]:
+            status = str(row["recommended_action"])
+            note = str(row["reason"])
+
+            if status == "queue_historical_backfill":
+                dispatch_result = self._dispatch_refresh_request(
+                    cd_cvm=int(row["cd_cvm"]),
+                    start_year=resolved_start_year,
+                    end_year=resolved_end_year,
+                    source_scope="ranked_backfill",
+                    already_queued_window=queue_window,
+                )
+                if dispatch_result == "dispatched":
+                    status = "queued"
+                    note = (
+                        f"Workflow enfileirado para backfill anual entre "
+                        f"{resolved_start_year} e {resolved_end_year}."
+                    )
+                    counters["queued_count"] += 1
+                elif dispatch_result == "already_queued":
+                    status = "already_queued"
+                    note = "Ja existe uma execucao recente em fila para esta empresa."
+                    counters["already_queued_count"] += 1
+                else:
+                    status = "dispatch_failed"
+                    note = "Falha ao disparar o workflow de backfill historico."
+                    counters["dispatch_failed_count"] += 1
+            elif status == "await_existing_queue":
+                status = "already_queued"
+                counters["already_queued_count"] += 1
+            elif status == "skip_no_data":
+                status = "no_data_excluded"
+                counters["no_data_excluded_count"] += 1
+            else:
+                status = "already_complete"
+                counters["already_complete_count"] += 1
+
+            items.append(
+                RankedRefreshQueueItem(
+                    cd_cvm=int(row["cd_cvm"]),
+                    company_name=str(row["company_name"]),
+                    coverage_rank=(
+                        int(row["coverage_rank"])
+                        if row.get("coverage_rank") is not None
+                        else None
+                    ),
+                    status=status,
+                    last_status=(
+                        str(row["last_status"])
+                        if row.get("last_status") is not None
+                        else None
+                    ),
+                    missing_years_count=int(row["missing_years_count"]),
+                    years_missing=tuple(int(year) for year in row["years_missing"]),
+                    note=note,
+                )
+            )
+
+        return RankedRefreshQueueResult(
+            start_year=resolved_start_year,
+            end_year=resolved_end_year,
+            requested_limit=int(limit),
+            total_ranked=int(backlog["summary"]["total_ranked"]),
+            queued_count=int(counters["queued_count"]),
+            already_queued_count=int(counters["already_queued_count"]),
+            no_data_excluded_count=int(counters["no_data_excluded_count"]),
+            already_complete_count=int(counters["already_complete_count"]),
+            dispatch_failed_count=int(counters["dispatch_failed_count"]),
+            items=tuple(items),
+        )
+
+    def _build_db_health_snapshot(self, *, start_year: int, end_year: int) -> dict[str, Any]:
+        active_rows = self._load_active_company_rows()
+        years_scope = list(range(int(start_year), int(end_year) + 1))
+        company_codes = [int(row["cd_cvm"]) for row in active_rows]
+        complete_years_map = self._load_complete_annual_years_map(
+            company_codes,
+            start_year=start_year,
+            end_year=end_year,
+        )
+        status_map = self._load_refresh_status_map(company_codes)
+
+        per_year_buckets = {
+            int(year): {
+                "year": int(year),
+                "total_companies": int(len(active_rows)),
+                "completed": 0,
+            }
+            for year in years_scope
+        }
+        company_rows: list[dict[str, Any]] = []
+        leader_completed = 0
+
+        for row in active_rows:
+            cd_cvm = int(row["cd_cvm"])
+            completed_years = set(complete_years_map.get(cd_cvm, ()))
+            years_completed = [year for year in years_scope if year in completed_years]
+            years_missing = [year for year in years_scope if year not in completed_years]
+            leader_completed = max(leader_completed, len(years_completed))
+            for year in years_completed:
+                per_year_buckets[int(year)]["completed"] += 1
+            company_rows.append(
+                {
+                    "cd_cvm": cd_cvm,
+                    "company_name": str(row["company_name"]),
+                    "coverage_rank": (
+                        int(row["coverage_rank"])
+                        if row.get("coverage_rank") is not None
+                        else None
+                    ),
+                    "years_completed": years_completed,
+                    "years_missing": years_missing,
+                    "completed_years_count": len(years_completed),
+                    "missing_years_count": len(years_missing),
+                    "last_status": status_map.get(cd_cvm, {}).get("last_status"),
+                }
+            )
+
+        total_cells = int(len(active_rows) * len(years_scope))
+        completed_cells = int(sum(bucket["completed"] for bucket in per_year_buckets.values()))
+        missing_cells = max(0, total_cells - completed_cells)
+        pct = (100.0 * completed_cells / total_cells) if total_cells else 0.0
+
+        throughput = self._estimate_refresh_throughput()
+        throughput_per_hour = throughput.get("per_hour")
+        remaining_companies = sum(
+            1 for row in company_rows if int(row["missing_years_count"]) > 0
+        )
+        eta_hours = (
+            float(remaining_companies) / float(throughput_per_hour)
+            if throughput_per_hour
+            else None
+        )
+
+        per_year = []
+        for year in years_scope:
+            completed = int(per_year_buckets[int(year)]["completed"])
+            total_companies = int(per_year_buckets[int(year)]["total_companies"])
+            missing = max(0, total_companies - completed)
+            per_year.append(
+                {
+                    "year": int(year),
+                    "total_companies": total_companies,
+                    "completed": completed,
+                    "missing": missing,
+                    "pct": (100.0 * completed / total_companies) if total_companies else 0.0,
+                    "eta_hours": (
+                        float(missing) / float(throughput_per_hour)
+                        if throughput_per_hour
+                        else None
+                    ),
+                }
+            )
+
+        ranked_backlog = self._build_ranked_backlog(
+            limit=80,
+            start_year=start_year,
+            end_year=end_year,
+            complete_years_map=complete_years_map,
+            refresh_status_map=status_map,
+        )
+
+        prioritized_companies: list[dict[str, Any]] = []
+        for row in ranked_backlog["items"]:
+            gap_to_leader = max(
+                0,
+                int(leader_completed) - int(row["completed_years_count"]),
+            )
+            prioritized_companies.append(
+                {
+                    "cd_cvm": int(row["cd_cvm"]),
+                    "company_name": str(row["company_name"]),
+                    "coverage_rank": (
+                        int(row["coverage_rank"])
+                        if row.get("coverage_rank") is not None
+                        else None
+                    ),
+                    "last_status": (
+                        str(row["last_status"])
+                        if row.get("last_status") is not None
+                        else None
+                    ),
+                    "excluded_from_queue": bool(row["excluded_from_queue"]),
+                    "risk_level": str(row["risk_level"]),
+                    "priority_score": int(row["priority_score"]),
+                    "missing_years_count": int(row["missing_years_count"]),
+                    "gap_to_leader_years": int(gap_to_leader),
+                    "years_missing": list(int(year) for year in row["years_missing"]),
+                    "recommended_action": str(row["recommended_action"]),
+                    "reason": str(row["reason"]),
+                }
+            )
+
+        throughput_confidence = str(throughput.get("confidence") or "low")
+        if throughput_per_hour:
+            throughput_score = {
+                "high": 100.0,
+                "medium": 75.0,
+                "low": 55.0,
+            }.get(throughput_confidence, 55.0)
+        else:
+            throughput_score = {
+                "high": 70.0,
+                "medium": 50.0,
+                "low": 30.0,
+            }.get(throughput_confidence, 30.0)
+
+        latest_year_pct = float(per_year[-1]["pct"]) if per_year else pct
+        health_score = max(
+            0.0,
+            min(
+                100.0,
+                (0.6 * float(pct))
+                + (0.2 * float(latest_year_pct))
+                + (0.2 * float(throughput_score)),
+            ),
+        )
+
+        return {
+            "generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+            "start_year": int(start_year),
+            "end_year": int(end_year),
+            "scope": "database_backed",
+            "required_package": list(self.REQUIRED_PACKAGE_STATEMENTS),
+            "ranked_backlog": dict(ranked_backlog["summary"]),
+            "active_companies": int(len(active_rows)),
+            "global": {
+                "total_cells": int(total_cells),
+                "completed_cells": int(completed_cells),
+                "missing_cells": int(missing_cells),
+                "pct": float(pct),
+                "active_universe": int(len(active_rows)),
+                "remaining_companies": int(remaining_companies),
+                "eta_hours": eta_hours,
+            },
+            "throughput": throughput,
+            "per_year": per_year,
+            "health_score": round(float(health_score), 2),
+            "health_status": self._health_status_from_score(health_score),
+            "prioritized_companies": prioritized_companies,
+        }
+
+    def _build_ranked_backlog(
+        self,
+        *,
+        limit: int,
+        start_year: int,
+        end_year: int,
+        complete_years_map: dict[int, tuple[int, ...]] | None = None,
+        refresh_status_map: dict[int, dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        ranked_rows = self._load_ranked_company_rows(limit)
+        company_codes = [int(row["cd_cvm"]) for row in ranked_rows]
+        years_scope = list(range(int(start_year), int(end_year) + 1))
+        complete_map = complete_years_map or self._load_complete_annual_years_map(
+            company_codes,
+            start_year=start_year,
+            end_year=end_year,
+        )
+        status_map = refresh_status_map or self._load_refresh_status_map(company_codes)
+        leader_completed = max(
+            (len(complete_map.get(code, ())) for code in company_codes),
+            default=0,
+        )
+
+        items: list[dict[str, Any]] = []
+        companies_with_some_data = 0
+        fully_covered_companies = 0
+        queue_eligible_companies = 0
+        queued_companies = 0
+        no_data_excluded_companies = 0
+
+        for row in ranked_rows:
+            cd_cvm = int(row["cd_cvm"])
+            coverage_rank = (
+                int(row["coverage_rank"])
+                if row.get("coverage_rank") is not None
+                else None
+            )
+            completed_years = set(int(year) for year in complete_map.get(cd_cvm, ()))
+            years_completed = [year for year in years_scope if year in completed_years]
+            years_missing = [year for year in years_scope if year not in completed_years]
+            status_row = status_map.get(cd_cvm, {})
+            last_status = (
+                str(status_row.get("last_status")).strip().lower()
+                if status_row.get("last_status") is not None
+                else None
+            )
+            excluded_from_queue = last_status == "no_data"
+            already_queued = self._is_recently_queued(
+                status_row,
+                window=timedelta(hours=self.PRIORITIZED_BACKLOG_STALE_HOURS),
+            )
+
+            if years_completed:
+                companies_with_some_data += 1
+            if not years_missing:
+                fully_covered_companies += 1
+            elif excluded_from_queue:
+                no_data_excluded_companies += 1
+            elif already_queued:
+                queued_companies += 1
+            else:
+                queue_eligible_companies += 1
+
+            if not years_missing:
+                recommended_action = "already_complete"
+                reason = "Cobertura anual completa na janela solicitada."
+            elif excluded_from_queue:
+                recommended_action = "skip_no_data"
+                reason = "Empresa marcada como no_data; backlog automatico nao reenfileira."
+            elif already_queued:
+                recommended_action = "await_existing_queue"
+                reason = "Ja existe refresh recente em fila para esta empresa."
+            elif years_completed:
+                recommended_action = "queue_historical_backfill"
+                reason = "Empresa com dados parciais; falta backfill anual dos anos ausentes."
+            else:
+                recommended_action = "queue_historical_backfill"
+                reason = "Empresa sem cobertura anual na janela; elegivel para ingestao historica."
+
+            gap_to_leader = max(0, leader_completed - len(years_completed))
+            items.append(
+                {
+                    "cd_cvm": cd_cvm,
+                    "company_name": str(row["company_name"]),
+                    "coverage_rank": coverage_rank,
+                    "last_status": last_status,
+                    "excluded_from_queue": excluded_from_queue,
+                    "completed_years_count": len(years_completed),
+                    "missing_years_count": len(years_missing),
+                    "years_missing": years_missing,
+                    "priority_score": self._priority_score(
+                        coverage_rank=coverage_rank,
+                        missing_years_count=len(years_missing),
+                        gap_to_leader_years=gap_to_leader,
+                    ),
+                    "risk_level": self._risk_level(
+                        coverage_rank=coverage_rank,
+                        missing_years_count=len(years_missing),
+                        excluded_from_queue=excluded_from_queue,
+                    ),
+                    "recommended_action": recommended_action,
+                    "reason": reason,
+                }
+            )
+
+        return {
+            "summary": {
+                "total_ranked": int(len(ranked_rows)),
+                "companies_with_some_data": int(companies_with_some_data),
+                "fully_covered_companies": int(fully_covered_companies),
+                "queue_eligible_companies": int(queue_eligible_companies),
+                "already_queued_companies": int(queued_companies),
+                "no_data_excluded_companies": int(no_data_excluded_companies),
+            },
+            "items": items,
+        }
+
+    def _dispatch_refresh_request(
+        self,
+        *,
+        cd_cvm: int,
+        start_year: int,
+        end_year: int,
+        source_scope: str,
+        already_queued_window: timedelta,
+    ) -> str:
+        from apps.api.app.dependencies import NotFoundError
         from src.github_dispatch import dispatch_on_demand_ingest
 
-        with self.engine.connect() as conn:
-            exists = conn.execute(
-                text("SELECT 1 FROM companies WHERE cd_cvm = :cd_cvm"),
-                {"cd_cvm": cd_cvm},
-            ).fetchone()
-            if exists is None:
-                from apps.api.app.dependencies import NotFoundError
-                raise NotFoundError(f"Company cd_cvm={cd_cvm} not found")
-
-            status_row = conn.execute(
-                text(
-                    "SELECT last_status, last_attempt_at, company_name "
-                    "FROM company_refresh_status WHERE cd_cvm = :cd_cvm"
-                ),
-                {"cd_cvm": cd_cvm},
-            ).mappings().fetchone()
-
-            now = datetime.now(timezone.utc)
-            if status_row and status_row["last_status"] == "queued":
-                last_attempt = status_row["last_attempt_at"]
-                if last_attempt:
-                    try:
-                        attempted_at = datetime.fromisoformat(str(last_attempt).replace("Z", "+00:00"))
-                        if attempted_at.tzinfo is None:
-                            attempted_at = attempted_at.replace(tzinfo=timezone.utc)
-                        if (now - attempted_at) < timedelta(minutes=10):
-                            return "already_queued"
-                    except ValueError:
-                        pass
-
-            company_name_row = conn.execute(
-                text("SELECT company_name FROM companies WHERE cd_cvm = :cd_cvm"),
-                {"cd_cvm": cd_cvm},
-            ).mappings().fetchone()
-            company_name = company_name_row["company_name"] if company_name_row else str(cd_cvm)
-
-        now_iso = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(timezone.utc)
+        now_iso = now.isoformat()
         with self.engine.begin() as conn:
+            self._ensure_refresh_status_table(conn)
+            company_row = conn.execute(
+                text(
+                    """
+                    SELECT c.company_name, crs.last_status, crs.last_attempt_at
+                    FROM companies c
+                    LEFT JOIN company_refresh_status crs ON crs.cd_cvm = c.cd_cvm
+                    WHERE c.cd_cvm = :cd_cvm
+                    """
+                ),
+                {"cd_cvm": int(cd_cvm)},
+            ).mappings().fetchone()
+            if company_row is None:
+                raise NotFoundError(f"Company cd_cvm={cd_cvm} not found")
+            if self._is_recently_queued(company_row, window=already_queued_window):
+                return "already_queued"
+
+            company_name = str(company_row.get("company_name") or cd_cvm)
             conn.execute(
                 text(
                     """
-                    INSERT INTO company_refresh_status
-                        (cd_cvm, company_name, source_scope, last_attempt_at, last_status, updated_at)
-                    VALUES
-                        (:cd_cvm, :company_name, 'on_demand', :now, 'queued', :now)
+                    INSERT INTO company_refresh_status (
+                        cd_cvm,
+                        company_name,
+                        source_scope,
+                        last_attempt_at,
+                        last_status,
+                        last_error,
+                        last_start_year,
+                        last_end_year,
+                        updated_at
+                    ) VALUES (
+                        :cd_cvm,
+                        :company_name,
+                        :source_scope,
+                        :now,
+                        'queued',
+                        NULL,
+                        :start_year,
+                        :end_year,
+                        :now
+                    )
                     ON CONFLICT (cd_cvm) DO UPDATE SET
-                        last_status = 'queued',
-                        last_attempt_at = :now,
-                        updated_at = :now
+                        company_name = excluded.company_name,
+                        source_scope = excluded.source_scope,
+                        last_attempt_at = excluded.last_attempt_at,
+                        last_status = excluded.last_status,
+                        last_error = excluded.last_error,
+                        last_start_year = excluded.last_start_year,
+                        last_end_year = excluded.last_end_year,
+                        updated_at = excluded.updated_at
                     """
                 ),
-                {"cd_cvm": cd_cvm, "company_name": company_name, "now": now_iso},
+                {
+                    "cd_cvm": int(cd_cvm),
+                    "company_name": company_name,
+                    "source_scope": str(source_scope),
+                    "start_year": int(start_year),
+                    "end_year": int(end_year),
+                    "now": now_iso,
+                },
             )
 
-        ok, error_msg = dispatch_on_demand_ingest(cd_cvm)
+        ok, error_msg = dispatch_on_demand_ingest(
+            int(cd_cvm),
+            start_year=int(start_year),
+            end_year=int(end_year),
+        )
         if not ok:
             with self.engine.begin() as conn:
                 conn.execute(
                     text(
-                        "UPDATE company_refresh_status "
-                        "SET last_status = 'dispatch_failed', last_error = :err, updated_at = :now "
-                        "WHERE cd_cvm = :cd_cvm"
+                        """
+                        UPDATE company_refresh_status
+                        SET last_status = 'dispatch_failed',
+                            last_error = :error_msg,
+                            last_start_year = :start_year,
+                            last_end_year = :end_year,
+                            updated_at = :now
+                        WHERE cd_cvm = :cd_cvm
+                        """
                     ),
-                    {"cd_cvm": cd_cvm, "err": error_msg, "now": now_iso},
+                    {
+                        "cd_cvm": int(cd_cvm),
+                        "error_msg": error_msg,
+                        "start_year": int(start_year),
+                        "end_year": int(end_year),
+                        "now": now_iso,
+                    },
                 )
             return "dispatch_failed"
 
         return "dispatched"
+
+    def _resolve_refresh_range(
+        self,
+        *,
+        start_year: int,
+        end_year: int | None,
+    ) -> tuple[int, int]:
+        resolved_start_year = int(start_year)
+        resolved_end_year = (
+            int(end_year)
+            if end_year is not None
+            else max(2010, datetime.now(timezone.utc).year - 1)
+        )
+        if resolved_start_year > resolved_end_year:
+            raise ValueError("start_year must be <= end_year")
+        return resolved_start_year, resolved_end_year
+
+    def _load_active_company_rows(self) -> list[dict[str, Any]]:
+        query = text(
+            """
+            SELECT cd_cvm, company_name, coverage_rank
+            FROM companies
+            WHERE COALESCE(is_active, 1) = 1
+            ORDER BY
+                CASE WHEN coverage_rank IS NULL THEN 1 ELSE 0 END,
+                coverage_rank ASC,
+                company_name ASC
+            """
+        )
+        with self.engine.connect() as conn:
+            return [dict(row) for row in conn.execute(query).mappings().all()]
+
+    def _load_ranked_company_rows(self, limit: int) -> list[dict[str, Any]]:
+        query = text(
+            """
+            SELECT cd_cvm, company_name, coverage_rank
+            FROM companies
+            WHERE COALESCE(is_active, 1) = 1
+              AND coverage_rank IS NOT NULL
+            ORDER BY coverage_rank ASC, company_name ASC
+            LIMIT :limit
+            """
+        )
+        with self.engine.connect() as conn:
+            return [
+                dict(row)
+                for row in conn.execute(query, {"limit": int(limit)}).mappings().all()
+            ]
+
+    def _load_complete_annual_years_map(
+        self,
+        cd_cvms: list[int],
+        *,
+        start_year: int,
+        end_year: int,
+    ) -> dict[int, tuple[int, ...]]:
+        if not cd_cvms or not inspect(self.engine).has_table("financial_reports"):
+            return {}
+
+        query = text(
+            """
+            SELECT "CD_CVM" AS cd_cvm, "REPORT_YEAR" AS report_year
+            FROM financial_reports
+            WHERE "CD_CVM" IN :cd_cvms
+              AND "REPORT_YEAR" BETWEEN :start_year AND :end_year
+              AND "STATEMENT_TYPE" IN :statement_types
+              AND "PERIOD_LABEL" = CAST("REPORT_YEAR" AS TEXT)
+            GROUP BY "CD_CVM", "REPORT_YEAR"
+            HAVING COUNT(DISTINCT "STATEMENT_TYPE") >= :required_count
+            ORDER BY "CD_CVM", "REPORT_YEAR"
+            """
+        ).bindparams(
+            bindparam("cd_cvms", expanding=True),
+            bindparam("statement_types", expanding=True),
+        )
+
+        params = {
+            "cd_cvms": [int(cd_cvm) for cd_cvm in cd_cvms],
+            "start_year": int(start_year),
+            "end_year": int(end_year),
+            "statement_types": list(self.REQUIRED_PACKAGE_STATEMENTS),
+            "required_count": len(self.REQUIRED_PACKAGE_STATEMENTS),
+        }
+        with self.engine.connect() as conn:
+            rows = conn.execute(query, params).mappings().all()
+
+        years_map: dict[int, list[int]] = defaultdict(list)
+        for row in rows:
+            years_map[int(row["cd_cvm"])].append(int(row["report_year"]))
+        return {
+            int(cd_cvm): tuple(sorted(set(years)))
+            for cd_cvm, years in years_map.items()
+        }
+
+    def _load_refresh_status_map(
+        self,
+        cd_cvms: list[int] | None = None,
+    ) -> dict[int, dict[str, Any]]:
+        if not inspect(self.engine).has_table("company_refresh_status"):
+            return {}
+
+        if cd_cvms:
+            query = text(
+                """
+                SELECT *
+                FROM company_refresh_status
+                WHERE cd_cvm IN :cd_cvms
+                """
+            ).bindparams(bindparam("cd_cvms", expanding=True))
+            params = {"cd_cvms": [int(cd_cvm) for cd_cvm in cd_cvms]}
+        else:
+            query = text("SELECT * FROM company_refresh_status")
+            params = {}
+
+        with self.engine.connect() as conn:
+            rows = conn.execute(query, params).mappings().all()
+        return {int(row["cd_cvm"]): dict(row) for row in rows}
+
+    def _estimate_refresh_throughput(self) -> dict[str, Any]:
+        if not inspect(self.engine).has_table("company_refresh_status"):
+            return {"per_hour": None, "sample_size": 0, "confidence": "low"}
+
+        query = text(
+            """
+            SELECT last_success_at
+            FROM company_refresh_status
+            WHERE last_status = 'success'
+              AND last_success_at IS NOT NULL
+            ORDER BY last_success_at DESC
+            LIMIT 200
+            """
+        )
+        with self.engine.connect() as conn:
+            rows = conn.execute(query).mappings().all()
+
+        parsed = [
+            timestamp
+            for timestamp in (
+                self._parse_timestamp(row.get("last_success_at"))
+                for row in rows
+            )
+            if timestamp is not None
+        ]
+        if not parsed:
+            return {"per_hour": None, "sample_size": 0, "confidence": "low"}
+
+        recent_cutoff = datetime.now(timezone.utc) - timedelta(hours=self.THROUGHPUT_WINDOW_HOURS)
+        recent = sorted(timestamp for timestamp in parsed if timestamp >= recent_cutoff)
+        if len(recent) < self.THROUGHPUT_MIN_SUCCESS_SAMPLES:
+            return {"per_hour": None, "sample_size": len(recent), "confidence": "low"}
+
+        span_hours = (recent[-1] - recent[0]).total_seconds() / 3600.0
+        if span_hours <= 0:
+            return {"per_hour": None, "sample_size": len(recent), "confidence": "low"}
+
+        per_hour = max(0.0, (len(recent) - 1) / span_hours)
+        confidence = "high" if len(recent) >= 12 and span_hours >= 6 else "medium"
+        return {
+            "per_hour": float(per_hour) if per_hour > 0 else None,
+            "sample_size": len(recent),
+            "confidence": confidence if per_hour > 0 else "low",
+        }
+
+    def _ensure_refresh_status_table(self, conn) -> None:
+        conn.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS company_refresh_status (
+                    cd_cvm INTEGER PRIMARY KEY,
+                    company_name TEXT,
+                    source_scope TEXT NOT NULL DEFAULT 'local',
+                    last_attempt_at TEXT,
+                    last_success_at TEXT,
+                    last_status TEXT,
+                    last_error TEXT,
+                    last_start_year INTEGER,
+                    last_end_year INTEGER,
+                    last_rows_inserted INTEGER,
+                    updated_at TEXT
+                )
+                """
+            )
+        )
+
+    @staticmethod
+    def _parse_timestamp(value: Any) -> datetime | None:
+        if value is None:
+            return None
+        raw_value = str(value).strip()
+        if not raw_value:
+            return None
+        try:
+            parsed = datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        if parsed.tzinfo is None:
+            return parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc)
+
+    def _is_recently_queued(
+        self,
+        status_row: dict[str, Any] | Any,
+        *,
+        window: timedelta,
+    ) -> bool:
+        if not status_row:
+            return False
+        last_status = (
+            str(status_row.get("last_status") or "").strip().lower()
+            if hasattr(status_row, "get")
+            else str(getattr(status_row, "last_status", "") or "").strip().lower()
+        )
+        if last_status != "queued":
+            return False
+        last_attempt_at = (
+            status_row.get("last_attempt_at")
+            if hasattr(status_row, "get")
+            else getattr(status_row, "last_attempt_at", None)
+        )
+        attempted_at = self._parse_timestamp(last_attempt_at)
+        if attempted_at is None:
+            return False
+        return (datetime.now(timezone.utc) - attempted_at) < window
+
+    def _priority_score(
+        self,
+        *,
+        coverage_rank: int | None,
+        missing_years_count: int,
+        gap_to_leader_years: int,
+    ) -> int:
+        normalized_rank = coverage_rank if coverage_rank is not None else 999
+        rank_score = max(0, 81 - int(normalized_rank)) * 100
+        return int(rank_score + (int(missing_years_count) * 25) + (int(gap_to_leader_years) * 10))
+
+    def _risk_level(
+        self,
+        *,
+        coverage_rank: int | None,
+        missing_years_count: int,
+        excluded_from_queue: bool,
+    ) -> str:
+        if excluded_from_queue:
+            return "alto"
+        if missing_years_count <= 0:
+            return "baixo"
+        if coverage_rank is not None and coverage_rank <= 20:
+            return "alto"
+        if coverage_rank is not None and coverage_rank <= 50:
+            return "medio"
+        if missing_years_count >= 3:
+            return "medio"
+        return "baixo"
+
+    def _health_status_from_score(self, score: float) -> str:
+        if score >= self.BASE_HEALTH_OK_THRESHOLD:
+            return "ok"
+        if score >= self.BASE_HEALTH_CRITICAL_THRESHOLD:
+            return "atencao"
+        return "critico"
 
     def _build_company_results(self, df: pd.DataFrame) -> list[CompanySearchResult]:
         results = []
