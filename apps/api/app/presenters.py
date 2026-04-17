@@ -12,6 +12,7 @@ from src.contracts import (
     CompanySearchResult,
     HealthSnapshot,
     KPIBundle,
+    RankedRefreshQueueResult,
     RefreshStatusDTO,
     SectorDetailDTO,
     SectorDirectoryDTO,
@@ -184,6 +185,30 @@ class RefreshDispatchPayload(BaseModel):
     cd_cvm: int
 
 
+class RankedRefreshQueueItemPayload(BaseModel):
+    cd_cvm: int
+    company_name: str
+    coverage_rank: int | None = None
+    status: str
+    last_status: str | None = None
+    missing_years_count: int
+    years_missing: list[int]
+    note: str
+
+
+class RankedRefreshQueuePayload(BaseModel):
+    start_year: int
+    end_year: int
+    requested_limit: int
+    total_ranked: int
+    queued_count: int
+    already_queued_count: int
+    no_data_excluded_count: int
+    already_complete_count: int
+    dispatch_failed_count: int
+    items: list[RankedRefreshQueueItemPayload]
+
+
 class RefreshStatusPayload(BaseModel):
     cd_cvm: int
     company_name: str
@@ -210,6 +235,9 @@ class HealthYearCoveragePayload(BaseModel):
 class HealthPriorityPayload(BaseModel):
     cd_cvm: int
     company_name: str
+    coverage_rank: int | None = None
+    last_status: str | None = None
+    excluded_from_queue: bool = False
     risk_level: str
     priority_score: int
     missing_years_count: int
@@ -315,6 +343,10 @@ def present_statement_summary(dto: StatementSummaryDTO) -> StatementSummaryPaylo
 
 def present_refresh_status(rows: list[RefreshStatusDTO]) -> list[RefreshStatusPayload]:
     return [RefreshStatusPayload(**row.to_dict()) for row in rows]
+
+
+def present_ranked_refresh_queue(dto: RankedRefreshQueueResult) -> RankedRefreshQueuePayload:
+    return RankedRefreshQueuePayload(**dto.to_dict())
 
 
 def present_health_snapshot(dto: HealthSnapshot) -> HealthSnapshotPayload:

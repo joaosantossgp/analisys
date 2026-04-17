@@ -240,6 +240,88 @@ def test_request_refresh_returns_429_when_already_queued(client: TestClient):
     assert response.json()["detail"]["code"] == "refresh_already_queued"
 
 
+def test_request_top_ranked_historical_refresh_queues_only_missing_and_excludes_no_data(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    from sqlalchemy import text as sa_text
+    import src.github_dispatch as github_dispatch
+
+    calls: list[tuple[int, int | None, int | None]] = []
+
+    def fake_dispatch(
+        cd_cvm: int,
+        *,
+        start_year: int | None = None,
+        end_year: int | None = None,
+    ) -> tuple[bool, str | None]:
+        calls.append((cd_cvm, start_year, end_year))
+        return True, None
+
+    monkeypatch.setattr(github_dispatch, "dispatch_on_demand_ingest", fake_dispatch)
+
+    engine = client.app.state.read_service.engine
+    with engine.begin() as conn:
+        conn.execute(
+            sa_text(
+                """
+                INSERT INTO company_refresh_status (
+                    cd_cvm,
+                    company_name,
+                    source_scope,
+                    last_status,
+                    last_attempt_at,
+                    updated_at
+                ) VALUES (
+                    11223,
+                    'SABESP',
+                    'local',
+                    'no_data',
+                    '2026-04-08T09:00:00',
+                    '2026-04-08T09:00:00'
+                )
+                """
+            )
+        )
+
+    response = client.post(
+        "/companies/request-refresh/top-ranked",
+        params={"limit": 3, "start_year": 2023, "end_year": 2024},
+    )
+
+    assert response.status_code == 202
+    payload = response.json()
+    assert payload["total_ranked"] == 3
+    assert payload["queued_count"] == 1
+    assert payload["already_queued_count"] == 0
+    assert payload["no_data_excluded_count"] == 1
+    assert payload["already_complete_count"] == 1
+    assert payload["dispatch_failed_count"] == 0
+    assert calls == [(4170, 2023, 2024)]
+
+    items_by_company = {item["cd_cvm"]: item for item in payload["items"]}
+    assert items_by_company[9512]["status"] == "already_complete"
+    assert items_by_company[4170]["status"] == "queued"
+    assert items_by_company[4170]["years_missing"] == [2023]
+    assert items_by_company[11223]["status"] == "no_data_excluded"
+
+    with engine.connect() as conn:
+        row = conn.execute(
+            sa_text(
+                """
+                SELECT source_scope, last_status, last_start_year, last_end_year
+                FROM company_refresh_status
+                WHERE cd_cvm = 4170
+                """
+            )
+        ).mappings().one()
+
+    assert row["source_scope"] == "ranked_backfill"
+    assert row["last_status"] == "queued"
+    assert row["last_start_year"] == 2023
+    assert row["last_end_year"] == 2024
+
+
 def test_sector_detail_returns_404_for_unknown_slug(client: TestClient):
     response = client.get("/sectors/setor-inexistente")
 
@@ -489,7 +571,39 @@ def test_base_health_returns_snapshot(client: TestClient):
     payload = response.json()
     assert payload["start_year"] == 2023
     assert payload["end_year"] == 2024
+    assert payload["total_cells"] == 8
+    assert payload["completed_cells"] == 4
+    assert payload["missing_cells"] == 4
+    assert payload["pct"] == pytest.approx(50.0)
     assert payload["health_status"] in {"ok", "atencao", "critico"}
+    assert payload["per_year"] == [
+        {
+            "year": 2023,
+            "total_companies": 4,
+            "completed": 1,
+            "missing": 3,
+            "pct": 25.0,
+            "eta_hours": None,
+        },
+        {
+            "year": 2024,
+            "total_companies": 4,
+            "completed": 3,
+            "missing": 1,
+            "pct": 75.0,
+            "eta_hours": None,
+        },
+    ]
+    assert payload["raw"]["ranked_backlog"]["total_ranked"] == 3
+    assert payload["raw"]["ranked_backlog"]["fully_covered_companies"] == 1
+    assert payload["raw"]["ranked_backlog"]["queue_eligible_companies"] == 2
+
+
+def test_base_health_rejects_invalid_year_window(client: TestClient):
+    response = client.get("/base-health", params={"start_year": 2024, "end_year": 2023})
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "invalid_request"
 
 
 def test_unreachable_database_returns_503(tmp_path: Path, monkeypatch):

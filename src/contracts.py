@@ -389,6 +389,51 @@ class RefreshStatusDTO:
 
 
 @dataclass(frozen=True)
+class RankedRefreshQueueItem:
+    cd_cvm: int
+    company_name: str
+    coverage_rank: int | None
+    status: str
+    last_status: str | None
+    missing_years_count: int
+    years_missing: tuple[int, ...]
+    note: str
+
+    def to_dict(self) -> dict[str, Any]:
+        payload = asdict(self)
+        payload["years_missing"] = list(self.years_missing)
+        return payload
+
+
+@dataclass(frozen=True)
+class RankedRefreshQueueResult:
+    start_year: int
+    end_year: int
+    requested_limit: int
+    total_ranked: int
+    queued_count: int
+    already_queued_count: int
+    no_data_excluded_count: int
+    already_complete_count: int
+    dispatch_failed_count: int
+    items: tuple[RankedRefreshQueueItem, ...]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "start_year": int(self.start_year),
+            "end_year": int(self.end_year),
+            "requested_limit": int(self.requested_limit),
+            "total_ranked": int(self.total_ranked),
+            "queued_count": int(self.queued_count),
+            "already_queued_count": int(self.already_queued_count),
+            "no_data_excluded_count": int(self.no_data_excluded_count),
+            "already_complete_count": int(self.already_complete_count),
+            "dispatch_failed_count": int(self.dispatch_failed_count),
+            "items": [row.to_dict() for row in self.items],
+        }
+
+
+@dataclass(frozen=True)
 class HealthYearCoverage:
     year: int
     total_companies: int
@@ -412,12 +457,26 @@ class HealthPriority:
     years_missing: tuple[int, ...]
     recommended_action: str
     reason: str
+    coverage_rank: int | None = None
+    last_status: str | None = None
+    excluded_from_queue: bool = False
 
     @classmethod
     def from_payload(cls, payload: dict[str, Any]) -> "HealthPriority":
         return cls(
             cd_cvm=int(payload.get("cd_cvm") or 0),
             company_name=str(payload.get("company_name") or ""),
+            coverage_rank=(
+                int(payload.get("coverage_rank"))
+                if payload.get("coverage_rank") is not None
+                else None
+            ),
+            last_status=(
+                str(payload.get("last_status"))
+                if payload.get("last_status") is not None
+                else None
+            ),
+            excluded_from_queue=bool(payload.get("excluded_from_queue")),
             risk_level=str(payload.get("risk_level") or ""),
             priority_score=int(payload.get("priority_score") or 0),
             missing_years_count=int(payload.get("missing_years_count") or 0),
