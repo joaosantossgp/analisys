@@ -3,20 +3,10 @@ import { CompanyHeroChart } from "@/components/company/company-hero-chart";
 import { CompanyKpiRow } from "@/components/company/company-kpi-row";
 import { CompanySectorRanking } from "@/components/company/company-sector-ranking";
 import { SparklineChip } from "@/components/shared/sparkline-chip";
-import {
-  SectionHeading,
-  SurfaceCard,
-} from "@/components/shared/design-system-recipes";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { SectionHeading } from "@/components/shared/design-system-recipes";
 import type { KPIBundle, TabularDataRow } from "@/lib/api";
 import { formatKpiDelta, formatKpiValue } from "@/lib/formatters";
+import { cn } from "@/lib/utils";
 
 const CHART_KPIS = [
   { id: "RECEITA_LIQ", label: "Receita" },
@@ -28,6 +18,37 @@ const SPARKLINE_KPIS = [
   { id: "RECEITA_LIQ", label: "Receita Líquida", formatType: "brl" },
   { id: "EBITDA", label: "EBITDA", formatType: "brl" },
   { id: "MG_EBITDA", label: "Margem EBITDA", formatType: "pct" },
+] as const;
+
+const KPI_GROUPS = [
+  {
+    label: "Rentabilidade",
+    kpis: [
+      { id: "MG_BRUTA", label: "Mg. Bruta", formatType: "pct" },
+      { id: "MG_EBITDA", label: "Mg. EBITDA", formatType: "pct" },
+      { id: "MG_EBIT", label: "Mg. EBIT", formatType: "pct" },
+      { id: "MG_LIQ", label: "Mg. Líquida", formatType: "pct" },
+      { id: "ROE", label: "ROE", formatType: "pct" },
+      { id: "ROA", label: "ROA", formatType: "pct" },
+    ],
+  },
+  {
+    label: "Endividamento",
+    kpis: [
+      { id: "DIV_LIQ_EBITDA", label: "Dív/EBITDA", formatType: "ratio" },
+      { id: "DIV_LIQ_PL", label: "Dív Líq/PL", formatType: "ratio" },
+      { id: "LIQ_CORR", label: "Liq. Corrente", formatType: "ratio" },
+      { id: "COBERT_JUR", label: "Cob. Juros", formatType: "ratio" },
+    ],
+  },
+  {
+    label: "Eficiência",
+    kpis: [
+      { id: "FCO_REC", label: "FCO/Receita", formatType: "pct" },
+      { id: "CAPEX_RECEITA", label: "Capex/Rec", formatType: "pct" },
+      { id: "GIRO_ATIVO", label: "Giro Ativo", formatType: "ratio" },
+    ],
+  },
 ] as const;
 
 function isYearColumn(value: string): boolean {
@@ -63,71 +84,76 @@ export function CompanyOverview({ bundle, cdCvm }: CompanyOverviewProps) {
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
-      <div className="flex flex-col gap-5 lg:col-span-8">
+      {/* Main column */}
+      <div className="flex flex-col gap-6 lg:col-span-8">
         <CompanyKpiRow bundle={bundle} />
 
-        {chartSeries.length > 0 ? (
-          <CompanyHeroChart series={chartSeries} />
-        ) : null}
+        {chartSeries.length > 0 ? <CompanyHeroChart series={chartSeries} /> : null}
 
-        <section className="space-y-4">
+        {/* 3-group KPI tiles */}
+        <section className="space-y-5">
           <SectionHeading
-            eyebrow="Matriz anual de KPIs"
-            title="Leitura compacta por indicador"
+            eyebrow="Indicadores"
+            title="Por categoria"
             titleAs="h3"
           />
-          <SurfaceCard tone="default" padding="none" className="overflow-hidden">
-            <Table>
-              <TableHeader className="bg-muted/35">
-                <TableRow>
-                  <TableHead className="px-5">Indicador</TableHead>
-                  <TableHead>Categoria</TableHead>
-                  {yearColumns.map((year) => (
-                    <TableHead key={year}>{year}</TableHead>
-                  ))}
-                  <TableHead>Delta YoY</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {annualRows
-                  .filter((row) => !Boolean(row.IS_PLACEHOLDER))
-                  .map((row) => {
-                    const formatType = String(row.FORMAT_TYPE ?? "ratio");
-                    return (
-                      <TableRow key={String(row.KPI_ID)}>
-                        <TableCell className="px-5 font-medium text-foreground">
-                          {String(row.KPI_NOME)}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {String(row.CATEGORIA)}
-                        </TableCell>
-                        {yearColumns.map((year) => (
-                          <TableCell key={year}>
-                            {formatKpiValue(
-                              row[year] === null || row[year] === undefined
-                                ? null
-                                : Number(row[year]),
-                              formatType,
-                            )}
-                          </TableCell>
-                        ))}
-                        <TableCell className="text-muted-foreground">
-                          {formatKpiDelta(
-                            row.DELTA_YOY === null || row.DELTA_YOY === undefined
-                              ? null
-                              : Number(row.DELTA_YOY),
-                            formatType,
+          <div className="space-y-5">
+            {KPI_GROUPS.map((group) => {
+              const visibleKpis = group.kpis.filter((kpi) => kpiMap.has(kpi.id));
+              if (visibleKpis.length === 0) return null;
+
+              return (
+                <div key={group.label}>
+                  <p className="mb-3 text-[0.72rem] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                    {group.label}
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {visibleKpis.map((kpi) => {
+                      const row = kpiMap.get(kpi.id);
+                      const value =
+                        row && lastYear ? Number(row[lastYear] ?? NaN) : null;
+                      const delta =
+                        row?.DELTA_YOY === null || row?.DELTA_YOY === undefined
+                          ? null
+                          : Number(row.DELTA_YOY);
+                      const isPos = delta !== null && delta >= 0;
+
+                      return (
+                        <div
+                          key={kpi.id}
+                          className="rounded-[1rem] border border-border/60 bg-card px-4 py-3"
+                        >
+                          <p className="text-[0.68rem] uppercase tracking-[0.14em] text-muted-foreground">
+                            {kpi.label}
+                          </p>
+                          <p className="mt-1 font-heading text-[1.25rem] font-medium tracking-[-0.03em] text-foreground leading-none">
+                            {formatKpiValue(value, kpi.formatType)}
+                          </p>
+                          {delta !== null && (
+                            <p
+                              className={cn(
+                                "mt-1 text-[0.7rem] font-medium",
+                                isPos
+                                  ? "text-emerald-600 dark:text-emerald-400"
+                                  : "text-destructive",
+                              )}
+                            >
+                              {isPos ? "+" : ""}
+                              {formatKpiDelta(delta, kpi.formatType)}
+                            </p>
                           )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-              </TableBody>
-            </Table>
-          </SurfaceCard>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </section>
       </div>
 
+      {/* Right rail */}
       <div className="flex flex-col gap-4 lg:col-span-4">
         {SPARKLINE_KPIS.map((kpi) => {
           const row = kpiMap.get(kpi.id);

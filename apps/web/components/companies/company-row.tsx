@@ -3,18 +3,14 @@ import { ChevronRightIcon } from "lucide-react";
 
 import type { CompanyDirectoryItem } from "@/lib/api";
 import { getSectorColor } from "@/lib/constants";
-import { formatYearsLabel } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 
-function buildSparklinePoints(anos: number[]): string {
-  if (anos.length === 0) return "";
+function buildSparklinePoints(anos: number[], W = 54, H = 20): string {
+  if (anos.length < 2) return "";
   const sorted = [...anos].sort((a, b) => a - b);
   const min = sorted[0]!;
   const max = sorted[sorted.length - 1]!;
   const rangeYears = max - min || 1;
-  const W = 48;
-  const H = 16;
-
   return sorted
     .map((year, i) => {
       const x = ((year - min) / rangeYears) * W;
@@ -29,60 +25,96 @@ type CompanyRowProps = {
 };
 
 export function CompanyRow({ item }: CompanyRowProps) {
-  const sectorColor = getSectorColor(item.sector_name);
+  const color = getSectorColor(item.sector_name);
   const hasData = item.has_financial_data !== false;
-  const sparkPoints = buildSparklinePoints(item.anos_disponiveis);
+  const anos = item.anos_disponiveis ?? [];
+  const sparkPts = buildSparklinePoints(anos);
+  const initials = (item.ticker_b3 ?? item.company_name).slice(0, 2).toUpperCase();
+  const yearsRange =
+    anos.length > 0 ? `${Math.min(...anos)}–${Math.max(...anos)}` : "—";
 
   return (
     <Link
       href={hasData ? `/empresas/${item.cd_cvm}` : "#"}
       aria-disabled={!hasData}
       className={cn(
-        "group flex h-[54px] items-center gap-4 px-5 transition-colors",
+        "group grid items-center gap-x-4 px-5 py-3 transition-colors",
+        "[grid-template-columns:42px_minmax(0,1fr)_32px]",
+        "sm:[grid-template-columns:42px_minmax(0,2fr)_minmax(0,1fr)_32px]",
+        "lg:[grid-template-columns:42px_minmax(0,2.2fr)_minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,0.85fr)_32px]",
         hasData
-          ? "hover:bg-muted/40 cursor-pointer"
+          ? "cursor-pointer hover:bg-muted/40"
           : "pointer-events-none opacity-50",
       )}
     >
-      <span
-        className="flex h-7 min-w-[3.25rem] items-center justify-center rounded-full px-2 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-white"
-        style={{ backgroundColor: sectorColor }}
+      {/* Sector avatar */}
+      <div
+        className="flex size-[42px] shrink-0 items-center justify-center rounded-[10px] font-heading text-sm font-semibold"
+        style={{
+          background: `color-mix(in oklch, ${color} 14%, transparent)`,
+          border: `1px solid color-mix(in oklch, ${color} 28%, transparent)`,
+          color,
+        }}
       >
-        {item.ticker_b3 ?? "—"}
-      </span>
+        {initials}
+      </div>
 
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-foreground">
-          {item.company_name}
-        </p>
-        <p className="truncate text-xs text-muted-foreground">
-          {item.sector_name}
+      {/* Name + ticker + CVM */}
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="truncate font-medium text-[0.9rem] text-foreground">
+            {item.company_name}
+          </span>
+          {item.ticker_b3 && (
+            <span
+              className="shrink-0 rounded-[0.35rem] border font-mono text-[0.68rem] font-medium px-1.5 py-0.5"
+              style={{
+                background: `color-mix(in oklch, ${color} 10%, transparent)`,
+                borderColor: `color-mix(in oklch, ${color} 22%, transparent)`,
+                color,
+              }}
+            >
+              {item.ticker_b3}
+            </span>
+          )}
+        </div>
+        <p className="mt-0.5 text-[0.72rem] text-muted-foreground">
+          CVM {item.cd_cvm}
         </p>
       </div>
 
-      {sparkPoints ? (
-        <svg
-          width={48}
-          height={16}
-          viewBox="0 0 48 16"
-          className="hidden shrink-0 text-primary sm:block"
-          aria-hidden
-        >
-          <polyline
-            points={sparkPoints}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      ) : null}
+      {/* Sector — sm+ */}
+      <p className="hidden truncate text-[0.82rem] text-muted-foreground sm:block">
+        {item.sector_name ?? "—"}
+      </p>
 
-      <span className="hidden w-20 text-right text-xs text-muted-foreground sm:block">
-        {formatYearsLabel(item.anos_disponiveis)}
-      </span>
+      {/* Sparkline + range — lg+ */}
+      <div className="hidden items-center gap-2 lg:flex">
+        {sparkPts ? (
+          <svg width={54} height={20} viewBox="0 0 54 20" aria-hidden className="shrink-0">
+            <polyline
+              points={sparkPts}
+              fill="none"
+              stroke={color}
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        ) : null}
+        <span className="whitespace-nowrap font-mono text-[0.72rem] tabular-nums text-muted-foreground">
+          {yearsRange}
+        </span>
+      </div>
 
+      {/* Anos count — lg+ */}
+      <div className="hidden text-right lg:block">
+        <span className="font-mono text-[0.78rem] tabular-nums text-muted-foreground">
+          {anos.length > 0 ? `${anos.length} anos` : "—"}
+        </span>
+      </div>
+
+      {/* Chevron */}
       <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
     </Link>
   );

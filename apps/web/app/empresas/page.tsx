@@ -4,11 +4,7 @@ import type { Metadata } from "next";
 import { CompanyDirectoryFilters } from "@/components/companies/company-directory-filters";
 import { CompanyDirectoryList } from "@/components/companies/company-directory-list";
 import { DirectoryPagination } from "@/components/companies/directory-pagination";
-import {
-  PageShell,
-  SurfaceCard,
-  SectionHeading,
-} from "@/components/shared/design-system-recipes";
+import { PageShell, SurfaceCard, SectionHeading } from "@/components/shared/design-system-recipes";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
 import { formatCompactInteger } from "@/lib/formatters";
@@ -34,10 +30,7 @@ export default async function EmpresasPage({ searchParams }: EmpresasPageProps) 
   const resolvedSearchParams = await searchParams;
   const currentSearch = getFirstParam(resolvedSearchParams.busca) ?? "";
   const currentSector = getFirstParam(resolvedSearchParams.setor) ?? null;
-  const currentPage = coercePositiveInt(
-    getFirstParam(resolvedSearchParams.pagina),
-    1,
-  );
+  const currentPage = coercePositiveInt(getFirstParam(resolvedSearchParams.pagina), 1);
   const rawView = getFirstParam(resolvedSearchParams.view);
   const viewMode: "rows" | "cards" = rawView === "cards" ? "cards" : "rows";
 
@@ -48,13 +41,12 @@ export default async function EmpresasPage({ searchParams }: EmpresasPageProps) 
   const retryQuery = retryParams.toString();
   const retryHref = retryQuery ? `/empresas?${retryQuery}` : "/empresas";
 
-  const { directory, filters, directoryError, filtersError } =
-    await loadCompaniesPageData({
-      search: currentSearch,
-      sector: currentSector,
-      page: currentPage,
-      pageSize: PAGE_SIZE,
-    });
+  const { directory, filters, directoryError, filtersError } = await loadCompaniesPageData({
+    search: currentSearch,
+    sector: currentSector,
+    page: currentPage,
+    pageSize: PAGE_SIZE,
+  });
 
   if (!directory) {
     return (
@@ -82,10 +74,7 @@ export default async function EmpresasPage({ searchParams }: EmpresasPageProps) 
             </Link>
             <Link
               href="/"
-              className={cn(
-                buttonVariants({ variant: "outline", size: "lg" }),
-                "rounded-full px-5",
-              )}
+              className={cn(buttonVariants({ variant: "outline", size: "lg" }), "rounded-full px-5")}
             >
               Voltar para a home
             </Link>
@@ -106,17 +95,63 @@ export default async function EmpresasPage({ searchParams }: EmpresasPageProps) 
   const viewCardsHref = `/empresas?${mergeSearchParams(currentParamsStr, { view: "cards" }) || "view=cards"}`;
   const clearHref = viewMode === "cards" ? "/empresas?view=cards" : "/empresas";
 
+  const toggleBase =
+    "flex size-8 items-center justify-center rounded-lg border transition-colors text-sm";
+
   return (
-    <PageShell density="default">
-      <div className="flex flex-col gap-2">
-        <h1 className="font-heading text-2xl text-foreground">
-          Diretório de empresas
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {formatCompactInteger(directory.pagination.total_items)} resultados
-          {currentSearch ? ` para "${currentSearch}"` : ""}
-          {currentSector ? ` · ${currentSector}` : ""}
-        </p>
+    <PageShell density="default" className="space-y-8">
+      {/* Page header */}
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-[0.72rem] font-medium uppercase tracking-[0.26em] text-muted-foreground mb-1">
+            Diretório · CVM
+          </p>
+          <h1 className="font-heading text-[clamp(1.75rem,4vw,2.5rem)] font-medium leading-tight tracking-[-0.04em] text-foreground">
+            Todas as companhias abertas
+          </h1>
+          <p className="mt-1.5 text-[0.9rem] text-muted-foreground">
+            {formatCompactInteger(directory.pagination.total_items)} empresas
+            {currentSearch ? ` · "${currentSearch}"` : ""}
+            {currentSector ? ` · ${currentSector}` : ""}
+          </p>
+        </div>
+
+        {/* View toggle */}
+        <div className="flex items-center gap-1.5">
+          <Link
+            href={viewRowsHref}
+            title="Ver em linhas"
+            className={cn(
+              toggleBase,
+              viewMode === "rows"
+                ? "border-border bg-muted text-foreground"
+                : "border-border/40 text-muted-foreground hover:border-border hover:text-foreground",
+            )}
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+              <rect x="1" y="2" width="12" height="2" rx="0.5" fill="currentColor" />
+              <rect x="1" y="6" width="12" height="2" rx="0.5" fill="currentColor" />
+              <rect x="1" y="10" width="12" height="2" rx="0.5" fill="currentColor" />
+            </svg>
+          </Link>
+          <Link
+            href={viewCardsHref}
+            title="Ver em cards"
+            className={cn(
+              toggleBase,
+              viewMode === "cards"
+                ? "border-border bg-muted text-foreground"
+                : "border-border/40 text-muted-foreground hover:border-border hover:text-foreground",
+            )}
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+              <rect x="1" y="1" width="5" height="5" rx="1" fill="currentColor" />
+              <rect x="8" y="1" width="5" height="5" rx="1" fill="currentColor" />
+              <rect x="1" y="8" width="5" height="5" rx="1" fill="currentColor" />
+              <rect x="8" y="8" width="5" height="5" rx="1" fill="currentColor" />
+            </svg>
+          </Link>
+        </div>
       </div>
 
       {filtersError ? (
@@ -128,39 +163,33 @@ export default async function EmpresasPage({ searchParams }: EmpresasPageProps) 
         </Alert>
       ) : null}
 
-      <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
-        <aside className="lg:sticky lg:top-24 lg:self-start">
-          <div className="rounded-xl border border-border/60 bg-card p-5">
-            <CompanyDirectoryFilters
-              currentSearch={currentSearch}
-              currentSector={currentSector}
-              sectors={filters?.sectors ?? []}
-              sectorFilterUnavailable={Boolean(filtersError)}
-            />
-          </div>
-        </aside>
+      {/* Horizontal filter bar */}
+      <CompanyDirectoryFilters
+        currentSearch={currentSearch}
+        currentSector={currentSector}
+        sectors={filters?.sectors ?? []}
+        sectorFilterUnavailable={Boolean(filtersError)}
+      />
 
-        <div className="space-y-6">
-          <CompanyDirectoryList
-            items={directory.items}
-            viewMode={viewMode}
-            viewRowsHref={viewRowsHref}
-            viewCardsHref={viewCardsHref}
-            hasActiveFilters={Boolean(currentSearch || currentSector)}
-            clearHref={clearHref}
-          />
+      {/* Results */}
+      <div className="space-y-6">
+        <CompanyDirectoryList
+          items={directory.items}
+          viewMode={viewMode}
+          hasActiveFilters={Boolean(currentSearch || currentSector)}
+          clearHref={clearHref}
+        />
 
-          <DirectoryPagination
-            currentPage={directory.pagination.page}
-            totalPages={directory.pagination.total_pages}
-            totalItems={directory.pagination.total_items}
-            pageSize={PAGE_SIZE}
-            hasNext={directory.pagination.has_next}
-            hasPrevious={directory.pagination.has_previous}
-            currentSearch={currentSearch}
-            currentSector={Boolean(filtersError) ? null : currentSector}
-          />
-        </div>
+        <DirectoryPagination
+          currentPage={directory.pagination.page}
+          totalPages={directory.pagination.total_pages}
+          totalItems={directory.pagination.total_items}
+          pageSize={PAGE_SIZE}
+          hasNext={directory.pagination.has_next}
+          hasPrevious={directory.pagination.has_previous}
+          currentSearch={currentSearch}
+          currentSector={Boolean(filtersError) ? null : currentSector}
+        />
       </div>
     </PageShell>
   );

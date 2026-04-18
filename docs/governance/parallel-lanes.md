@@ -2,15 +2,16 @@
 
 ## Resumo
 
-O repositorio opera com tres frentes oficiais:
+O repositorio opera com quatro frentes oficiais:
 
 - `lane:frontend`
 - `lane:backend`
 - `lane:ops-quality`
+- `lane:master`
 
 Regra central: `1 task = 1 owner = 1 branch = 1 worktree = 1 PR`.
 
-O repo raiz permanece em `master`. Toda task executavel roda em uma worktree
+O repo raiz permanece em `main`. Toda task executavel roda em uma worktree
 dedicada em `.claude/worktrees/<lane>/<issue-number>-<slug>/`.
 
 ## Check inicial por chat
@@ -47,6 +48,16 @@ antes de abrir nova frente dependente de outra lane.
   operacionais
 - pode tocar `critical-bootstrap`
 - pode tocar `shared-governance`
+
+### `lane:master`
+
+- ownership principal: `apps/web/**`, `apps/api/**`, `src/**`, `desktop/**`,
+  `dashboard/**`, `tests/**`, `apps/api/tests/**`, `main.py`,
+  `requirements.txt`
+- pode tocar `critical-runtime`
+- pode tocar `critical-contract`
+- e isenta do domain mix `frontend-with-backend-runtime`
+- nao pode tocar `critical-bootstrap` nem `shared-governance`
 
 Se uma entrega realmente exigir frontend e backend ao mesmo tempo, quebre em
 child tasks. Nao use uma task gigante multi-lane.
@@ -167,6 +178,8 @@ Regras duras:
 - `critical-runtime` e `critical-bootstrap` exigem pelo menos `risk:shared`.
 - `shared-governance` pode acompanhar qualquer lane, mas nao libera misturar
   `apps/web/**` com `src/**` ou `apps/api/**` na mesma PR.
+- `frontend-with-backend-runtime` continua proibido para outras lanes; a unica
+  excecao formal e `lane:master`, quando o write-set convergir para essa lane.
 - Se um arquivo nao estiver coberto pela policy ou pela allowlist da lane, ele
   deve ser classificado antes de a PR ser aprovada.
 
@@ -181,7 +194,7 @@ Scripts oficiais:
 
 Boas praticas:
 
-- mantenha o repo raiz estavel em `master`
+- mantenha o repo raiz estavel em `main`
 - abra uma segunda janela do editor para a worktree da task
 - nao reuse a mesma worktree para duas tasks diferentes
 - nao remova worktree com branch nao mergeada sem `-Force`

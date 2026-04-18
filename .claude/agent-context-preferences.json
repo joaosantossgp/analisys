@@ -1,0 +1,47 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "created": "2026-04-15",
+    "purpose": "Hints for agent context initialization to reduce token consumption"
+  },
+  "governance_mode": "compact",
+  "preferred_refs": {
+    "quick_checklist": "docs/GOVERNANCE_QUICK_REFERENCE.md",
+    "operational_rules": "CLAUDE.md",
+    "session_state": "docs/AGENTS.md",
+    "business_rules": "docs/CONTEXT.md",
+    "architecture_details": "CLAUDE.md (section: Architecture)"
+  },
+  "exclude_from_context": [
+    ".workflow/.scratchpad/",
+    "archive/",
+    "docs/references/sites_ex/",
+    "build/",
+    "dist/",
+    ".pytest_cache/",
+    "node_modules/",
+    "data/db/"
+  ],
+  "lane_workspaces": {
+    "frontend": ".claude/worktrees/frontend/",
+    "backend": ".claude/worktrees/backend/",
+    "ops-quality": ".claude/worktrees/ops-quality/",
+    "master": ".claude/worktrees/master/"
+  },
+  "context_optimization": {
+    "initial_load": "Load GOVERNANCE_QUICK_REFERENCE.md before full CLAUDE.md",
+    "lane_filtering": "If lane:* label is set, can optionally load only lane-specific guidance",
+    "session_history": "For task state, consult docs/AGENTS.md (not AGENTS.md root contract)",
+    "architecture_deep_dive": "Only load full architecture section if working on infra/refactoring tasks"
+  },
+  "agent_lessons": {
+    "governance_priority": "Always follow recorded repository instructions and governance before improvising process.",
+    "project_session_start": [
+      {
+        "date": "2026-04-16",
+        "scope": "this repository",
+        "rule": "When the user invokes project-session-start with a known lane, the first assistant response must already provide the kickoff output. Do not replace that first response with clarifying questions unless a required input is genuinely unknown."
+      }
+    ]
+  }
+}

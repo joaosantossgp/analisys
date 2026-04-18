@@ -512,16 +512,6 @@ module.exports = async function runJulesPrGovernance({ github, context, core }) 
       }
     }
 
-    const blockingMix = (policy.disallowedDomainMixes || []).find((mix) => {
-      const leftTouched = files.some((file) => matchesAnyPattern(file, mix.left));
-      const rightTouched = files.some((file) => matchesAnyPattern(file, mix.right));
-      return leftTouched && rightTouched;
-    });
-
-    if (blockingMix) {
-      failureReason = `a PR mistura dominios proibidos pelo guardrail "${blockingMix.name}".`;
-    }
-
     let lane = policy.julesIntake.fallbackLane;
     if (!failureReason) {
       if (laneCandidates.length === 1) {
@@ -542,6 +532,19 @@ module.exports = async function runJulesPrGovernance({ github, context, core }) 
         } else {
           failureReason = `a inferencia de lane ficou ambigua entre: ${laneCandidates.join(', ')}.`;
         }
+      }
+    }
+
+    if (!failureReason) {
+      const blockingMix = (policy.disallowedDomainMixes || []).find((mix) => {
+        const leftTouched = files.some((file) => matchesAnyPattern(file, mix.left));
+        const rightTouched = files.some((file) => matchesAnyPattern(file, mix.right));
+        const exemptLanes = mix.exemptLanes || [];
+        return leftTouched && rightTouched && !exemptLanes.includes(lane);
+      });
+
+      if (blockingMix) {
+        failureReason = `a PR mistura dominios proibidos pelo guardrail "${blockingMix.name}".`;
       }
     }
 
