@@ -25,12 +25,12 @@ Before changing any versioned file:
 4. Ensure the issue body declares `Owner atual`, `Lane oficial`, `Workspace da task`, `Write-set esperado`, and `Classificacao de risco`.
 5. Update the issue when work starts and keep the checklist/evidence current.
 6. Create or reuse a dedicated worktree at `.claude/worktrees/<lane>/<issue-number>-<slug>/`.
-7. Keep the repo root stable on `master` and do not switch task branches in the main workspace.
+7. Keep the repo root stable on `main` and do not switch task branches in the main workspace.
 8. Work in a branch named `task/<issue-number>-<slug>`.
 9. Open a PR with `Closes #<issue-number>` in the body.
 10. Finish the task with `scripts/pr_complete.ps1 -Pr <number>` or an equivalent flow that waits for checks, confirms merge, verifies the linked issue is closed, and confirms the remote branch is gone when applicable.
 11. Update the issue and relevant docs before considering the task complete.
-12. Commit validated checkpoints, push them promptly, and merge to `master` when the task is complete and checks are green unless the user explicitly says not to.
+12. Commit validated checkpoints, push them promptly, and merge to `main` when the task is complete and checks are green unless the user explicitly says not to.
 
 ### Jules-only exception
 
@@ -49,7 +49,7 @@ Before changing any versioned file:
 - When acceptance criteria are satisfied and relevant checks pass:
   - update the issue;
   - mark the PR ready if needed;
-  - use `scripts/pr_complete.ps1` or an equivalent flow to wait through green checks and complete the merge into `master`.
+  - use `scripts/pr_complete.ps1` or an equivalent flow to wait through green checks and complete the merge into `main`.
 - Prefer squash merge for short-lived Codex branches.
 - After merge, confirm the linked task closes and the remote branch is removed when possible.
 - Remove the linked task worktree after merge when it is no longer needed.
@@ -62,10 +62,13 @@ Do not use `docs/AGENTS.md` as a backlog. The official backlog lives in GitHub I
   - `lane:frontend`
   - `lane:backend`
   - `lane:ops-quality`
+  - `lane:master`
 - Rule of thumb: `1 task = 1 owner = 1 branch = 1 worktree = 1 PR`
-- Use the repo root only as the stable `master` worktree.
+- Use the repo root only as the stable `main` worktree.
 - If you need to inspect another task, open a second editor window on that
   task's worktree instead of switching branches in the root workspace.
+- `lane:master` is the cross-cutting execution lane for application/runtime work.
+- `lane:master.plan` is read-only orchestration mode and does not write code.
 - Sensitive files are governed by `.github/guardrails/path-policy.json`.
 - Paths in `shared-governance`, `critical-bootstrap`, `critical-runtime`, and
   `critical-contract` require the lane and `risk:*` classification allowed by

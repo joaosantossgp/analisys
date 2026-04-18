@@ -645,8 +645,9 @@ jobs:
               const rightTouched = filenames.some((file) =>
                 matchesAnyPattern(file, mix.right),
               );
+              const exemptLanes = mix.exemptLanes || [];
 
-              if (leftTouched && rightTouched) {
+              if (leftTouched && rightTouched && !exemptLanes.includes(laneSection)) {
                 core.setFailed(
                   `A PR mistura dominios proibidos pelo guardrail "${mix.name}". Quebre o trabalho em tasks separadas por lane.`,
                 );
