@@ -1,13 +1,11 @@
 import Link from "next/link";
 import { ChevronRightIcon } from "lucide-react";
 
-import {
-  InfoChip,
-  SurfaceCard,
-} from "@/components/shared/design-system-recipes";
+import { InfoChip } from "@/components/shared/design-system-recipes";
 import { ExcelDownloadButton } from "@/components/shared/excel-download-button";
 import { Button, buttonVariants } from "@/components/ui/button";
 import type { CompanyInfo } from "@/lib/api";
+import { getSectorColor } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 type CompanyHeaderProps = {
@@ -15,19 +13,26 @@ type CompanyHeaderProps = {
   selectedYears: number[];
 };
 
-export function CompanyHeader({
-  company,
-  selectedYears,
-}: CompanyHeaderProps) {
-  const compareParams = new URLSearchParams({
-    ids: String(company.cd_cvm),
-  });
+function getInitials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0]!.toUpperCase())
+    .join("");
+}
+
+export function CompanyHeader({ company, selectedYears }: CompanyHeaderProps) {
+  const sectorColor = getSectorColor(company.sector_name);
+  const initials = getInitials(company.company_name);
+
+  const compareParams = new URLSearchParams({ ids: String(company.cd_cvm) });
   if (selectedYears.length > 0) {
     compareParams.set("anos", selectedYears.join(","));
   }
   const compareHref = `/comparar?${compareParams.toString()}`;
+
   const latestSelectedYear = selectedYears[selectedYears.length - 1] ?? null;
-  const earliestSelectedYear = selectedYears[0] ?? null;
   const sectorHref =
     company.sector_slug && latestSelectedYear
       ? `/setores/${company.sector_slug}?ano=${latestSelectedYear}`
@@ -35,15 +40,8 @@ export function CompanyHeader({
         ? `/setores/${company.sector_slug}`
         : null;
 
-  const freshnessLabel =
-    earliestSelectedYear && latestSelectedYear
-      ? earliestSelectedYear === latestSelectedYear
-        ? `Dados ${latestSelectedYear}`
-        : `Dados ${earliestSelectedYear}\u2013${latestSelectedYear}`
-      : "Fonte CVM";
-
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <nav aria-label="breadcrumb">
         <ol className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           <li>
@@ -64,65 +62,73 @@ export function CompanyHeader({
         </ol>
       </nav>
 
-      <SurfaceCard tone="hero" padding="hero">
+      <div
+        className="overflow-hidden rounded-2xl border border-border/60 px-6 py-6 lg:px-8 lg:py-8"
+        style={{
+          background: `linear-gradient(135deg, color-mix(in oklch, ${sectorColor} 10%, var(--card)) 0%, var(--card) 70%)`,
+        }}
+      >
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <InfoChip tone="brand">Detalhe da companhia</InfoChip>
-              <InfoChip>CVM {company.cd_cvm}</InfoChip>
-              <InfoChip tone="muted">Fonte CVM &middot; {freshnessLabel}</InfoChip>
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+            <div
+              className="flex size-[88px] shrink-0 items-center justify-center rounded-[20px]"
+              style={{ backgroundColor: `${sectorColor}26` }}
+            >
+              <span
+                className="font-heading text-[1.6rem] font-bold leading-none"
+                style={{ color: sectorColor }}
+              >
+                {initials}
+              </span>
             </div>
 
             <div className="space-y-3">
-              <h1 className="font-heading text-4xl tracking-[-0.05em] text-foreground sm:text-5xl">
+              <div className="flex flex-wrap items-center gap-2">
+                {company.ticker_b3 ? (
+                  <InfoChip tone="brand">{company.ticker_b3}</InfoChip>
+                ) : null}
+                <InfoChip>CVM {company.cd_cvm}</InfoChip>
+              </div>
+              <h1 className="font-heading text-[clamp(1.8rem,3.5vw,2.5rem)] leading-[1.05] tracking-[-0.04em] text-foreground">
                 {company.company_name}
               </h1>
-              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                <span>{company.ticker_b3 ?? "Sem ticker"}</span>
-                <span aria-hidden="true">&middot;</span>
-                <span>{company.sector_name}</span>
-              </div>
+              <p className="text-sm text-muted-foreground">{company.sector_name}</p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 lg:shrink-0">
             <ExcelDownloadButton
               endpoint={`/api/companies/${company.cd_cvm}/excel`}
               fallbackFilename={`${company.ticker_b3 ?? `cvm${company.cd_cvm}`}.xlsx`}
-              buttonLabel="Baixar Excel"
-              pendingLabel="Preparando Excel..."
+              buttonLabel="Excel"
+              pendingLabel="Preparando..."
               trackingEvent="company_excel_download_clicked"
               failureTrackingEvent="company_excel_download_failed"
               trackingPayload={{
                 cd_cvm: company.cd_cvm,
                 company_name: company.company_name,
               }}
-              className="rounded-full px-5"
+              className="rounded-full px-4"
             />
             {sectorHref ? (
               <Link
                 href={sectorHref}
                 className={cn(
-                  buttonVariants({ variant: "ghost", size: "lg" }),
+                  buttonVariants({ variant: "outline", size: "sm" }),
                   "rounded-full px-4",
                 )}
               >
                 Ver setor
               </Link>
             ) : (
-              <Button
-                variant="ghost"
-                size="lg"
-                className="rounded-full px-4"
-                disabled
-              >
-                Setor indisponivel
+              <Button variant="outline" size="sm" className="rounded-full px-4" disabled>
+                Setor indisponível
               </Button>
             )}
             <Link
               href={compareHref}
               className={cn(
-                buttonVariants({ variant: "ghost", size: "lg" }),
+                buttonVariants({ variant: "outline", size: "sm" }),
                 "rounded-full px-4",
               )}
             >
@@ -130,7 +136,7 @@ export function CompanyHeader({
             </Link>
           </div>
         </div>
-      </SurfaceCard>
+      </div>
     </div>
   );
 }
