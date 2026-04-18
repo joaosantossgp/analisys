@@ -8,7 +8,7 @@
 
 ---
 
-## Estado Atual (2026-04-12)
+## Estado Atual (2026-04-18)
 
 ### Dashboard
 - **3 abas renderizadas** em `dashboard/app.py`: `Visao Geral`, `Demonstracoes`, `Download`
@@ -29,11 +29,15 @@
 - `apps/api`: API `FastAPI` read-only sobre `src/read_service.py`
 - Endpoints: `health`, `companies`, `companies/filters`, `company detail`, `years`, `statements`, `kpis`, `refresh-status`, `base-health`
 
-### V2 Web
-- `apps/web`: `Next.js 16.2.2` + `App Router` + `TypeScript` + `Tailwind v4` + `@base-ui/react 1.3.0`
-- Icones: `Material Symbols Outlined` weight 200; componentes via 21st.dev shadcn CLI
-- Rotas: `/`, `/empresas`, `/empresas/[cd_cvm]`, `/design-system`
-- Cores chart: OkLch com ~72° espacamento; consome somente API V2
+### V2 Web — Claude Design Redesign Complete ✓
+- **Stack:** `Next.js 16.2.2` + `App Router` + `TypeScript` + `Tailwind v4` + `@base-ui/react 1.3.0`
+- **Icones:** `Material Symbols Outlined` weight 200; componentes via 21st.dev shadcn CLI
+- **Cores:** OkLch; primary teal `oklch(0.65 0.14 178)`; 10-sector palette com `getSectorColor()`
+- **Rotas:** `/` (home redesenhada), `/empresas` (directory com left rail + filtros), `/empresas/[cd_cvm]` (cockpit com KPI row + chart + sparklines), `/design-system`
+- **Home (#80):** hero centralizado clamp, DiscoverySection 3-tab (populares/destaque/setores), TrustStrip com metrics
+- **Directory (#81):** left rail sticky (filters + aplicar/limpar), grid dual-col, view toggle (rows/cards), CompanyRow com sparkline dos anos_disponiveis
+- **Cockpit (#82):** hero com gradient setor, KPIRow (4x KPI em cards), SvgAreaChart com toggle metrica+periodo, right rail (3x sparkline + freshness + ranking)
+- **Demonstrações (#83):** client component com sub-tabs visuais (DRE/BPA/BPP/DFC), search em-tempo-real, toggle DELTA_YoY, hierarchical rows com fmtMM() formatter
 
 ### Testes
 - `pytest tests/ -q` — V1; `pytest apps/api/tests -q` — V2 API
@@ -112,6 +116,15 @@
 - Merge de 3 PRs do Jules (#23, #25, #29) focadas em performance.
 - Issues retroativas (#24, #26, #30) fechadas automaticamente pelo merge.
 - CI restaurado e validado apos os merges.
+
+### Sessao 47 - 2026-04-18 (Claude Design delivery — 4 issues mergeadas)
+- **#80 (Home redesenhada)** → PR #85: hero centralizado clamp, DiscoverySection 3 tabs (populares/destaque/setores), TrustStrip com RefreshCw animate-spin
+- **#81 (Directory redesenhado)** → PR #86: left rail sticky (filters + aplicar/limpar), grid lg:cols-[280px_1fr], CompanyRow (sparkline do anos_disponiveis) + CompanyCard (border-left por setor)
+- **#82 (Company cockpit)** → PR #87: hero gradient linear-135deg, KPIRow (MG_BRUTA/EBITDA/ROE/MG_LIQ), SvgAreaChart com toggle metrica+periodo, 3x SparklineChip right rail, placeholder SectorRanking
+- **#83 (Demonstrações refinamento)** → PR #88: CompanyStatements client component, visual sub-tabs (DRE/BPA/BPP/DFC), search DS_CONTA, toggle DELTA_YoY, hierarchical StatementRow com fmtMM() formatter
+- Guardrail fix: discovery-section.tsx adicionado ao write-set #80; typo `.claire/` → `.claude/` corrigido em #81/#82
+- Todos os 4 issues fechados, worktrees removidos, PRs mergeadas com checks verdes
+- Stack v2 (Next.js + FastAPI) agora com UI/UX redesenhada completa
 
 ### Sessao 46 - 2026-04-15 (deploy pipeline configurado)
 - CI corrigido: branch `master` → `main` em `.github/workflows/ci.yml` (4 ocorrencias).
