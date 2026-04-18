@@ -191,7 +191,7 @@ export default async function EmpresaDetailPage({
 
       {currentTab === "visao-geral" ? (
         bundle ? (
-          <CompanyOverview bundle={bundle} />
+          <CompanyOverview bundle={bundle} cdCvm={cdCvm} />
         ) : (
           <Alert className="rounded-[1.75rem] border border-destructive/25 bg-destructive/6 px-5 py-5 text-left">
             <AlertTitle>Visao geral indisponivel</AlertTitle>
