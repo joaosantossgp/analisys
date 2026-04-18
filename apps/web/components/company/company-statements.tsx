@@ -49,6 +49,16 @@ type StatementRowProps = {
   statementType: string;
 };
 
+function getStatementRowKey(row: TabularDataRow, index: number): string {
+  return String(
+    row.LINE_ID_BASE ??
+      row.CD_CONTA ??
+      row.STANDARD_NAME ??
+      row.DS_CONTA ??
+      `statement-row-${index}`,
+  );
+}
+
 function StatementRow({
   row,
   yearColumns,
@@ -250,9 +260,9 @@ export function CompanyStatements({ matrix }: CompanyStatementsProps) {
             </tr>
           </thead>
           <tbody>
-            {filteredRows.map((row) => (
+            {filteredRows.map((row, index) => (
               <StatementRow
-                key={String(row.LINE_ID_BASE ?? row.CD_CONTA ?? Math.random())}
+                key={getStatementRowKey(row, index)}
                 row={row}
                 yearColumns={yearColumns}
                 showYoY={showYoY}
