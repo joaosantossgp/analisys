@@ -1,85 +1,53 @@
 "use client";
 
-import Link from "next/link";
-import { ArrowRightIcon, SearchIcon } from "lucide-react";
-import { useDeferredValue, useEffect, useState, useTransition } from "react";
+import { ArrowRightIcon, SearchIcon, XIcon } from "lucide-react";
+import { useDeferredValue, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import {
-  InfoChip,
-  surfaceVariants,
-} from "@/components/shared/design-system-recipes";
 import { buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import type { CompanyDirectoryItem } from "@/lib/api";
-import { formatCompactInteger, formatYearsLabel } from "@/lib/formatters";
+import { getSectorColor } from "@/lib/constants";
 import { track } from "@/lib/track";
 import { cn } from "@/lib/utils";
+
+const QUICK_CHIPS = ["PETROBRAS", "VALE3", "ITAUB4", "BBDC4", "Financeiro", "Petróleo e Gás"];
 
 type CompanySearchHeroProps = {
   apiAvailable: boolean;
   totalCompanies: number | null;
 };
 
-export function CompanySearchHero({
-  apiAvailable,
-  totalCompanies,
-}: CompanySearchHeroProps) {
+export function CompanySearchHero({ apiAvailable }: CompanySearchHeroProps) {
   const router = useRouter();
+  const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
+  const [focused, setFocused] = useState(false);
   const [suggestions, setSuggestions] = useState<CompanyDirectoryItem[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
-  const [suggestionError, setSuggestionError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const deferredQuery = useDeferredValue(query);
 
   useEffect(() => {
     const normalized = deferredQuery.trim();
-
     if (normalized.length < 2 || !apiAvailable) {
       setSuggestions([]);
-      setSuggestionError(null);
       return;
     }
 
     let active = true;
     const timer = window.setTimeout(async () => {
       setLoadingSuggestions(true);
-      setSuggestionError(null);
-
       try {
-        const response = await fetch(
+        const res = await fetch(
           `/api/company-search?q=${encodeURIComponent(normalized)}`,
-          {
-            cache: "no-store",
-          },
+          { cache: "no-store" },
         );
-        const payload = (await response.json()) as {
-          items?: CompanyDirectoryItem[];
-          error?: string;
-        };
-
-        if (!active) {
-          return;
-        }
-
-        if (!response.ok) {
-          setSuggestions([]);
-          setSuggestionError(payload.error ?? "Nao foi possivel buscar sugestoes.");
-          return;
-        }
-
-        setSuggestions(payload.items ?? []);
+        const data = (await res.json()) as { items?: CompanyDirectoryItem[] };
+        if (active) setSuggestions(data.items?.slice(0, 6) ?? []);
       } catch {
-        if (!active) {
-          return;
-        }
-        setSuggestions([]);
-        setSuggestionError("Nao foi possivel buscar sugestoes.");
+        if (active) setSuggestions([]);
       } finally {
-        if (active) {
-          setLoadingSuggestions(false);
-        }
+        if (active) setLoadingSuggestions(false);
       }
     }, 180);
 
@@ -89,40 +57,25 @@ export function CompanySearchHero({
     };
   }, [apiAvailable, deferredQuery]);
 
-  function navigateToDirectory(rawQuery: string) {
-    const normalized = rawQuery.trim();
-    const target = normalized
-      ? `/empresas?busca=${encodeURIComponent(normalized)}`
-      : "/empresas";
+  const showDropdown = focused && (loadingSuggestions || suggestions.length > 0);
 
-    track("home_search_submitted", {
-      query: normalized,
-    });
-
-    startTransition(() => {
-      router.push(target);
-    });
+  function navigateToCompany(item: CompanyDirectoryItem) {
+    track("home_suggestion_selected", { cd_cvm: item.cd_cvm, company_name: item.company_name });
+    startTransition(() => router.push(`/empresas/${item.cd_cvm}`));
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    navigateToDirectory(query);
-  }
-
-  function handleSuggestionSelection(item: CompanyDirectoryItem) {
-    track("home_suggestion_selected", {
-      cd_cvm: item.cd_cvm,
-      company_name: item.company_name,
-    });
-
-    startTransition(() => {
-      router.push(`/empresas/${item.cd_cvm}`);
-    });
+  function submit() {
+    const q = query.trim();
+    track("home_search_submitted", { query: q });
+    startTransition(() =>
+      router.push(q ? `/empresas?busca=${encodeURIComponent(q)}` : "/empresas"),
+    );
   }
 
   return (
-    <div className="w-full max-w-[680px] mx-auto space-y-7 text-center">
-      <div className="space-y-5">
+    <div className="w-full max-w-[680px] mx-auto space-y-6 text-center">
+      {/* Heading */}
+      <div className="space-y-4">
         <h1 className="font-heading text-[clamp(2.5rem,5.5vw,4.25rem)] leading-[1.02] tracking-[-0.045em] text-foreground">
           Análise financeira<br />
           <span className="text-muted-foreground italic font-normal">
@@ -130,108 +83,130 @@ export function CompanySearchHero({
           </span>
         </h1>
         <p className="max-w-[560px] mx-auto text-[1.0625rem] leading-[1.55] text-muted-foreground">
-          Pesquise qualquer companhia aberta brasileira. Leia DRE, balanço e KPIs com 10+ anos de histórico, direto da CVM.
+          Pesquise qualquer companhia aberta brasileira. Leia DRE, balanço e KPIs
+          com 10+ anos de histórico, direto da CVM.
         </p>
       </div>
 
-      <form
-        action="/empresas"
-        method="get"
-        onSubmit={handleSubmit}
-        className="relative"
-      >
-        <div className="flex flex-col gap-3 rounded-[1.5rem] border border-border/70 bg-background/92 p-3 shadow-[0_18px_45px_-40px_rgba(16,30,24,0.22)] sm:flex-row sm:items-center">
-          <div className="flex flex-1 items-center gap-3 rounded-[1.2rem] border border-border/60 bg-muted/55 px-4 py-3">
-            <SearchIcon className="size-4.5 text-muted-foreground" />
-            <Input
-              name="busca"
-              type="search"
-              value={query}
-              placeholder="PETROBRAS, VALE3 ou 9512"
-              className="h-auto border-0 bg-transparent p-0 text-base shadow-none ring-0 focus-visible:ring-0"
-              onChange={(event) => setQuery(event.target.value)}
-              aria-label="Buscar empresa"
-            />
-          </div>
-          <div className="flex flex-col gap-3 sm:flex-row">
+      {/* Search box */}
+      <div className="relative text-left">
+        <div
+          onClick={() => inputRef.current?.focus()}
+          className={cn(
+            "flex items-center gap-3 bg-card border transition-all duration-200 cursor-text px-5 py-2 pr-2",
+            showDropdown ? "rounded-[1.25rem_1.25rem_0_0]" : "rounded-[1.25rem]",
+            focused
+              ? "border-ring/50 shadow-[0_0_0_4px_color-mix(in_oklch,var(--ring)_15%,transparent),0_20px_60px_-40px_rgba(16,30,24,0.25)]"
+              : "border-border/70 shadow-[0_18px_50px_-40px_rgba(16,30,24,0.22)]",
+          )}
+        >
+          <SearchIcon className="size-[1.375rem] shrink-0 text-muted-foreground" />
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setTimeout(() => setFocused(false), 150)}
+            onKeyDown={(e) => e.key === "Enter" && submit()}
+            placeholder="Petrobras, VALE3, setor financeiro…"
+            className="flex-1 border-none bg-transparent py-[0.85rem] text-[1.125rem] text-foreground outline-none placeholder:text-muted-foreground"
+            aria-label="Buscar empresa"
+          />
+          {query && (
             <button
-              type="submit"
-              className={cn(
-                buttonVariants({ size: "lg" }),
-                "rounded-full px-5",
-              )}
-              disabled={isPending}
+              type="button"
+              onClick={() => { setQuery(""); inputRef.current?.focus(); }}
+              className="flex size-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors mr-1"
+              aria-label="Limpar busca"
             >
-              Buscar empresa
-              <ArrowRightIcon data-icon="inline-end" />
+              <XIcon className="size-4" />
             </button>
-            <Link
-              href="/empresas"
-              className={cn(
-                buttonVariants({ variant: "outline", size: "lg" }),
-                "rounded-full px-5",
-              )}
-            >
-              Ir para empresas
-            </Link>
-          </div>
+          )}
+          <button
+            type="button"
+            onClick={submit}
+            disabled={isPending}
+            className={cn(buttonVariants({ size: "lg" }), "rounded-full px-5 shrink-0")}
+          >
+            Buscar
+            <ArrowRightIcon className="size-4" />
+          </button>
         </div>
 
-        {apiAvailable &&
-        (loadingSuggestions || suggestions.length > 0 || suggestionError) ? (
-          <div
-            className={cn(
-              surfaceVariants({ tone: "default", padding: "none" }),
-              "absolute inset-x-0 top-[calc(100%+0.75rem)] z-20 overflow-hidden text-left",
-            )}
-          >
-            {loadingSuggestions ? (
-              <p className="px-5 py-4 text-sm text-muted-foreground">
-                Buscando sugestoes...
-              </p>
-            ) : suggestionError ? (
-              <p className="px-5 py-4 text-sm text-destructive">
-                {suggestionError}
-              </p>
-            ) : (
-              <ul className="divide-y divide-border/50">
-                {suggestions.map((item) => (
-                  <li key={item.cd_cvm}>
-                    <button
-                      type="button"
-                      className="flex w-full items-start justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/45"
-                      onClick={() => handleSuggestionSelection(item)}
-                    >
-                      <div className="space-y-1.5">
-                        <p className="font-medium text-foreground">
-                          {item.company_name}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {item.ticker_b3 ?? "Sem ticker"} - CVM {item.cd_cvm}
-                        </p>
-                      </div>
-                      <div className="space-y-1 text-right">
-                        <p className="text-sm text-foreground">
-                          {item.sector_name}
-                        </p>
-                        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                          {formatYearsLabel(item.anos_disponiveis)}
-                        </p>
-                      </div>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+        {/* Suggestions dropdown */}
+        {showDropdown && (
+          <div className="absolute inset-x-0 top-full z-20 overflow-hidden rounded-[0_0_1.25rem_1.25rem] border border-t-0 border-ring/50 bg-card shadow-[0_20px_60px_-30px_rgba(16,30,24,0.25)]">
+            <div className="border-t border-border bg-muted/30 px-5 py-1.5 text-[0.7rem] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+              {loadingSuggestions
+                ? "Buscando…"
+                : `${suggestions.length} resultado${suggestions.length !== 1 ? "s" : ""}`}
+            </div>
+            {suggestions.map((item) => {
+              const color = getSectorColor(item.sector_name);
+              const initials = (item.ticker_b3 ?? item.company_name).slice(0, 2).toUpperCase();
+              return (
+                <button
+                  key={item.cd_cvm}
+                  type="button"
+                  onMouseDown={() => navigateToCompany(item)}
+                  className="flex w-full items-center gap-4 border-t border-border/50 px-5 py-3.5 text-left transition-colors hover:bg-accent/60"
+                >
+                  <div
+                    className="flex size-10 shrink-0 items-center justify-center rounded-[10px] font-heading text-sm font-semibold"
+                    style={{
+                      background: `color-mix(in oklch, ${color} 12%, transparent)`,
+                      border: `1px solid color-mix(in oklch, ${color} 25%, transparent)`,
+                      color,
+                    }}
+                  >
+                    {initials}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-sm text-foreground">{item.company_name}</span>
+                      {item.ticker_b3 && (
+                        <span
+                          className="font-mono text-[0.7rem] font-medium px-1.5 py-0.5 rounded-[0.35rem]"
+                          style={{
+                            background: `color-mix(in oklch, ${color} 12%, transparent)`,
+                            border: `1px solid color-mix(in oklch, ${color} 25%, transparent)`,
+                            color,
+                          }}
+                        >
+                          {item.ticker_b3}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[0.8rem] text-muted-foreground mt-0.5">{item.sector_name}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-[0.72rem] uppercase tracking-[0.15em] text-muted-foreground tabular-nums">
+                      {(item.anos_disponiveis?.length ?? 0)} anos
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
           </div>
-        ) : null}
-      </form>
+        )}
+      </div>
 
-      <div className="flex flex-wrap justify-center items-center gap-3 text-sm text-muted-foreground">
-        <InfoChip>{apiAvailable ? "API pronta para busca" : "API indisponivel"}</InfoChip>
-        {totalCompanies !== null ? (
-          <InfoChip>{formatCompactInteger(totalCompanies)} empresas com dados</InfoChip>
-        ) : null}
+      {/* Quick chips */}
+      <div className="flex flex-wrap justify-center items-center gap-2">
+        <span className="text-[0.8rem] text-muted-foreground">Tente:</span>
+        {QUICK_CHIPS.map((chip) => (
+          <button
+            key={chip}
+            type="button"
+            onClick={() => {
+              setQuery(chip);
+              setTimeout(() => inputRef.current?.focus(), 0);
+            }}
+            className="rounded-full border border-border bg-card px-3 py-1 font-mono text-[0.75rem] text-muted-foreground transition-colors hover:border-primary/35 hover:text-primary"
+          >
+            {chip}
+          </button>
+        ))}
       </div>
     </div>
   );

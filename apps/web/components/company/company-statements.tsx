@@ -9,7 +9,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import type { StatementMatrix, TabularDataRow } from "@/lib/api";
 import { isStatementSubtotal, STATEMENT_OPTIONS } from "@/lib/constants";
-import { formatStatementValue } from "@/lib/formatters";
 import { mergeSearchParams } from "@/lib/search-params";
 import { cn } from "@/lib/utils";
 
@@ -71,9 +70,7 @@ function StatementRow({
   const level = Number(row.LEVEL ?? 0);
   const indent = 16 + level * 16;
   const delta =
-    row.DELTA_YOY === null || row.DELTA_YOY === undefined
-      ? null
-      : Number(row.DELTA_YOY);
+    row.DELTA_YOY === null || row.DELTA_YOY === undefined ? null : Number(row.DELTA_YOY);
   const isDeltaPos = delta !== null && delta >= 0;
 
   return (
@@ -120,12 +117,10 @@ function StatementRow({
               "py-2.5 px-3 text-right font-mono text-[0.82rem] tnum tabular-nums",
               isNeg ? "text-destructive" : "text-foreground",
               isSubtotal ? "font-semibold" : "",
-              isLastYear(col) ? "text-foreground font-medium" : "",
+              isLastYear(col) ? "font-medium text-foreground" : "",
             )}
           >
-            {numericValue === null || isNaN(numericValue)
-              ? "—"
-              : fmtMM(numericValue)}
+            {numericValue === null || isNaN(numericValue) ? "—" : fmtMM(numericValue)}
           </td>
         );
       })}
@@ -135,7 +130,9 @@ function StatementRow({
           {delta === null ? (
             <span className="text-muted-foreground/50">—</span>
           ) : (
-            <span className={isDeltaPos ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"}>
+            <span
+              className={isDeltaPos ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"}
+            >
               {isDeltaPos ? "+" : ""}
               {(delta * 100).toFixed(1)}%
             </span>
@@ -178,29 +175,28 @@ export function CompanyStatements({ matrix }: CompanyStatementsProps) {
   if (rows.length === 0) {
     return (
       <SurfaceCard tone="muted" padding="hero" className="items-center text-center">
-        <p className="font-heading text-2xl text-foreground">
-          Sem demonstração disponível.
-        </p>
+        <p className="font-heading text-2xl text-foreground">Sem demonstração disponível.</p>
         <p className="max-w-2xl text-sm leading-7 text-muted-foreground">
-          Ajuste o período selecionado ou troque o tipo de demonstração para
-          consultar outra visão disponível.
+          Ajuste o período selecionado ou troque o tipo de demonstração para consultar outra
+          visão disponível.
         </p>
       </SurfaceCard>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex gap-0 border-b border-border/60">
+    <div className="space-y-0">
+      {/* Pill sub-tabs */}
+      <div className="flex gap-1 border-b border-border/60 px-1 pb-0">
         {STATEMENT_OPTIONS.map((opt) => (
           <button
             key={opt.value}
             type="button"
             onClick={() => navigateTo(opt.value)}
             className={cn(
-              "flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm transition-colors -mb-px",
+              "rounded-[0.85rem_0.85rem_0_0] border border-b-0 px-4 py-2 text-[0.82rem] font-medium -mb-px transition-colors",
               currentStmt === opt.value
-                ? "border-primary text-foreground font-medium"
+                ? "border-border/60 bg-card text-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground",
             )}
           >
@@ -209,36 +205,36 @@ export function CompanyStatements({ matrix }: CompanyStatementsProps) {
         ))}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 rounded-[1rem] border border-border/60 bg-muted/40 px-3 py-1.5">
-            <SearchIcon className="size-3.5 shrink-0 text-muted-foreground" />
-            <Input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Filtrar linha…"
-              className="h-auto w-40 border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0"
-            />
-          </div>
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
-            <Checkbox
-              checked={showYoY}
-              onCheckedChange={(checked) => setShowYoY(Boolean(checked))}
-            />
-            Mostrar variação
-          </label>
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-center gap-3 rounded-[0_0_0_0] border border-t-0 border-border/60 bg-muted/20 px-4 py-3">
+        <div className="flex items-center gap-2 rounded-[1rem] border border-border/60 bg-card px-3 py-1.5">
+          <SearchIcon className="size-3.5 shrink-0 text-muted-foreground" />
+          <Input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Filtrar linha…"
+            className="h-auto w-44 border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0"
+          />
         </div>
-        <span className="text-xs text-muted-foreground">
-          {filteredRows.length} linhas · valores em R$ milhões
+        <label className="flex cursor-pointer items-center gap-2 text-[0.82rem] text-muted-foreground">
+          <Checkbox
+            checked={showYoY}
+            onCheckedChange={(checked) => setShowYoY(Boolean(checked))}
+          />
+          Mostrar variação YoY
+        </label>
+        <span className="ml-auto text-[0.72rem] text-muted-foreground tabular-nums">
+          {filteredRows.length} linhas · R$ milhões
         </span>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-border/60">
+      {/* Table */}
+      <div className="overflow-x-auto rounded-b-xl border border-t-0 border-border/60">
         <table className="min-w-full text-sm">
           <thead>
             <tr className="border-b border-border/60 bg-muted/30">
-              <th className="sticky left-0 z-10 bg-muted/30 px-4 py-3 text-left font-medium text-muted-foreground w-[40%]">
+              <th className="sticky left-0 z-10 w-[40%] bg-muted/30 px-4 py-3 text-left font-medium text-muted-foreground">
                 Conta
               </th>
               {yearColumns.map((col) => (
@@ -274,9 +270,9 @@ export function CompanyStatements({ matrix }: CompanyStatementsProps) {
         </table>
       </div>
 
-      <p className="text-xs italic text-muted-foreground">
-        Fonte: CVM · DFP/ITR consolidados. Linhas em destaque são totalizadoras.
-        Valores em R$ milhões, sem ajuste de inflação.
+      <p className="pt-3 text-xs italic text-muted-foreground">
+        Fonte: CVM · DFP/ITR consolidados. Linhas em destaque são totalizadoras. Valores em R$
+        milhões, sem ajuste de inflação.
       </p>
     </div>
   );
