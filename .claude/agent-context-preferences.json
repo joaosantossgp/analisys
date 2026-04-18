@@ -25,8 +25,7 @@
   "lane_workspaces": {
     "frontend": ".claude/worktrees/frontend/",
     "backend": ".claude/worktrees/backend/",
-    "ops-quality": ".claude/worktrees/ops-quality/",
-    "master": ".claude/worktrees/master/"
+    "ops-quality": ".claude/worktrees/ops-quality/"
   },
   "context_optimization": {
     "initial_load": "Load GOVERNANCE_QUICK_REFERENCE.md before full CLAUDE.md",

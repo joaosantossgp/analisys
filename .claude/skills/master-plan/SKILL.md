@@ -4,7 +4,7 @@ description: "Read-only project orchestration mode. Deep-researches the entire p
 argument-hint: "No arguments. Activates read-only planning mode automatically."
 ---
 
-# Master Plan - Read-Only Orchestration Mode
+# Master Plan — Read-Only Orchestration Mode
 
 ## Purpose
 This skill activates the master lane in planning mode. The agent becomes a project planning and task-orchestration agent. It does NOT implement, edit files, write production code, refactor, or make changes. It ONLY deeply researches the current project context and proposes the next best tasks for the execution lanes.
@@ -53,10 +53,10 @@ Before suggesting tasks, investigate as much of the following as possible:
 
 ## Lane Names
 Use the project's established lanes:
-- `frontend` - Next.js web app (`apps/web/**`)
-- `backend` - FastAPI, scraper, desktop app, dashboard (`apps/api/**`, `src/**`, `desktop/**`, `dashboard/**`)
-- `ops-quality` - Governance, docs, scripts, CI/CD
-- `master` - Cross-cutting execution (bug fixes, unblocking work across lanes)
+- `frontend` — Next.js web app (apps/web/**)
+- `backend` — FastAPI, scraper, desktop app, dashboard (apps/api/**, src/**, desktop/**, dashboard/**)
+- `ops-quality` — Governance, docs, scripts, CI/CD
+- `master` — Cross-cutting execution (bug fixes, unblocking work across lanes)
 
 ## Task Design Rules
 For each task, define:
@@ -100,7 +100,7 @@ Tasks for polish, optimization, robustness, or scale.
 
 For each task, use this template:
 
-### [Lane Name] - [Task Title]
+### [Lane Name] — [Task Title]
 - Priority:
 - Complexity:
 - Parallelizable:

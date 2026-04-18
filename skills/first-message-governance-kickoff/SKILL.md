@@ -1,7 +1,7 @@
 ---
 name: first-message-governance-kickoff
 description: "Kick off a new chat with governance-ready context loading and lane triage before implementation. Use for first message, start chat, initialize context, or when user invokes /first-message-governance-kickoff lane:<lane>. Reads mandatory operational docs, checks lane tasks/child tasks/PR state, and reports if execution is ready or blocked."
-argument-hint: "Preferred: /first-message-governance-kickoff lane:frontend|backend|ops-quality|master. If no lane is provided, runs lane-agnostic kickoff."
+argument-hint: "Preferred: /first-message-governance-kickoff lane:frontend|backend|ops-quality. If no lane is provided, runs lane-agnostic kickoff."
 ---
 
 # First Message Governance Kickoff
@@ -20,13 +20,12 @@ Preferred invocation includes lane:
 - `/first-message-governance-kickoff lane:frontend`
 - `/first-message-governance-kickoff lane:backend`
 - `/first-message-governance-kickoff lane:ops-quality`
-- `/first-message-governance-kickoff lane:master`
 
 Lane-agnostic invocation is allowed:
 - `/first-message-governance-kickoff`
 
 Lane parsing rules:
-- accepted forms: `lane:frontend`, `lane:backend`, `lane:ops-quality`, `lane:master`
+- accepted forms: `lane:frontend`, `lane:backend`, `lane:ops-quality`
 - if no lane token is provided: run lane-agnostic mode
 - if invalid lane token is provided: report invalid token and continue in lane-agnostic mode
 - if multiple lanes are provided: stop and ask user to choose exactly one lane
@@ -34,7 +33,7 @@ Lane parsing rules:
 ## Mandatory Sources To Read First
 Always read these before any implementation action:
 - `AGENTS.md`
-- `CLAUDE.md`
+- `AGENTS.md`
 - `docs/governance/parallel-lanes.md`
 - `docs/AGENTS.md`
 - `README.md`
@@ -73,8 +72,8 @@ If mode is `lane-aware`, check:
 3. child tasks opened by this lane to other lanes,
 4. open PRs linked to those issues,
 5. pending `status:awaiting-consumption` deliveries,
-6. merged PRs with linked issue still open - governance drift; report as `NEEDS_ISSUE_CLOSURE`,
-7. open PRs where guardrails passed and PR is not draft - auto-merge may be pending; report state.
+6. **merged PRs with linked issue still open** — governance drift; report as `NEEDS_ISSUE_CLOSURE`,
+7. **open PRs where guardrails passed and PR is not draft** — auto-merge may be pending; report state.
 
 If mode is `lane-agnostic`, do a lightweight generic triage and mark lane checks as skipped.
 
@@ -84,7 +83,7 @@ Return one status:
 - `BLOCKED_AWAITING_CONSUMPTION`
 - `BLOCKED_MISSING_TASK_ISSUE`
 - `READY_WITH_TRIAGE_DEGRADED` (when remote issue/PR triage is unavailable)
-- `NEEDS_ISSUE_CLOSURE` (merged PR found with linked issue still open - close issue before new work)
+- `NEEDS_ISSUE_CLOSURE` (merged PR found with linked issue still open — close issue before new work)
 
 ## Output Format
 Return a concise startup briefing with:
@@ -114,7 +113,6 @@ If lane is not provided and request is not lane-specific, do not force a lane qu
 - `/first-message-governance-kickoff lane:backend`
 - `/first-message-governance-kickoff lane:frontend`
 - `/first-message-governance-kickoff lane:ops-quality`
-- `/first-message-governance-kickoff lane:master`
 - `/first-message-governance-kickoff` (generic kickoff)
 
 ## Completion Gate
