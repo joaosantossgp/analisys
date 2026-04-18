@@ -50,6 +50,7 @@ body:
         - frontend
         - backend
         - ops-quality
+        - master
     validations:
       required: true
   - type: dropdown
@@ -62,6 +63,7 @@ body:
         - frontend
         - backend
         - ops-quality
+        - master
     validations:
       required: true
   - type: input

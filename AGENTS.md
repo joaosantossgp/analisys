@@ -40,7 +40,7 @@ repositorio.
    - `Write-set esperado`
    - `Classificacao de risco`
 5. Trabalhe sempre em uma worktree dedicada:
-   - repo raiz permanece em `master`
+   - repo raiz permanece em `main`
    - a task usa branch `task/<issue-number>-<slug>`
    - a worktree vive em `.claude/worktrees/<lane>/<issue-number>-<slug>/`
 6. Abra PR com `Closes #<issue-number>` no corpo.
@@ -109,9 +109,35 @@ repositorio.
   - ownership principal: `.github/**`, `docs/**`, `README.md`,
     `COMO_RODAR.md`, `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`,
     scripts operacionais e smokes
+- `lane:master`
+  - orchestrador transversal com amplo acesso de escrita a paths de aplicacao
+    e backend; veja secao dedicada abaixo
 
 Uma task pertence a exatamente uma lane. Se o trabalho realmente precisar tocar
 duas lanes de produto, divida em child tasks separadas.
+
+## Lane master
+
+A lane `master` e o orquestrador transversal com acesso de escrita irrestrito
+a todos os paths de aplicacao e backend. Ela existe para:
+- corrigir bugs que cruzam multiplos dominios,
+- desbloquear trabalho que outras lanes hesitam em tocar,
+- executar correcoes de proximo passo em todo o codigo.
+
+A lane master tem dois modos:
+- **Modo execucao** (`lane:master`): execucao normal com amplo acesso de
+  escrita. Pode tocar `apps/web/**`, `apps/api/**`, `src/**`, `desktop/**`,
+  `dashboard/**`, `tests/**` e todos os outros paths de runtime/UI. A restricao
+  de domain mix (`frontend-with-backend-runtime`) e isenta para essa lane.
+- **Modo planejamento** (`lane:master.plan`): orquestracao somente leitura.
+  Sem edicoes de arquivos, sem escrita de codigo. Apenas pesquisa profunda do
+  projeto e propostas estruturadas de tasks.
+
+**Exclusao de governanca:** a lane master NAO possui e NAO pode escrever em
+paths de governanca criticos (`critical-bootstrap`). Esse dominio permanece
+exclusivamente com `ops-quality`. Isso significa que master nao pode modificar
+`.github/workflows/**`, `.github/guardrails/**`, scripts de bootstrap ou os
+proprios arquivos de governanca.
 
 ## Protocolo de trabalho paralelo
 

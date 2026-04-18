@@ -70,6 +70,12 @@
 
 ## Sessoes Recentes
 
+### Sessao 48 - 2026-04-18 (regularizacao de governanca para lane master e skills locais)
+- `lane:master` documentada como lane transversal de execucao; `lane:master.plan` mantida como modo somente leitura
+- `.github/guardrails/path-policy.json` passa a classificar `skills/**` e arquivos versionados em `.claude/` como governanca compartilhada de `ops-quality`
+- Guardrails (`pr-issue-guardrails` e `jules-pr-governance`) passam a respeitar `exemptLanes` nos domain mixes
+- `docs/GOVERNANCE_QUICK_REFERENCE.md` e a skill versionada em `.github/skills/` foram atualizados para reduzir custo de contexto na abertura de sessao
+
 ### Sessao 39 - 2026-04-12 (Jules-only intake automatica por GitHub Actions)
 - `jules-pr-governance.yml` passa a criar ou reconciliar automaticamente a task retroativa do Jules via `pull_request_target`
 - Identificacao do Jules depende dos marcadores no corpo da PR + label persistente `source:jules`
