@@ -10,17 +10,20 @@ import "./globals.css";
 const bodyFont = Manrope({
   variable: "--font-body",
   subsets: ["latin"],
+  display: "swap",
 });
 
 const headingFont = Space_Grotesk({
   variable: "--font-heading",
   subsets: ["latin"],
+  display: "swap",
 });
 
 const monoFont = IBM_Plex_Mono({
   variable: "--font-mono",
   weight: ["400", "500"],
   subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
