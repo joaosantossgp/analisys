@@ -64,7 +64,10 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Callable
 from sqlalchemy.exc import OperationalError
-from src.utils import normalize_account_name, generate_line_id_base, validate_line_ids
+from src.utils import (
+    normalize_account_name, generate_line_id_base, validate_line_ids,
+    normalize_account_names, generate_line_id_bases,
+)
 from src.standardizer import AccountStandardizer
 from src.database import CVMDatabase
 from src.settings import AppSettings, get_settings
@@ -337,8 +340,8 @@ class CVMScraper:
                                 stmt_map = {'BPA':'BPA', 'BPP':'BPP', 'DRE':'DRE', 'DFC_MD':'DFC', 'DFC_MI':'DFC', 'DVA':'DVA', 'DMPL':'DMPL'}
                                 stmt_type = stmt_map.get(pattern, 'OTHER')
                                 
-                                df_company['DS_CONTA_norm'] = df_company['DS_CONTA'].apply(normalize_account_name)
-                                df_company['LINE_ID_BASE'] = df_company.apply(lambda r: generate_line_id_base(r, stmt_type), axis=1)
+                                df_company['DS_CONTA_norm'] = normalize_account_names(df_company['DS_CONTA'])
+                                df_company['LINE_ID_BASE'] = generate_line_id_bases(df_company, stmt_type)
                                 df_company = self.normalize_units(df_company)
                                 
                                 df_company['PERIOD_TYPE'] = doc_type.upper()
@@ -358,7 +361,31 @@ class CVMScraper:
         for col in ['DT_REFER', 'DT_INI_EXERC', 'DT_FIM_EXERC']:
             if col in df.columns: df[col] = pd.to_datetime(df[col], errors='coerce')
 
-        df['PERIOD_LABEL'] = df.apply(lambda row: self._create_period_label(row, report_type), axis=1)
+        labels = pd.Series(None, index=df.index, dtype=object)
+        if report_type in ['BPA', 'BPP']:
+            dt = df['DT_REFER'] if 'DT_REFER' in df.columns else pd.Series(pd.NaT, index=df.index)
+            year_int = dt.dt.year.fillna(0).astype(int)
+            yy = (year_int % 100).astype(str).str.zfill(2)
+            m = dt.dt.month
+            labels = labels.mask(m == 3, '1Q' + yy)
+            labels = labels.mask(m == 6, '2Q' + yy)
+            labels = labels.mask(m == 9, '3Q' + yy)
+            labels = labels.mask(m == 12, year_int.astype(str))
+        else:
+            ini = df['DT_INI_EXERC'] if 'DT_INI_EXERC' in df.columns else pd.Series(pd.NaT, index=df.index)
+            fim = df['DT_FIM_EXERC'] if 'DT_FIM_EXERC' in df.columns else pd.Series(pd.NaT, index=df.index)
+            fim_year_int = fim.dt.year.fillna(0).astype(int)
+            yy = (fim_year_int % 100).astype(str).str.zfill(2)
+            ini_m, ini_d, fim_m = ini.dt.month, ini.dt.day, fim.dt.month
+            cond_jan1 = (ini_m == 1) & (ini_d == 1)
+            labels = labels.mask(cond_jan1 & (fim_m == 3), '1Q' + yy)
+            labels = labels.mask(cond_jan1 & (fim_m == 6), '2Q' + yy)
+            labels = labels.mask(cond_jan1 & (fim_m == 9), '3Q' + yy)
+            labels = labels.mask(cond_jan1 & (fim_m == 12), fim_year_int.astype(str))
+            labels = labels.mask((ini_m == 4) & (fim_m == 6), '2Q' + yy)
+            labels = labels.mask((ini_m == 7) & (fim_m == 9), '3Q' + yy)
+            labels = labels.mask((ini_m == 10) & (fim_m == 12), '4Q' + yy)
+        df['PERIOD_LABEL'] = labels
         df = df[df['PERIOD_LABEL'].notna()]
         if df.empty: return pd.DataFrame()
 
