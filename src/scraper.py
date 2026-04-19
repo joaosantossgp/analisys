@@ -56,6 +56,7 @@ import traceback
 import requests
 import zipfile
 import pandas as pd
+import polars as pl
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import io
@@ -108,7 +109,7 @@ class CVMScraper:
         self.company_db_retry_backoff_seconds = self.settings.company_db_retry_backoff_seconds
         self.force_refresh = os.getenv("CVM_FORCE_REFRESH", "0") == "1"
         self._print_lock = threading.Lock()
-        self._csv_cache: dict[str, "pd.DataFrame"] = {}
+        self._csv_cache: dict[str, "pl.DataFrame"] = {}
 
         if self.report_type == "consolidated":
             self.suffix = "con"
@@ -307,17 +308,23 @@ class CVMScraper:
         df.loc[mask_milhao, 'VL_CONTA'] = df.loc[mask_milhao, 'VL_CONTA'] * 1000
         return df
 
-    def _read_csv_cached(self, filepath: str) -> "pd.DataFrame":
+    def _read_csv_cached(self, filepath: str) -> "pl.DataFrame":
         if filepath not in self._csv_cache:
             try:
-                df = pd.read_csv(
-                    filepath, sep=";", encoding="latin1",
-                    usecols=lambda c: c in _CSV_USECOLS,
-                    dtype={"CD_CVM": "Int64"},
+                df = pl.read_csv(
+                    filepath,
+                    separator=";",
+                    encoding="latin1",
+                    schema_overrides={"CD_CVM": pl.Int64},
+                    infer_schema_length=1000,
                 )
+                wanted = [c for c in df.columns if c in _CSV_USECOLS]
+                if wanted:
+                    df = df.select(wanted)
             except Exception:
-                df = pd.read_csv(filepath, sep=";", encoding="latin1",
-                                 dtype={"CD_CVM": "Int64"})
+                pd_df = pd.read_csv(filepath, sep=";", encoding="latin1",
+                                    dtype={"CD_CVM": "Int64"})
+                df = pl.from_pandas(pd_df)
             self._csv_cache[filepath] = df
         return self._csv_cache[filepath]
 
@@ -332,26 +339,23 @@ class CVMScraper:
                     if os.path.exists(filepath):
                         try:
                             df = self._read_csv_cached(filepath)
-                            df_company = df[df['CD_CVM'] == int(cvm_code)].copy()
-                            if not df_company.empty:
-                                if 'ORDEM_EXERC' in df_company.columns:
-                                    df_company = df_company[df_company['ORDEM_EXERC'] == 'ÚLTIMO']
-                                
-                                stmt_map = {'BPA':'BPA', 'BPP':'BPP', 'DRE':'DRE', 'DFC_MD':'DFC', 'DFC_MI':'DFC', 'DVA':'DVA', 'DMPL':'DMPL'}
-                                stmt_type = stmt_map.get(pattern, 'OTHER')
-                                
-                                df_company['DS_CONTA_norm'] = normalize_account_names(df_company['DS_CONTA'])
-                                df_company['LINE_ID_BASE'] = generate_line_id_bases(df_company, stmt_type)
-                                df_company = self.normalize_units(df_company)
-                                
-                                df_company['PERIOD_TYPE'] = doc_type.upper()
-                                df_company['STMT_TYPE_INTERNAL'] = stmt_type
-                                
-                                # Preserve COMPANY_TYPE for dashboard
-                                setor = str(self.setores_map.get(str(cvm_code), '')).lower()
-                                df_company['COMPANY_TYPE'] = 'financeira' if any(k in setor for k in ['banc', 'financ']) else 'comercial'
-                                
-                                all_data.append(df_company)
+                            df_company_pl = df.filter(pl.col('CD_CVM') == int(cvm_code))
+                            if 'ORDEM_EXERC' in df_company_pl.columns:
+                                df_company_pl = df_company_pl.filter(pl.col('ORDEM_EXERC') == 'ÚLTIMO')
+                            if df_company_pl.is_empty():
+                                continue
+                            df_company = df_company_pl.to_pandas()
+                            stmt_map = {'BPA':'BPA', 'BPP':'BPP', 'DRE':'DRE', 'DFC_MD':'DFC', 'DFC_MI':'DFC', 'DVA':'DVA', 'DMPL':'DMPL'}
+                            stmt_type = stmt_map.get(pattern, 'OTHER')
+                            df_company['DS_CONTA_norm'] = normalize_account_names(df_company['DS_CONTA'])
+                            df_company['LINE_ID_BASE'] = generate_line_id_bases(df_company, stmt_type)
+                            df_company = self.normalize_units(df_company)
+                            df_company['PERIOD_TYPE'] = doc_type.upper()
+                            df_company['STMT_TYPE_INTERNAL'] = stmt_type
+                            # Preserve COMPANY_TYPE for dashboard
+                            setor = str(self.setores_map.get(str(cvm_code), '')).lower()
+                            df_company['COMPANY_TYPE'] = 'financeira' if any(k in setor for k in ['banc', 'financ']) else 'comercial'
+                            all_data.append(df_company)
                         except Exception: continue
         return pd.concat(all_data, ignore_index=True) if all_data else None
 
