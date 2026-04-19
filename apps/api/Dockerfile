@@ -24,7 +24,10 @@ COPY desktop/ desktop/
 COPY apps/__init__.py apps/__init__.py
 COPY apps/api/ apps/api/
 
-# Variavel de ambiente padrao (substituida pela Railway via PORT)
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+# PORT substituido pela Railway; WEB_CONCURRENCY=2 para planos single-vCPU
 ENV PORT=8000
+ENV WEB_CONCURRENCY=4
 
-CMD ["sh", "-c", "uvicorn apps.api.app.main:app --host 0.0.0.0 --port ${PORT}"]
+CMD ["sh", "-c", "uvicorn apps.api.app.main:app --host 0.0.0.0 --port ${PORT} --workers ${WEB_CONCURRENCY} --loop uvloop --access-log"]
