@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     "Hub setorial da V2 web com leitura agregada por setor, contagem de empresas e snapshots anuais.",
 };
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 export default async function SetoresPage() {
   const { directory, directoryError } = await loadSectorsPageData();
