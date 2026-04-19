@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { motion, AnimatePresence, useReducedMotion } from "motion/react";
+import { useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { useTheme } from "next-themes";
 import { ChevronDown, MoreHorizontal } from "lucide-react";
 
@@ -137,17 +137,14 @@ const defaultLeads: Lead[] = [
 ];
 
 export function LeadsTable({
-  title = "Leads",
   leads: initialLeads = defaultLeads,
   onLeadAction,
   className = ""
 }: LeadsTableProps = {}) {
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
-  const [hoveredRow, setHoveredRow] = useState<string | null>(null);
   const [hoveredAction, setHoveredAction] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const shouldReduceMotion = useReducedMotion();
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
@@ -403,11 +400,9 @@ export function LeadsTable({
                   isSelected(lead.id) ? "bg-blue-50/50 dark:bg-blue-900/10" : ""
                 } ${index < leads.length - 1 ? "border-b border-border/20" : ""}`}
                 onMouseEnter={() => {
-                  setHoveredRow(lead.id);
                   setHoveredAction(lead.id);
                 }}
                 onMouseLeave={() => {
-                  setHoveredRow(null);
                   setHoveredAction(null);
                 }}
               >

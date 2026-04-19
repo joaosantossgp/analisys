@@ -30,13 +30,11 @@ type RequestState = {
   loading: boolean;
 };
 
-type CompaniesDirectoryClientContentProps = {
-  currentPage: number;
-  currentSearch: string;
-  currentSector: string | null;
-  pageSize: number;
+type CompaniesDirectoryClientContentProps = Pick<
+  ReturnType<typeof readCompaniesDirectoryQuery>,
+  "page" | "pageSize" | "search" | "sector" | "viewMode"
+> & {
   requestHref: string;
-  viewMode: "rows" | "cards";
 };
 
 const DIRECTORY_LOAD_ERROR =
@@ -69,40 +67,37 @@ async function fetchCompaniesDirectoryData(
 
 export function CompaniesDirectoryClient() {
   const searchParams = useSearchParams();
-  const {
-    search: currentSearch,
-    sector: currentSector,
-    page: currentPage,
-    pageSize,
-    viewMode,
-  } = readCompaniesDirectoryQuery(searchParams, COMPANIES_DIRECTORY_PAGE_SIZE);
+  const directoryQuery = readCompaniesDirectoryQuery(
+    searchParams,
+    COMPANIES_DIRECTORY_PAGE_SIZE,
+  );
   const requestHref = buildCompaniesDirectoryApiHref({
-    search: currentSearch,
-    sector: currentSector,
-    page: currentPage,
-    pageSize,
+    search: directoryQuery.search,
+    sector: directoryQuery.sector,
+    page: directoryQuery.page,
+    pageSize: directoryQuery.pageSize,
   });
 
   return (
     <CompaniesDirectoryClientContent
       key={requestHref}
-      currentPage={currentPage}
-      currentSearch={currentSearch}
-      currentSector={currentSector}
-      pageSize={pageSize}
       requestHref={requestHref}
-      viewMode={viewMode}
+      page={directoryQuery.page}
+      pageSize={directoryQuery.pageSize}
+      search={directoryQuery.search}
+      sector={directoryQuery.sector}
+      viewMode={directoryQuery.viewMode}
     />
   );
 }
 
 function CompaniesDirectoryClientContent({
-  currentPage,
-  currentSearch,
-  currentSector,
+  page: currentPage,
   pageSize,
-  requestHref,
+  search: currentSearch,
+  sector: currentSector,
   viewMode,
+  requestHref,
 }: CompaniesDirectoryClientContentProps) {
   const [state, setState] = useState<RequestState>(INITIAL_STATE);
 

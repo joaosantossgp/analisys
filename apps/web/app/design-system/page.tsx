@@ -277,9 +277,10 @@ function Section({
 export default function DesignSystemPage() {
   return (
     <>
+      {/* eslint-disable-next-line @next/next/no-page-custom-font */}
       <link
         rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,200,0,0"
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,200,0,0&display=optional"
       />
 
       <div className="flex min-h-screen">
