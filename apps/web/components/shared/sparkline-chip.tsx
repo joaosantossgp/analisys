@@ -1,5 +1,5 @@
 import { SurfaceCard } from "@/components/shared/design-system-recipes";
-import { formatKpiDelta, formatKpiValue } from "@/lib/formatters";
+import { formatKpiDelta } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 
 function buildPath(values: number[], w: number, h: number): string {

@@ -1,16 +1,10 @@
-import Link from "next/link";
+import { Suspense } from "react";
 import type { Metadata } from "next";
 
-import { CompanyDirectoryFilters } from "@/components/companies/company-directory-filters";
-import { CompanyDirectoryList } from "@/components/companies/company-directory-list";
-import { DirectoryPagination } from "@/components/companies/directory-pagination";
-import { PageShell, SurfaceCard, SectionHeading } from "@/components/shared/design-system-recipes";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { buttonVariants } from "@/components/ui/button";
-import { formatCompactInteger } from "@/lib/formatters";
-import { loadCompaniesPageData } from "@/lib/companies-page-data";
-import { coercePositiveInt, getFirstParam, mergeSearchParams } from "@/lib/search-params";
-import { cn } from "@/lib/utils";
+import {
+  CompaniesDirectoryClient,
+  CompaniesDirectoryLoadingState,
+} from "@/components/companies/companies-directory-client";
 
 export const metadata: Metadata = {
   title: "Empresas",
@@ -18,179 +12,12 @@ export const metadata: Metadata = {
     "Diretorio publico e paginado de empresas com dados financeiros ja processados na base CVM Analytics.",
 };
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
-const PAGE_SIZE = 20;
-
-type EmpresasPageProps = {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-};
-
-export default async function EmpresasPage({ searchParams }: EmpresasPageProps) {
-  const resolvedSearchParams = await searchParams;
-  const currentSearch = getFirstParam(resolvedSearchParams.busca) ?? "";
-  const currentSector = getFirstParam(resolvedSearchParams.setor) ?? null;
-  const currentPage = coercePositiveInt(getFirstParam(resolvedSearchParams.pagina), 1);
-  const rawView = getFirstParam(resolvedSearchParams.view);
-  const viewMode: "rows" | "cards" = rawView === "cards" ? "cards" : "rows";
-
-  const retryParams = new URLSearchParams();
-  if (currentSearch) retryParams.set("busca", currentSearch);
-  if (currentSector) retryParams.set("setor", currentSector);
-  if (currentPage > 1) retryParams.set("pagina", String(currentPage));
-  const retryQuery = retryParams.toString();
-  const retryHref = retryQuery ? `/empresas?${retryQuery}` : "/empresas";
-
-  const { directory, filters, directoryError, filtersError } = await loadCompaniesPageData({
-    search: currentSearch,
-    sector: currentSector,
-    page: currentPage,
-    pageSize: PAGE_SIZE,
-  });
-
-  if (!directory) {
-    return (
-      <PageShell density="relaxed" className="max-w-4xl">
-        <SurfaceCard tone="hero" padding="hero" className="space-y-6">
-          <SectionHeading
-            eyebrow="Empresas"
-            title="Diretório temporariamente indisponível"
-            titleAs="h1"
-            description="A listagem de empresas não respondeu agora. O fluxo de busca e navegação pode ser retomado assim que a API voltar a responder."
-          />
-          <Alert className="rounded-[1.75rem] border border-destructive/25 bg-destructive/6 px-5 py-5 text-left">
-            <AlertTitle>Falha controlada da listagem</AlertTitle>
-            <AlertDescription>
-              {directoryError ??
-                "Não foi possível carregar o diretório de empresas agora. Tente novamente em instantes."}
-            </AlertDescription>
-          </Alert>
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href={retryHref}
-              className={cn(buttonVariants({ size: "lg" }), "rounded-full px-5")}
-            >
-              Tentar novamente
-            </Link>
-            <Link
-              href="/"
-              className={cn(buttonVariants({ variant: "outline", size: "lg" }), "rounded-full px-5")}
-            >
-              Voltar para a home
-            </Link>
-          </div>
-        </SurfaceCard>
-      </PageShell>
-    );
-  }
-
-  const currentParamsStr = mergeSearchParams("", {
-    busca: currentSearch || null,
-    setor: currentSector,
-    pagina: currentPage > 1 ? currentPage : null,
-  });
-  const viewRowsHref = mergeSearchParams(currentParamsStr, { view: null })
-    ? `/empresas?${mergeSearchParams(currentParamsStr, { view: null })}`
-    : "/empresas";
-  const viewCardsHref = `/empresas?${mergeSearchParams(currentParamsStr, { view: "cards" }) || "view=cards"}`;
-  const clearHref = viewMode === "cards" ? "/empresas?view=cards" : "/empresas";
-
-  const toggleBase =
-    "flex size-8 items-center justify-center rounded-lg border transition-colors text-sm";
-
+export default function EmpresasPage() {
   return (
-    <PageShell density="default" className="space-y-8">
-      {/* Page header */}
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-[0.72rem] font-medium uppercase tracking-[0.26em] text-muted-foreground mb-1">
-            Diretório · CVM
-          </p>
-          <h1 className="font-heading text-[clamp(1.75rem,4vw,2.5rem)] font-medium leading-tight tracking-[-0.04em] text-foreground">
-            Todas as companhias abertas
-          </h1>
-          <p className="mt-1.5 text-[0.9rem] text-muted-foreground">
-            {formatCompactInteger(directory.pagination.total_items)} empresas
-            {currentSearch ? ` · "${currentSearch}"` : ""}
-            {currentSector ? ` · ${currentSector}` : ""}
-          </p>
-        </div>
-
-        {/* View toggle */}
-        <div className="flex items-center gap-1.5">
-          <Link
-            href={viewRowsHref}
-            title="Ver em linhas"
-            className={cn(
-              toggleBase,
-              viewMode === "rows"
-                ? "border-border bg-muted text-foreground"
-                : "border-border/40 text-muted-foreground hover:border-border hover:text-foreground",
-            )}
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
-              <rect x="1" y="2" width="12" height="2" rx="0.5" fill="currentColor" />
-              <rect x="1" y="6" width="12" height="2" rx="0.5" fill="currentColor" />
-              <rect x="1" y="10" width="12" height="2" rx="0.5" fill="currentColor" />
-            </svg>
-          </Link>
-          <Link
-            href={viewCardsHref}
-            title="Ver em cards"
-            className={cn(
-              toggleBase,
-              viewMode === "cards"
-                ? "border-border bg-muted text-foreground"
-                : "border-border/40 text-muted-foreground hover:border-border hover:text-foreground",
-            )}
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
-              <rect x="1" y="1" width="5" height="5" rx="1" fill="currentColor" />
-              <rect x="8" y="1" width="5" height="5" rx="1" fill="currentColor" />
-              <rect x="1" y="8" width="5" height="5" rx="1" fill="currentColor" />
-              <rect x="8" y="8" width="5" height="5" rx="1" fill="currentColor" />
-            </svg>
-          </Link>
-        </div>
-      </div>
-
-      {filtersError ? (
-        <Alert className="rounded-[1.75rem] border border-border/70 bg-background/85 px-5 py-4">
-          <AlertTitle>Filtro setorial indisponível</AlertTitle>
-          <AlertDescription>
-            {filtersError} A busca livre e a paginação continuam disponíveis.
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
-      {/* Horizontal filter bar */}
-      <CompanyDirectoryFilters
-        currentSearch={currentSearch}
-        currentSector={currentSector}
-        sectors={filters?.sectors ?? []}
-        sectorFilterUnavailable={Boolean(filtersError)}
-      />
-
-      {/* Results */}
-      <div className="space-y-6">
-        <CompanyDirectoryList
-          items={directory.items}
-          viewMode={viewMode}
-          hasActiveFilters={Boolean(currentSearch || currentSector)}
-          clearHref={clearHref}
-        />
-
-        <DirectoryPagination
-          currentPage={directory.pagination.page}
-          totalPages={directory.pagination.total_pages}
-          totalItems={directory.pagination.total_items}
-          pageSize={PAGE_SIZE}
-          hasNext={directory.pagination.has_next}
-          hasPrevious={directory.pagination.has_previous}
-          currentSearch={currentSearch}
-          currentSector={Boolean(filtersError) ? null : currentSector}
-        />
-      </div>
-    </PageShell>
+    <Suspense fallback={<CompaniesDirectoryLoadingState />}>
+      <CompaniesDirectoryClient />
+    </Suspense>
   );
 }
