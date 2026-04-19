@@ -2,6 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { ApiClientError } from "../lib/api.ts";
+import {
+  buildCompaniesDirectoryApiHref,
+  readCompaniesDirectoryQuery,
+} from "../lib/companies-directory-query.ts";
 import { loadCompaniesPageData } from "../lib/companies-page-data.ts";
 
 test("loadCompaniesPageData keeps filters when the directory request fails", async () => {
@@ -68,4 +72,29 @@ test("loadCompaniesPageData keeps the directory when filters fail", async () => 
   assert.equal(result.directoryError, null);
   assert.equal(result.filters, null);
   assert.match(result.filtersError ?? "", /A API da V2 nao conseguiu concluir esta solicitacao agora/i);
+});
+
+test("readCompaniesDirectoryQuery normalizes search params for the client loader", () => {
+  const query = new URLSearchParams("busca=%20PETR4%20&setor=energia&pagina=0&view=cards");
+
+  const result = readCompaniesDirectoryQuery(query);
+
+  assert.deepEqual(result, {
+    search: "PETR4",
+    sector: "energia",
+    page: 1,
+    pageSize: 20,
+    viewMode: "cards",
+  });
+});
+
+test("buildCompaniesDirectoryApiHref keeps only the params used by the directory route", () => {
+  const href = buildCompaniesDirectoryApiHref({
+    search: "PETR4",
+    sector: "energia",
+    page: 3,
+    pageSize: 20,
+  });
+
+  assert.equal(href, "/api/companies-directory?busca=PETR4&setor=energia&pagina=3&pageSize=20");
 });
