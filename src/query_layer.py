@@ -19,13 +19,59 @@ table uses lowercase unquoted names and needs no quoting.
 """
 from __future__ import annotations
 
+import functools
+import json
+import logging
 import re
+import time
 from typing import Optional
 
 import pandas as pd
 from sqlalchemy import Engine, text
 
 from src.db import get_engine
+
+_logger = logging.getLogger(__name__)
+
+
+def slow_query_warn(threshold_ms: float = 200.0):
+    """Decorator that emits a structured WARN log when the wrapped method exceeds threshold_ms.
+
+    Usage::
+
+        @slow_query_warn(threshold_ms=200)
+        def get_companies_directory_page(self, ...):
+            ...
+
+    The log record is a JSON line compatible with the existing observability format::
+
+        {"event": "slow_query", "query": "get_companies_directory_page",
+         "elapsed_ms": 312.4, "threshold_ms": 200.0}
+    """
+
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            start = time.perf_counter()
+            try:
+                return func(*args, **kwargs)
+            finally:
+                elapsed_ms = (time.perf_counter() - start) * 1000.0
+                if elapsed_ms > threshold_ms:
+                    _logger.warning(
+                        json.dumps(
+                            {
+                                "event": "slow_query",
+                                "query": func.__name__,
+                                "elapsed_ms": round(elapsed_ms, 1),
+                                "threshold_ms": threshold_ms,
+                            }
+                        )
+                    )
+
+        return wrapper
+
+    return decorator
 
 _KPI_ACCOUNTS = {
     "Receita": "3.01",
@@ -86,6 +132,7 @@ class CVMQueryLayer:
         )
         return rows_df.reset_index(drop=True)
 
+    @slow_query_warn(threshold_ms=200)
     def get_companies_directory_page(
         self,
         *,
@@ -168,6 +215,7 @@ class CVMQueryLayer:
         df = pd.read_sql(sql, self.engine, params={"sector_name": str(sector_name)})
         return [int(year) for year in df["REPORT_YEAR"].tolist()]
 
+    @slow_query_warn(threshold_ms=200)
     def get_sector_metric_rows(
         self,
         *,
@@ -271,6 +319,7 @@ class CVMQueryLayer:
             ]
         ].reset_index(drop=True)
 
+    @slow_query_warn(threshold_ms=200)
     def get_company_years_map(self, cd_cvms: list[int]) -> dict[int, tuple[int, ...]]:
         """Retorna mapa cd_cvm → anos com dados anuais completos (DFP).
 
@@ -390,6 +439,7 @@ class CVMQueryLayer:
         df = pd.read_sql(sql, self.engine, params={"cd_cvm": int(cd_cvm)})
         return df["STATEMENT_TYPE"].tolist()
 
+    @slow_query_warn(threshold_ms=200)
     def get_statement(
         self,
         cd_cvm: int,
@@ -444,6 +494,7 @@ class CVMQueryLayer:
 
         return result
 
+    @slow_query_warn(threshold_ms=200)
     def get_kpi_accounts(self, cd_cvm: int, years: list[int]) -> pd.DataFrame:
         if not years:
             return pd.DataFrame()
