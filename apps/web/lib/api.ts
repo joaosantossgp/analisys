@@ -162,6 +162,14 @@ type ApiFetchOptions<T> = {
   allowNotFound?: boolean;
   validate?: (payload: unknown) => payload is T;
   invalidResponseMessage?: string;
+  request?: ApiReadRequestInit;
+};
+
+type ApiReadRequestInit = {
+  cache?: RequestCache;
+  next?: {
+    revalidate: number;
+  };
 };
 
 export type ApiErrorCode =
@@ -190,6 +198,27 @@ export class ApiClientError extends Error {
 }
 
 const DEFAULT_API_BASE_URL = "http://127.0.0.1:8000";
+const UNCACHED_API_READ: ApiReadRequestInit = {
+  cache: "no-store",
+};
+
+// Keep these frontend data-cache TTLs aligned with the backend Cache-Control
+// contract delivered by task #103.
+const COMPANY_DIRECTORY_API_READ: ApiReadRequestInit = {
+  next: { revalidate: 300 },
+};
+const COMPANY_INFO_API_READ: ApiReadRequestInit = {
+  next: { revalidate: 3600 },
+};
+const COMPANY_YEARS_API_READ: ApiReadRequestInit = {
+  next: { revalidate: 86400 },
+};
+const COMPANY_DATA_API_READ: ApiReadRequestInit = {
+  next: { revalidate: 600 },
+};
+const SECTOR_DIRECTORY_API_READ: ApiReadRequestInit = {
+  next: { revalidate: 3600 },
+};
 
 export function getApiBaseUrl(): string {
   return (process.env.API_BASE_URL ?? DEFAULT_API_BASE_URL).replace(/\/$/, "");
@@ -197,6 +226,12 @@ export function getApiBaseUrl(): string {
 
 export function buildApiUrl(path: string): string {
   return `${getApiBaseUrl()}${path}`;
+}
+
+function resolveApiReadRequest(
+  request: ApiReadRequestInit | undefined,
+): ApiReadRequestInit {
+  return request ?? UNCACHED_API_READ;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -522,7 +557,7 @@ async function apiFetch<T>(
 
   try {
     response = await fetch(buildApiUrl(path), {
-      cache: "no-store",
+      ...resolveApiReadRequest(options?.request),
       headers: {
         Accept: "application/json",
       },
@@ -643,6 +678,7 @@ function buildQuery(
 
 export async function fetchHealth(): Promise<HealthResponse> {
   return (await apiFetch<HealthResponse>("/health", {
+    request: UNCACHED_API_READ,
     validate: isHealthResponse,
     invalidResponseMessage: "A API retornou um healthcheck invalido.",
   })) as HealthResponse;
@@ -670,6 +706,7 @@ export async function fetchCompanies(params: {
       page_size: params.pageSize,
     })}`,
     {
+      request: COMPANY_DIRECTORY_API_READ,
       validate: isCompanyDirectoryPage,
       invalidResponseMessage: "A API retornou um diretorio de empresas invalido.",
     },
@@ -680,6 +717,7 @@ export async function fetchCompanyFilters(): Promise<CompanyFiltersResponse> {
   return (await apiFetch<CompanyFiltersResponse>(
     "/companies/filters",
     {
+      request: UNCACHED_API_READ,
       validate: isCompanyFiltersResponse,
       invalidResponseMessage: "A API retornou filtros de empresas invalidos.",
     },
@@ -688,6 +726,7 @@ export async function fetchCompanyFilters(): Promise<CompanyFiltersResponse> {
 
 export async function fetchSectorDirectory(): Promise<SectorDirectory> {
   return (await apiFetch<SectorDirectory>("/sectors", {
+    request: SECTOR_DIRECTORY_API_READ,
     validate: isSectorDirectory,
     invalidResponseMessage: "A API retornou um diretorio de setores invalido.",
   })) as SectorDirectory;
@@ -701,6 +740,7 @@ export async function fetchSectorDetail(
     `/sectors/${sectorSlug}${buildQuery({ year })}`,
     {
       allowNotFound: true,
+      request: UNCACHED_API_READ,
       validate: isSectorDetail,
       invalidResponseMessage: "A API retornou um detalhe setorial invalido.",
     },
@@ -712,6 +752,7 @@ export async function fetchCompanyInfo(
 ): Promise<CompanyInfo | null> {
   return apiFetch<CompanyInfo>(`/companies/${cdCvm}`, {
     allowNotFound: true,
+    request: COMPANY_INFO_API_READ,
     validate: isCompanyInfo,
     invalidResponseMessage: "A API retornou um detalhe de empresa invalido.",
   });
@@ -719,6 +760,7 @@ export async function fetchCompanyInfo(
 
 export async function fetchCompanyYears(cdCvm: number): Promise<number[]> {
   return (await apiFetch<number[]>(`/companies/${cdCvm}/years`, {
+    request: COMPANY_YEARS_API_READ,
     validate: isNumberArray,
     invalidResponseMessage: "A API retornou anos invalidos para a empresa.",
   })) as number[];
@@ -733,6 +775,7 @@ export async function fetchCompanyKpis(
       years: years.join(","),
     })}`,
     {
+      request: COMPANY_DATA_API_READ,
       validate: isKPIBundle,
       invalidResponseMessage: "A API retornou KPIs invalidos para a empresa.",
     },
@@ -750,6 +793,7 @@ export async function fetchCompanyStatement(
       years: years.join(","),
     })}`,
     {
+      request: COMPANY_DATA_API_READ,
       validate: isStatementMatrix,
       invalidResponseMessage: "A API retornou uma demonstracao invalida para a empresa.",
     },

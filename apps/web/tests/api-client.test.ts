@@ -5,6 +5,7 @@ import {
   ApiClientError,
   fetchCompanies,
   fetchCompanyFilters,
+  fetchRefreshStatus,
   getUserFacingErrorCopy,
 } from "../lib/api.ts";
 import { getFilenameFromDisposition } from "../lib/download-file.ts";
@@ -76,6 +77,46 @@ test("fetchCompanyFilters maps upstream 5xx responses to upstream_unavailable", 
   }
 });
 
+test("fetchCompanies opts into the backend-aligned revalidate window", async () => {
+  let capturedInit: RequestInit | undefined;
+  const restore = withFetchMock((async (_input, init) => {
+    capturedInit = init;
+
+    return new Response(
+      JSON.stringify({
+        items: [],
+        pagination: {
+          page: 1,
+          page_size: 20,
+          total_items: 0,
+          total_pages: 0,
+          has_next: false,
+          has_previous: false,
+        },
+        applied_filters: {
+          search: "",
+          sector: null,
+        },
+      }),
+      {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+        },
+      },
+    );
+  }) as FetchMock);
+
+  try {
+    await fetchCompanies({ page: 1, pageSize: 20 });
+
+    assert.equal(capturedInit?.cache, undefined);
+    assert.deepEqual(capturedInit?.next, { revalidate: 300 });
+  } finally {
+    restore();
+  }
+});
+
 test("fetchCompanies rejects invalid payload shapes as invalid_response", async () => {
   const restore = withFetchMock((async () =>
     new Response(
@@ -103,6 +144,28 @@ test("fetchCompanies rejects invalid payload shapes as invalid_response", async 
         return true;
       },
     );
+  } finally {
+    restore();
+  }
+});
+
+test("fetchRefreshStatus keeps explicit no-store semantics for polling flows", async () => {
+  let capturedInit: RequestInit | undefined;
+  const restore = withFetchMock((async (_input, init) => {
+    capturedInit = init;
+
+    return new Response(JSON.stringify([]), {
+      status: 200,
+      headers: {
+        "content-type": "application/json",
+      },
+    });
+  }) as FetchMock);
+
+  try {
+    await fetchRefreshStatus(1234);
+
+    assert.equal(capturedInit?.cache, "no-store");
   } finally {
     restore();
   }
