@@ -24,6 +24,7 @@ from src.read_service import CVMReadService
 from src.settings import AppSettings, get_settings as get_shared_settings
 
 log = logging.getLogger("cvm.api")
+INFRA_SILENT_PATHS = frozenset({"/health", "/metrics"})
 
 
 def _init_sentry() -> None:
@@ -90,10 +91,15 @@ def create_app(
             log.exception("request_failed method=%s path=%s elapsed_ms=%.2f", request.method, request.url.path, elapsed_ms)
             raise
         elapsed_ms = (time.perf_counter() - started_at) * 1000
-        log.info(
+        path = request.url.path
+        if path in INFRA_SILENT_PATHS and response.status_code < 400:
+            return response
+
+        log_fn = log.warning if path in INFRA_SILENT_PATHS and response.status_code >= 400 else log.info
+        log_fn(
             "request_completed method=%s path=%s status=%s elapsed_ms=%.2f",
             request.method,
-            request.url.path,
+            path,
             response.status_code,
             elapsed_ms,
         )

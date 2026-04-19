@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import io
+import logging
 import zipfile
 from pathlib import Path
+from types import SimpleNamespace
 
 import openpyxl
 import pytest
@@ -21,6 +23,72 @@ def test_health_returns_ok_payload(client: TestClient):
     assert payload["version"] == "v2-phase1"
     assert payload["database_dialect"] == client.app.state.read_service.engine.dialect.name
     assert payload["required_tables"] == ["financial_reports", "companies"]
+
+
+def test_successful_healthcheck_does_not_emit_request_log(
+    client: TestClient,
+    caplog: pytest.LogCaptureFixture,
+):
+    caplog.set_level(logging.INFO, logger="cvm.api")
+    caplog.clear()
+
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    request_logs = [
+        record
+        for record in caplog.records
+        if record.name == "cvm.api" and "request_completed" in record.getMessage()
+    ]
+    assert request_logs == []
+
+
+def test_degraded_healthcheck_emits_warning_request_log(
+    client: TestClient,
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    import apps.api.app.routes.health as health_route
+
+    caplog.set_level(logging.INFO, logger="cvm.api")
+    caplog.clear()
+    monkeypatch.setattr(
+        health_route,
+        "collect_api_startup_report",
+        lambda settings, warn_on_legacy_data=True: SimpleNamespace(ok=False, warnings=[], errors=[]),
+    )
+
+    response = client.get("/health")
+
+    assert response.status_code == 503
+    warning_logs = [
+        record
+        for record in caplog.records
+        if record.name == "cvm.api"
+        and record.levelno == logging.WARNING
+        and "request_completed method=GET path=/health status=503" in record.getMessage()
+    ]
+    assert len(warning_logs) == 1
+
+
+def test_application_requests_still_emit_info_request_log(
+    client: TestClient,
+    caplog: pytest.LogCaptureFixture,
+):
+    caplog.set_level(logging.INFO, logger="cvm.api")
+    caplog.clear()
+
+    response = client.get("/companies")
+
+    assert response.status_code == 200
+    info_logs = [
+        record
+        for record in caplog.records
+        if record.name == "cvm.api"
+        and record.levelno == logging.INFO
+        and "request_completed method=GET path=/companies status=200" in record.getMessage()
+    ]
+    assert len(info_logs) == 1
 
 
 def test_companies_empty_search_returns_paginated_directory(client: TestClient):
