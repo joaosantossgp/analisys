@@ -56,7 +56,8 @@ import traceback
 import requests
 import zipfile
 import pandas as pd
-from concurrent.futures import ThreadPoolExecutor
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import io
 import argparse
 from datetime import datetime, timezone
@@ -97,6 +98,7 @@ class CVMScraper:
         self.company_db_max_retries = self.settings.company_db_max_retries
         self.company_db_retry_backoff_seconds = self.settings.company_db_retry_backoff_seconds
         self.force_refresh = os.getenv("CVM_FORCE_REFRESH", "0") == "1"
+        self._print_lock = threading.Lock()
 
         if self.report_type == "consolidated":
             self.suffix = "con"
@@ -232,29 +234,45 @@ class CVMScraper:
             return True, "; ".join(reasons)
         return False, "local_cache_fresh"
 
-    def download_and_extract(self, year, doc_type):
+    def download_and_extract(self, year, doc_type) -> bool:
         filename = f"{doc_type.lower()}_cia_aberta_{year}.zip"
         url = f"{self.base_url}/{doc_type}/DADOS/{filename}"
         local_zip_path = os.path.join(self.raw_dir, filename)
 
         refresh_needed, refresh_reason = self._should_refresh_local_zip(local_zip_path, url)
         if not refresh_needed:
-            print(f"  Using local zip: {filename} ({refresh_reason})")
+            with self._print_lock:
+                print(f"  Using local zip: {filename} ({refresh_reason})")
         else:
             action = "Refreshing" if os.path.exists(local_zip_path) else "Downloading"
-            print(f"{action} {doc_type} for {year}... ({refresh_reason})")
+            with self._print_lock:
+                print(f"{action} {doc_type} for {year}... ({refresh_reason})")
             tmp_zip_path = f"{local_zip_path}.download"
-            try:
-                response = requests.get(url, stream=True, timeout=self.download_timeout)
-                if response.status_code != 200: return False
-                with open(tmp_zip_path, 'wb') as f:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        f.write(chunk)
-                os.replace(tmp_zip_path, local_zip_path)
-            except Exception as e:
-                if os.path.exists(tmp_zip_path):
-                    os.remove(tmp_zip_path)
-                print(f"  Error downloading {year}: {e}")
+            downloaded = False
+            for attempt in range(3):
+                try:
+                    response = requests.get(url, stream=True, timeout=self.download_timeout)
+                    if response.status_code != 200:
+                        return False
+                    with open(tmp_zip_path, 'wb') as f:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            f.write(chunk)
+                    os.replace(tmp_zip_path, local_zip_path)
+                    downloaded = True
+                    break
+                except requests.exceptions.RequestException as e:
+                    if os.path.exists(tmp_zip_path):
+                        os.remove(tmp_zip_path)
+                    if attempt < 2:
+                        sleep_s = 2 ** attempt  # 1s, 2s
+                        with self._print_lock:
+                            print(f"  Retry {attempt + 1}/3 for {doc_type}/{year} in {sleep_s}s: {e}")
+                        time.sleep(sleep_s)
+                    else:
+                        with self._print_lock:
+                            print(f"  Error downloading {doc_type}/{year} after 3 attempts: {e}")
+                        return False
+            if not downloaded:
                 return False
 
         try:
@@ -264,7 +282,8 @@ class CVMScraper:
                         zip_ref.extract(file, self.processed_dir)
             return True
         except Exception as e:
-            print(f"  Error extracting {year}: {e}")
+            with self._print_lock:
+                print(f"  Error extracting {doc_type}/{year}: {e}")
             return False
 
     def normalize_units(self, df):
@@ -533,9 +552,21 @@ class CVMScraper:
         if not download_years:
             download_years = set(range(int(start_year), int(end_year) + 1))
 
-        for year in sorted(download_years):
-            self.download_and_extract(year, 'DFP')
-            self.download_and_extract(year, 'ITR')
+        tasks = [
+            (year, doc_type)
+            for year in sorted(download_years)
+            for doc_type in ('DFP', 'ITR')
+        ]
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            futures = {pool.submit(self.download_and_extract, year, dt): (year, dt)
+                       for year, dt in tasks}
+            for fut in as_completed(futures):
+                year_done, dt_done = futures[fut]
+                try:
+                    fut.result()
+                except Exception as exc:
+                    with self._print_lock:
+                        print(f"  Unexpected error for {dt_done}/{year_done}: {exc}")
         
         company_items = list(resolved.items())
         total_companies = len(company_items)
