@@ -130,6 +130,43 @@ def generate_line_id_base(row: pd.Series, statement_type: str) -> str:
     return f"DS|{hash_str}"
 
 
+def normalize_account_names(series: pd.Series) -> pd.Series:
+    """Vectorized version of normalize_account_name for a whole Series."""
+    s = series.fillna("").astype(str)
+    s = s.str.lower()
+    s = s.apply(lambda t: unicodedata.normalize('NFD', t))
+    s = s.str.encode('ascii', errors='ignore').str.decode('ascii')
+    s = s.str.replace('\xa0', ' ', regex=False)
+    s = s.str.replace(r'[‐‑‒–—―]', '-', regex=True)
+    s = s.str.replace(r'\s+', ' ', regex=True)
+    s = s.str.strip()
+    return s
+
+
+def generate_line_id_bases(df: pd.DataFrame, statement_type: str) -> pd.Series:
+    """Vectorized version of generate_line_id_base for a whole DataFrame."""
+    cd_conta = df['CD_CONTA'].fillna('').astype(str).str.strip()
+    has_cd_conta = cd_conta.ne('')
+
+    ds_norm = df.get('DS_CONTA_norm', pd.Series('', index=df.index)).fillna('').astype(str)
+    components = ds_norm + '|' + statement_type
+
+    if 'NIVEL_CONTA' in df.columns:
+        nivel = df['NIVEL_CONTA'].fillna('').astype(str).str.strip()
+        has_nivel = nivel.ne('')
+        components = components.where(~has_nivel, components + '|' + nivel)
+
+    if statement_type == 'DRE' and 'GRUPO_DRE' in df.columns:
+        grupo = df['GRUPO_DRE'].fillna('').astype(str).str.strip()
+        has_grupo = grupo.ne('')
+        components = components.where(~has_grupo, components + '|' + grupo)
+
+    hash_ids = components.apply(
+        lambda s: 'DS|' + hashlib.sha256(s.encode('utf-8')).hexdigest()[:16]
+    )
+    return cd_conta.where(has_cd_conta, hash_ids)
+
+
 def validate_line_ids(df: pd.DataFrame) -> int:
     """
     Validates that all value-bearing lines have LINE_ID_BASE.
