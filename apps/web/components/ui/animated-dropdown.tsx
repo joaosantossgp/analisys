@@ -12,7 +12,7 @@ import React from 'react'
  */
 import { useState, useRef, FC, ReactNode } from 'react'
 import { ChevronDown } from 'lucide-react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)) }

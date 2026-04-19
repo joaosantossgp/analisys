@@ -473,7 +473,7 @@ export default function DesignSystemPage() {
               </div>
             </Section>
 
-            <Section id="charts" title="Charts - reaviz">
+            <Section id="charts" title="Charts - lightweight SVG">
               <div className="space-y-10">
                 <div>
                   <p className="mb-3 font-mono text-xs text-muted-foreground">

@@ -30,6 +30,15 @@ type RequestState = {
   loading: boolean;
 };
 
+type CompaniesDirectoryClientContentProps = {
+  currentPage: number;
+  currentSearch: string;
+  currentSector: string | null;
+  pageSize: number;
+  requestHref: string;
+  viewMode: "rows" | "cards";
+};
+
 const DIRECTORY_LOAD_ERROR =
   "Nao foi possivel carregar o diretorio de empresas agora. Tente novamente em instantes.";
 
@@ -73,16 +82,32 @@ export function CompaniesDirectoryClient() {
     page: currentPage,
     pageSize,
   });
+
+  return (
+    <CompaniesDirectoryClientContent
+      key={requestHref}
+      currentPage={currentPage}
+      currentSearch={currentSearch}
+      currentSector={currentSector}
+      pageSize={pageSize}
+      requestHref={requestHref}
+      viewMode={viewMode}
+    />
+  );
+}
+
+function CompaniesDirectoryClientContent({
+  currentPage,
+  currentSearch,
+  currentSector,
+  pageSize,
+  requestHref,
+  viewMode,
+}: CompaniesDirectoryClientContentProps) {
   const [state, setState] = useState<RequestState>(INITIAL_STATE);
 
   useEffect(() => {
     const controller = new AbortController();
-
-    setState({
-      data: null,
-      requestError: null,
-      loading: true,
-    });
 
     void fetchCompaniesDirectoryData(requestHref, controller.signal)
       .then((data) => {
