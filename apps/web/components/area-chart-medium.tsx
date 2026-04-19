@@ -1,384 +1,467 @@
 'use client';
 
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { useState } from 'react';
+import type { JSX } from 'react';
+
 import CountUp from 'react-countup';
-import {
-  AreaChart,
-  LinearXAxis,
-  LinearXAxisTickSeries,
-  LinearXAxisTickLabel,
-  LinearYAxis,
-  LinearYAxisTickSeries,
-  AreaSeries,
-  Area,
-  Gradient,
-  GradientStop,
-  GridlineSeries,
-  Gridline,
-} from 'reaviz';
+import { motion } from 'motion/react';
 
-// Type definitions
-interface ChartDataPoint {
-  key: Date;
-  data: number | null | undefined;
-}
+type TrendDirection = 'up' | 'down';
 
-interface ChartSeries {
+type SeriesPoint = {
+  date: Date;
+  value: number;
+};
+
+type ChartSeries = {
   key: string;
-  data: ChartDataPoint[];
-}
-
-interface ValidatedChartDataPoint {
-  key: Date;
-  data: number;
-}
-
-interface ValidatedChartSeries {
-  key: string;
-  data: ValidatedChartDataPoint[];
-}
-
-interface LegendItem {
-  name: string;
   color: string;
-}
+  points: SeriesPoint[];
+};
 
-interface TimePeriodOption {
-  value: string;
-  label: string;
-}
-
-interface IncidentStat {
+type IncidentStat = {
   id: string;
   title: string;
   count: number;
-  countFrom?: number;
+  countFrom: number;
   comparisonText: string;
   percentage: number;
-  trend: 'up' | 'down';
-  trendColor: string;
-  trendBgColor: string;
-  TrendIconSvg: React.FC<{ strokeColor: string }>;
-}
+  trend: TrendDirection;
+};
 
-interface DetailedMetric {
+type DetailedMetric = {
   id: string;
-  Icon: React.FC<{ className?: string; fill?: string }>;
+  icon: (props: { className?: string; fill?: string }) => JSX.Element;
   label: string;
   tooltip: string;
   value: string;
-  TrendIcon: React.FC<{ baseColor: string; strokeColor: string; className?: string }>;
-  trendBaseColor: string;
-  trendStrokeColor: string;
+  trend: TrendDirection;
+  trendColor: string;
   delay: number;
-}
+};
 
-// SVG Icon Components
-const DiamondAlertIcon: React.FC<{ className?: string; fill?: string }> = ({ className, fill = "#E84045" }) => (
-  <svg className={className} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
-    <path d="M9.92844 1.25411C9.32947 1.25895 8.73263 1.49041 8.28293 1.94747L1.92062 8.41475C1.02123 9.32885 1.03336 10.8178 1.94748 11.7172L8.41476 18.0795C9.32886 18.9789 10.8178 18.9667 11.7172 18.0526L18.0795 11.5861C18.0798 11.5859 18.08 11.5856 18.0803 11.5853C18.979 10.6708 18.9667 9.18232 18.0526 8.28291L11.5853 1.92061C11.1283 1.47091 10.5274 1.24926 9.92844 1.25411ZM9.93901 2.49597C10.2155 2.49373 10.4926 2.59892 10.7089 2.81172L17.1762 9.17403C17.6087 9.59962 17.6139 10.2767 17.1884 10.7097L10.8261 17.1761C10.4005 17.6087 9.72379 17.614 9.29123 17.1884L2.82394 10.826C2.39139 10.4005 2.38613 9.72378 2.81174 9.29121L9.17404 2.82393C9.38684 2.60765 9.66256 2.4982 9.93901 2.49597ZM9.99028 5.40775C9.82481 5.41034 9.66711 5.47845 9.55178 5.59714C9.43645 5.71583 9.37289 5.87541 9.37505 6.04089V11.0409C9.37388 11.1237 9.38918 11.2059 9.42006 11.2828C9.45095 11.3596 9.4968 11.4296 9.55495 11.4886C9.6131 11.5476 9.6824 11.5944 9.75881 11.6264C9.83522 11.6583 9.91722 11.6748 10 11.6748C10.0829 11.6748 10.1649 11.6583 10.2413 11.6264C10.3177 11.5944 10.387 11.5476 10.4451 11.4886C10.5033 11.4296 10.5492 11.3596 10.58 11.2828C10.6109 11.2059 10.6262 11.1237 10.625 11.0409V6.04089C10.6261 5.95731 10.6105 5.87435 10.5789 5.79694C10.5474 5.71952 10.5006 5.64922 10.4415 5.59019C10.3823 5.53115 10.3119 5.48459 10.2344 5.45326C10.1569 5.42192 10.0739 5.40645 9.99028 5.40775ZM10 12.9159C9.77904 12.9159 9.56707 13.0037 9.41079 13.16C9.25451 13.3162 9.16672 13.5282 9.16672 13.7492C9.16672 13.9702 9.25451 14.1822 9.41079 14.3385C9.56707 14.4948 9.77904 14.5826 10 14.5826C10.2211 14.5826 10.433 14.4948 10.5893 14.3385C10.7456 14.1822 10.8334 13.9702 10.8334 13.7492C10.8334 13.5282 10.7456 13.3162 10.5893 13.16C10.433 13.0037 10.2211 12.9159 10 12.9159Z" fill={fill} />
-  </svg>
-);
+type PeriodKey = keyof typeof CHART_DATA_BY_PERIOD;
 
-const CircleAlertIcon: React.FC<{ className?: string; fill?: string }> = ({ className, fill = "#E84045" }) => (
-  <svg className={className} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
-    <path d="M10.0001 1.66663C5.40511 1.66663 1.66675 5.40499 1.66675 9.99996C1.66675 14.5949 5.40511 18.3333 10.0001 18.3333C14.5951 18.3333 18.3334 14.5949 18.3334 9.99996C18.3334 5.40499 14.5951 1.66663 10.0001 1.66663ZM10.0001 2.91663C13.9195 2.91663 17.0834 6.08054 17.0834 9.99996C17.0834 13.9194 13.9195 17.0833 10.0001 17.0833C6.08066 17.0833 2.91675 13.9194 2.91675 9.99996C2.91675 6.08054 6.08066 2.91663 10.0001 2.91663ZM9.99032 5.82434C9.82470 5.82693 9.66688 5.89515 9.55152 6.01401C9.43616 6.13288 9.37271 6.29267 9.37508 6.45829V10.625C9.37391 10.7078 9.38921 10.79 9.42009 10.8669C9.45098 10.9437 9.49683 11.0137 9.55498 11.0726C9.61313 11.1316 9.68243 11.1785 9.75884 11.2104C9.83525 11.2424 9.91725 11.2589 10.0001 11.2589C10.0829 11.2589 10.1649 11.2424 10.2413 11.2104C10.3177 11.1785 10.387 11.1316 10.4452 11.0726C10.5033 11.0137 10.5492 10.9437 10.5801 10.8669C10.611 10.79 10.6263 10.7078 10.6251 10.625V6.45829C10.6263 6.37464 10.6107 6.29160 10.5792 6.21409C10.5477 6.13658 10.5010 6.06618 10.4418 6.00706C10.3826 5.94794 10.3121 5.90130 10.2346 5.86992C10.1570 5.83853 10.0740 5.82303 9.99032 5.82434ZM10.0001 12.5C9.77907 12.5 9.56711 12.5878 9.41083 12.7440C9.25455 12.9003 9.16675 13.1123 9.16675 13.3333C9.16675 13.5543 9.25455 13.7663 9.41083 13.9225C9.56711 14.0788 9.77907 14.1666 10.0001 14.1666C10.2211 14.1666 10.4331 14.0788 10.5893 13.9225C10.7456 13.7663 10.8334 13.5543 10.8334 13.3333C10.8334 13.1123 10.7456 12.9003 10.5893 12.7440C10.4331 12.5878 10.2211 12.5000 10.0001 12.5Z" fill={fill} />
-  </svg>
-);
-
-const TriangleAlertIcon: React.FC<{ className?: string; fill?: string }> = ({ className, fill = "#E84045" }) => (
-  <svg className={className} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
-    <path d="M10.0001 2.10535C9.35241 2.10535 8.70472 2.42118 8.35459 3.05343L1.90440 14.7063C1.22414 15.9354 2.14514 17.5000 3.54990 17.5000H16.4511C17.8559 17.5000 18.7769 15.9354 18.0966 14.7063L11.6456 3.05343C11.2955 2.42118 10.6478 2.10535 10.0001 2.10535ZM10.0001 3.31222C10.2120 3.31222 10.4237 3.42739 10.5519 3.65889L17.0029 15.3117C17.2501 15.7585 16.9605 16.2500 16.4511 16.2500H3.54990C3.04051 16.2500 2.75090 15.7585 2.99815 15.3117L9.44834 3.65889C9.57655 3.42739 9.78821 3.31222 10.0001 3.31222ZM9.99033 6.65776C9.82472 6.66034 9.66690 6.72856 9.55154 6.84743C9.43618 6.96629 9.37272 7.12609 9.37510 7.29171V11.4584C9.37393 11.5412 9.38923 11.6234 9.42011 11.7003C9.45100 11.7771 9.49685 11.8471 9.55500 11.9061C9.61315 11.9650 9.68245 12.0119 9.75886 12.0438C9.83527 12.0758 9.91727 12.0923 10.0001 12.0923C10.0829 12.0923 10.1649 12.0758 10.2413 12.0438C10.3178 12.0119 10.3870 11.9650 10.4452 11.9061C10.5034 11.8471 10.5492 11.7771 10.5801 11.7003C10.6110 11.6234 10.6263 11.5412 10.6251 11.4584V7.29171C10.6263 7.20806 10.6107 7.12501 10.5792 7.04750C10.5477 6.96999 10.5010 6.89959 10.4418 6.84047C10.3826 6.78135 10.3121 6.73472 10.2346 6.70333C10.1570 6.67195 10.0740 6.65645 9.99033 6.65776ZM10.0001 13.3334C9.77909 13.3334 9.56712 13.4212 9.41084 13.5775C9.25456 13.7337 9.16677 13.9457 9.16677 14.1667C9.16677 14.3877 9.25456 14.5997 9.41084 14.7560C9.56712 14.9122 9.77909 15.0000 10.0001 15.0000C10.2211 15.0000 10.4331 14.9122 10.5894 14.7560C10.7456 14.5997 10.8334 14.3877 10.8334 14.1667C10.8334 13.9457 10.7456 13.7337 10.5894 13.5775C10.4331 13.4212 10.2211 13.3334 10.0001 13.3334Z" fill={fill} />
-  </svg>
-);
-
-const DetailedUpTrendIcon: React.FC<{ baseColor: string; strokeColor: string; className?: string }> = ({ baseColor, strokeColor, className }) => (
-  <svg className={className} width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect width="28" height="28" rx="14" fill={baseColor} fillOpacity="0.4" />
-    <path d="M9.50134 12.6111L14.0013 8.16663M14.0013 8.16663L18.5013 12.6111M14.0013 8.16663L14.0013 19.8333" stroke={strokeColor} strokeWidth="2" strokeLinecap="square" />
-  </svg>
-);
-
-const DetailedDownTrendIcon: React.FC<{ baseColor: string; strokeColor: string; className?: string }> = ({ baseColor, strokeColor, className }) => (
-  <svg className={className} width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect width="28" height="28" rx="14" fill={baseColor} fillOpacity="0.4" />
-    <path d="M18.4987 15.3889L13.9987 19.8334M13.9987 19.8334L9.49866 15.3889M13.9987 19.8334V8.16671" stroke={strokeColor} strokeWidth="2" strokeLinecap="square" />
-  </svg>
-);
-
-const SummaryUpArrowIcon: React.FC<{ strokeColor: string }> = ({ strokeColor }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="21" viewBox="0 0 20 21" fill="none">
-    <path d="M5.50134 9.11119L10.0013 4.66675M10.0013 4.66675L14.5013 9.11119M10.0013 4.66675L10.0013 16.3334" stroke={strokeColor} strokeWidth="2" strokeLinecap="square" />
-  </svg>
-);
-
-const SummaryDownArrowIcon: React.FC<{ strokeColor: string }> = ({ strokeColor }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="21" viewBox="0 0 20 21" fill="none">
-    <path d="M14.4987 11.8888L9.99866 16.3333M9.99866 16.3333L5.49866 11.8888M9.99866 16.3333V4.66658" stroke={strokeColor} strokeWidth="2" strokeLinecap="square" />
-  </svg>
-);
-
-
-// Data and Constants
-const LEGEND_ITEMS: LegendItem[] = [
-  { name: 'DLP', color: '#5B14C5' },
-  { name: 'Threat Intel', color: '#DAC5F9' },
-  { name: 'SysLog', color: '#B58BF3' },
-];
-
-const TIME_PERIOD_OPTIONS: TimePeriodOption[] = [
+const TIME_PERIOD_OPTIONS = [
   { value: 'last-7-days', label: 'Last 7 Days' },
   { value: 'last-30-days', label: 'Last 30 Days' },
   { value: 'last-90-days', label: 'Last 90 Days' },
-];
+] as const;
 
-const now = new Date();
-const generateDate = (offsetDays: number): Date => {
-  const date = new Date(now);
-  date.setDate(now.getDate() - offsetDays);
-  return date;
-};
+const SERIES_META = [
+  { key: 'DLP', color: '#5B14C5' },
+  { key: 'Threat Intel', color: '#DAC5F9' },
+  { key: 'SysLog', color: '#B58BF3' },
+] as const;
 
-const initialChartData: ChartSeries[] = [
-  {
-    key: 'DLP',
-    data: Array.from({ length: 7 }, (_, i) => ({ key: generateDate(6 - i), data: Math.floor(Math.random() * 50) + 20 })),
+const CHART_DATA_BY_PERIOD = {
+  'last-7-days': {
+    stepDays: 1,
+    values: {
+      DLP: [42, 47, 45, 50, 55, 53, 58],
+      'Threat Intel': [24, 21, 26, 28, 30, 29, 31],
+      SysLog: [30, 34, 32, 36, 39, 37, 41],
+    },
   },
-  {
-    key: 'Threat Intel', // Matches colorScheme order
-    data: Array.from({ length: 7 }, (_, i) => ({ key: generateDate(6 - i), data: Math.floor(Math.random() * 30) + 10 })),
+  'last-30-days': {
+    stepDays: 3,
+    values: {
+      DLP: [36, 38, 41, 45, 47, 50, 54, 52, 56, 60],
+      'Threat Intel': [19, 21, 20, 24, 26, 25, 28, 27, 30, 32],
+      SysLog: [22, 26, 29, 28, 31, 33, 35, 34, 37, 39],
+    },
   },
-  {
-    key: 'SysLog',
-    data: Array.from({ length: 7 }, (_, i) => ({ key: generateDate(6 - i), data: Math.floor(Math.random() * 40) + 15 })),
+  'last-90-days': {
+    stepDays: 7,
+    values: {
+      DLP: [28, 31, 35, 33, 37, 42, 46, 45, 49, 53, 58, 61],
+      'Threat Intel': [16, 18, 17, 19, 21, 23, 24, 26, 27, 29, 31, 33],
+      SysLog: [18, 22, 24, 27, 26, 29, 31, 33, 35, 34, 37, 40],
+    },
   },
-];
+} as const;
 
-const validateChartData = (data: ChartSeries[]): ValidatedChartSeries[] => {
-  return data.map(series => ({
-    ...series,
-    data: series.data.map(item => ({
-      ...item,
-      data: (typeof item.data !== 'number' || isNaN(item.data)) ? 0 : item.data,
-    })),
-  }));
-};
-
-const validatedChartData = validateChartData(initialChartData);
-
-const INCIDENT_STATS_DATA: IncidentStat[] = [
+const INCIDENT_STATS: IncidentStat[] = [
   {
     id: 'critical',
     title: 'Critical Incidents',
     count: 321,
-    countFrom: 0,
+    countFrom: 293,
     comparisonText: 'Compared to 293 last week',
     percentage: 12,
     trend: 'up',
-    trendColor: 'text-[#F08083]',
-    trendBgColor: 'bg-[rgb(232,64,69)]/40',
-    TrendIconSvg: SummaryUpArrowIcon,
   },
   {
     id: 'total',
     title: 'Total Incidents',
     count: 1120,
-    countFrom: 0,
+    countFrom: 1060,
     comparisonText: 'Compared to 1.06k last week',
     percentage: 4,
-    trend: 'down', // Assuming 4% is a reduction or positive trend, hence green
-    trendColor: 'text-[#40E5D1]',
-    trendBgColor: 'bg-[rgb(64,229,209)]/40',
-    TrendIconSvg: SummaryDownArrowIcon,
+    trend: 'down',
   },
 ];
 
-const DETAILED_METRICS_DATA: DetailedMetric[] = [
+function DiamondAlertIcon({
+  className,
+  fill = '#E84045',
+}: {
+  className?: string;
+  fill?: string;
+}) {
+  return (
+    <svg className={className} width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+      <rect x="4" y="4" width="12" height="12" rx="3" transform="rotate(45 10 10)" fill={fill} />
+      <rect x="9.2" y="5.25" width="1.6" height="6.8" rx="0.8" fill="white" />
+      <circle cx="10" cy="14.2" r="1" fill="white" />
+    </svg>
+  );
+}
+
+function CircleAlertIcon({
+  className,
+  fill = '#E84045',
+}: {
+  className?: string;
+  fill?: string;
+}) {
+  return (
+    <svg className={className} width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+      <circle cx="10" cy="10" r="8" fill={fill} />
+      <rect x="9.2" y="5" width="1.6" height="7" rx="0.8" fill="white" />
+      <circle cx="10" cy="14.2" r="1" fill="white" />
+    </svg>
+  );
+}
+
+function TriangleAlertIcon({
+  className,
+  fill = '#40E5D1',
+}: {
+  className?: string;
+  fill?: string;
+}) {
+  return (
+    <svg className={className} width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+      <path d="M10 2.5 18 17H2L10 2.5Z" fill={fill} />
+      <rect x="9.2" y="7" width="1.6" height="5.8" rx="0.8" fill="#05211D" />
+      <circle cx="10" cy="14.8" r="1" fill="#05211D" />
+    </svg>
+  );
+}
+
+function TrendBadge({
+  direction,
+  color,
+}: {
+  direction: TrendDirection;
+  color: string;
+}) {
+  const isUp = direction === 'up';
+
+  return (
+    <span
+      className="inline-flex h-7 w-7 items-center justify-center rounded-full"
+      style={{
+        backgroundColor: isUp ? 'rgba(232,64,69,0.18)' : 'rgba(64,229,209,0.22)',
+        color,
+      }}
+      aria-hidden
+    >
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        {isUp ? (
+          <path d="M7 2.5 11 6.5 9.9 7.6 7.75 5.45V11.5h-1.5V5.45L4.1 7.6 3 6.5l4-4Z" fill="currentColor" />
+        ) : (
+          <path d="m7 11.5-4-4 1.1-1.1 2.15 2.15V2.5h1.5v6.05L9.9 6.4 11 7.5l-4 4Z" fill="currentColor" />
+        )}
+      </svg>
+    </span>
+  );
+}
+
+const DETAILED_METRICS: DetailedMetric[] = [
   {
     id: 'mttd',
-    Icon: DiamondAlertIcon,
+    icon: DiamondAlertIcon,
     label: 'Mean Time to Respond',
     tooltip: 'Mean Time to Respond',
     value: '6 Hours',
-    TrendIcon: DetailedUpTrendIcon,
-    trendBaseColor: '#E84045',
-    trendStrokeColor: '#F08083',
+    trend: 'up',
+    trendColor: '#F08083',
     delay: 0,
   },
   {
     id: 'irt',
-    Icon: CircleAlertIcon,
+    icon: CircleAlertIcon,
     label: 'Incident Response Time',
     tooltip: 'Incident Response Time',
     value: '4 Hours',
-    TrendIcon: DetailedUpTrendIcon,
-    trendBaseColor: '#E84045',
-    trendStrokeColor: '#F08083',
+    trend: 'up',
+    trendColor: '#F08083',
     delay: 0.05,
   },
   {
     id: 'ier',
-    Icon: TriangleAlertIcon,
+    icon: TriangleAlertIcon,
     label: 'Incident Escalation Rate',
     tooltip: 'Incident Escalation Rate',
     value: '10%',
-    TrendIcon: DetailedDownTrendIcon, // Assuming lower is better, green
-    trendBaseColor: '#40E5D1',
-    trendStrokeColor: '#40E5D1',
+    trend: 'down',
+    trendColor: '#40E5D1',
     delay: 0.1,
   },
 ];
 
+function buildPeriodSeries(period: PeriodKey): ChartSeries[] {
+  const preset = CHART_DATA_BY_PERIOD[period];
+  const longestSeriesLength = Math.max(...Object.values(preset.values).map((values) => values.length));
+  const now = new Date();
 
-const AdvancedIncidentReportCard: React.FC = () => {
-  const [selectedTimePeriod, setSelectedTimePeriod] = useState<string>(TIME_PERIOD_OPTIONS[0].value);
+  return SERIES_META.map((series) => {
+    const values = preset.values[series.key];
 
-  // In a real app, changing selectedTimePeriod would refetch/filter chartData and stats
-  // For this example, it only updates the select's value
+    return {
+      key: series.key,
+      color: series.color,
+      points: values.map((value, index) => {
+        const offset = (longestSeriesLength - 1 - index) * preset.stepDays;
+        const date = new Date(now);
+        date.setDate(now.getDate() - offset);
+
+        return { date, value };
+      }),
+    };
+  });
+}
+
+function formatShortDate(date: Date): string {
+  return date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' });
+}
+
+function buildPath(points: { x: number; y: number }[]): string {
+  if (points.length === 0) {
+    return '';
+  }
+
+  return points
+    .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`)
+    .join(' ');
+}
+
+function buildAreaPath(points: { x: number; y: number }[], baselineY: number): string {
+  if (points.length === 0) {
+    return '';
+  }
+
+  const linePath = buildPath(points);
+  const lastPoint = points[points.length - 1]!;
+  const firstPoint = points[0]!;
+
+  return `${linePath} L ${lastPoint.x.toFixed(1)} ${baselineY.toFixed(1)} L ${firstPoint.x.toFixed(1)} ${baselineY.toFixed(1)} Z`;
+}
+
+function IncidentAreaChart({ period }: { period: PeriodKey }) {
+  const series = buildPeriodSeries(period);
+  const firstSeries = series[0];
+
+  if (!firstSeries) {
+    return null;
+  }
+
+  const width = 760;
+  const height = 280;
+  const padding = { top: 18, right: 18, bottom: 30, left: 18 };
+  const innerWidth = width - padding.left - padding.right;
+  const innerHeight = height - padding.top - padding.bottom;
+  const allValues = series.flatMap((item) => item.points.map((point) => point.value));
+  const maxValue = Math.max(...allValues);
+  const minValue = 0;
+  const range = Math.max(maxValue - minValue, 1);
+  const step = firstSeries.points.length > 1 ? innerWidth / (firstSeries.points.length - 1) : innerWidth;
+  const baselineY = padding.top + innerHeight;
+
+  const toX = (index: number) => padding.left + index * step;
+  const toY = (value: number) => padding.top + innerHeight - ((value - minValue) / range) * innerHeight;
+
+  const gridValues = Array.from({ length: 4 }, (_, index) => minValue + ((maxValue - minValue) / 3) * index);
 
   return (
-    <>
-      <style jsx global>{`
-        :root {
-          --reaviz-tick-fill: #9A9AAF; /* Original light mode tick fill */
-          --reaviz-gridline-stroke: #7E7E8F75; /* Original light mode gridline */
-        }
-        .dark {
-          --reaviz-tick-fill: #A0AEC0; /* Lighter gray for dark mode */
-          --reaviz-gridline-stroke: rgba(74, 85, 104, 0.6); /* Darker, less opaque gridline */
-        }
-      `}</style>
-      <div className="flex flex-col justify-between pt-4 pb-4 bg-white dark:bg-black rounded-3xl shadow-[11px_21px_3px_rgba(0,0,0,0.06),14px_27px_7px_rgba(0,0,0,0.10),19px_38px_14px_rgba(0,0,0,0.13),27px_54px_27px_rgba(0,0,0,0.16),39px_78px_50px_rgba(0,0,0,0.20),55px_110px_86px_rgba(0,0,0,0.26)] w-full max-w-2xl min-h-[714px] overflow-hidden transition-colors duration-300">
-        {/* Header */}
-        <div className="flex justify-between items-center p-7 pt-6 pb-8">
-          <h3 className="text-3xl text-left font-bold text-gray-900 dark:text-white transition-colors duration-300">
-            Incident Report
-          </h3>
-          <select
-            value={selectedTimePeriod}
-            onChange={(e) => setSelectedTimePeriod(e.target.value)}
-            className="bg-gray-100 dark:bg-[#262631] text-gray-800 dark:text-white p-3 pt-2 pb-2 rounded-md focus:ring-2 focus:ring-blue-500 outline-none transition-colors duration-300"
-            aria-label="Select time period for incident report"
-          >
-            {TIME_PERIOD_OPTIONS.map(option => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Legend */}
-        <div className="flex gap-8 w-full pl-8 pr-8 mb-4">
-          {LEGEND_ITEMS.map((item) => (
-            <div key={item.name} className="flex gap-2 items-center">
-              <div className="w-4 h-4" style={{ backgroundColor: item.color }} />
-              <span className="text-gray-500 dark:text-gray-400 text-xs transition-colors duration-300">{item.name}</span>
-            </div>
+    <motion.div
+      key={period}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.24, ease: 'easeOut' }}
+      className="h-[280px] px-2"
+    >
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-full w-full" preserveAspectRatio="none" aria-hidden>
+        <defs>
+          {series.map((item, index) => (
+            <linearGradient
+              key={item.key}
+              id={`incident-series-${index}`}
+              x1="0"
+              y1="0"
+              x2="0"
+              y2="1"
+            >
+              <stop offset="0%" stopColor={item.color} stopOpacity="0.34" />
+              <stop offset="100%" stopColor={item.color} stopOpacity="0.02" />
+            </linearGradient>
           ))}
-        </div>
+        </defs>
 
-        {/* Chart */}
-        <div className="reaviz-chart-container h-[280px] px-2"> {/* Adjusted height and added padding for axis labels */}
-          <AreaChart
-            height={280} // Explicit height for the chart
-            id="multi-series-interpolation-smooth"
-            data={validatedChartData}
-            xAxis={
-              <LinearXAxis
-                type="time"
-                tickSeries={
-                  <LinearXAxisTickSeries
-                    label={
-                      <LinearXAxisTickLabel
-                        format={v => new Date(v).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}
-                        fill="var(--reaviz-tick-fill)"
-                      />
-                    }
-                    tickSize={10} // Optimized tickSize
-                  />
-                }
-              />
-            }
-            yAxis={
-              <LinearYAxis
-                axisLine={null}
-                tickSeries={<LinearYAxisTickSeries line={null} label={null} tickSize={10} />} // Optimized tickSize
-              />
-            }
-            series={
-              <AreaSeries
-                type="grouped"
-                interpolation="smooth"
-                area={
-                  <Area
-                    gradient={
-                      <Gradient
-                        stops={[
-                          <GradientStop key={1} stopOpacity={0} />,
-                          <GradientStop key={2} offset="100%" stopOpacity={0.4} />,
-                        ]}
-                      />
-                    }
-                  />
-                }
-                colorScheme={['#5B14C5', '#DAC5F9', '#B58BF3']} // DLP, Threat Intel, SysLog
-              />
-            }
-            gridlines={<GridlineSeries line={<Gridline strokeColor="var(--reaviz-gridline-stroke)" />} />}
-          />
-        </div>
+        {gridValues.map((value) => {
+          const y = toY(value);
+          return (
+            <line
+              key={value}
+              x1={padding.left}
+              x2={width - padding.right}
+              y1={y}
+              y2={y}
+              stroke="rgba(126,126,143,0.32)"
+              strokeWidth="1"
+              strokeDasharray="4 6"
+            />
+          );
+        })}
 
-        {/* Summary Stats */}
-        <div className="flex flex-col sm:flex-row w-full pl-8 pr-8 justify-between pb-2 pt-8 gap-4 sm:gap-8">
-          {INCIDENT_STATS_DATA.map(stat => (
-            <div key={stat.id} className="flex flex-col gap-2 w-full sm:w-1/2">
-              <span className="text-xl text-gray-800 dark:text-gray-200 transition-colors duration-300">{stat.title}</span>
+        {series.map((item, index) => {
+          const points = item.points.map((point, pointIndex) => ({
+            x: toX(pointIndex),
+            y: toY(point.value),
+          }));
+
+          return (
+            <g key={item.key}>
+              <path d={buildAreaPath(points, baselineY)} fill={`url(#incident-series-${index})`} />
+              <path d={buildPath(points)} fill="none" stroke={item.color} strokeWidth="3" strokeLinejoin="round" />
+              {points.map((point, pointIndex) => (
+                <circle
+                  key={`${item.key}-${pointIndex}`}
+                  cx={point.x}
+                  cy={point.y}
+                  r="3.5"
+                  fill={item.color}
+                  stroke="white"
+                  strokeWidth="1.5"
+                />
+              ))}
+            </g>
+          );
+        })}
+
+        {firstSeries.points.map((point, index) => (
+          <text
+            key={point.date.toISOString()}
+            x={toX(index)}
+            y={height - 8}
+            textAnchor="middle"
+            fontSize="11"
+            fill="#9A9AAF"
+          >
+            {formatShortDate(point.date)}
+          </text>
+        ))}
+      </svg>
+    </motion.div>
+  );
+}
+
+const AdvancedIncidentReportCard = () => {
+  const [selectedTimePeriod, setSelectedTimePeriod] = useState<PeriodKey>('last-7-days');
+
+  return (
+    <div className="flex min-h-[714px] w-full max-w-2xl flex-col justify-between overflow-hidden rounded-3xl bg-white pt-4 pb-4 shadow-[11px_21px_3px_rgba(0,0,0,0.06),14px_27px_7px_rgba(0,0,0,0.10),19px_38px_14px_rgba(0,0,0,0.13),27px_54px_27px_rgba(0,0,0,0.16),39px_78px_50px_rgba(0,0,0,0.20),55px_110px_86px_rgba(0,0,0,0.26)] transition-colors duration-300 dark:bg-black">
+      <div className="flex items-center justify-between p-7 pt-6 pb-8">
+        <h3 className="text-left text-3xl font-bold text-gray-900 transition-colors duration-300 dark:text-white">
+          Incident Report
+        </h3>
+        <select
+          value={selectedTimePeriod}
+          onChange={(event) => setSelectedTimePeriod(event.target.value as PeriodKey)}
+          className="rounded-md bg-gray-100 p-3 pt-2 pb-2 text-gray-800 outline-none transition-colors duration-300 focus:ring-2 focus:ring-blue-500 dark:bg-[#262631] dark:text-white"
+          aria-label="Select time period for incident report"
+        >
+          {TIME_PERIOD_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="mb-4 flex w-full gap-8 px-8">
+        {SERIES_META.map((item) => (
+          <div key={item.key} className="flex items-center gap-2">
+            <div className="h-4 w-4" style={{ backgroundColor: item.color }} />
+            <span className="text-xs text-gray-500 transition-colors duration-300 dark:text-gray-400">{item.key}</span>
+          </div>
+        ))}
+      </div>
+
+      <IncidentAreaChart period={selectedTimePeriod} />
+
+      <div className="flex w-full flex-col justify-between gap-4 px-8 pt-8 pb-2 sm:flex-row sm:gap-8">
+        {INCIDENT_STATS.map((stat) => {
+          const trendColor = stat.trend === 'up' ? '#F08083' : '#40E5D1';
+
+          return (
+            <div key={stat.id} className="flex w-full flex-col gap-2 sm:w-1/2">
+              <span className="text-xl text-gray-800 transition-colors duration-300 dark:text-gray-200">
+                {stat.title}
+              </span>
               <div className="flex items-center gap-2">
                 <CountUp
-                  className="font-mono text-4xl font-semibold text-gray-900 dark:text-white transition-colors duration-300"
-                  start={stat.countFrom || 0}
+                  className="font-mono text-4xl font-semibold text-gray-900 transition-colors duration-300 dark:text-white"
+                  start={stat.countFrom}
                   end={stat.count}
                   duration={2.5}
                 />
-                <div className={`flex ${stat.trendBgColor} p-1 pl-2 pr-2 items-center rounded-full ${stat.trendColor}`}>
-                  <stat.TrendIconSvg strokeColor={stat.trendColor.startsWith('text-[#F08083]') ? '#F08083' : '#40E5D1'} />
-                  {stat.percentage}%
+                <div
+                  className="flex items-center gap-1 rounded-full p-1 pl-2 pr-2"
+                  style={{
+                    backgroundColor: stat.trend === 'up' ? 'rgba(232,64,69,0.18)' : 'rgba(64,229,209,0.22)',
+                    color: trendColor,
+                  }}
+                >
+                  <TrendBadge direction={stat.trend} color={trendColor} />
+                  <span className="text-sm font-medium">{stat.percentage}%</span>
                 </div>
               </div>
-              <span className="text-gray-500 dark:text-gray-400 text-sm transition-colors duration-300">
+              <span className="text-sm text-gray-500 transition-colors duration-300 dark:text-gray-400">
                 {stat.comparisonText}
               </span>
             </div>
-          ))}
-        </div>
-
-        {/* Detailed Metrics List */}
-        <div className="flex flex-col pl-8 pr-8 font-mono divide-y divide-gray-200 dark:divide-[#262631] transition-colors duration-300 mt-4">
-          {DETAILED_METRICS_DATA.map((metric) => (
-            <motion.div
-              key={metric.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: metric.delay }}
-              className="flex w-full py-4 items-center gap-2"
-            >
-              <div className="flex flex-row gap-2 items-center text-base w-1/2 text-gray-500 dark:text-gray-400 transition-colors duration-300">
-                <metric.Icon fill={metric.id === 'ier' && metric.trendBaseColor === '#40E5D1' ? '#40E5D1' : '#E84045'} />
-                <span className="truncate" title={metric.tooltip}>
-                  {metric.label}
-                </span>
-              </div>
-              <div className="flex gap-2 w-1/2 justify-end items-center">
-                <span className="font-semibold text-xl text-gray-900 dark:text-white transition-colors duration-300">{metric.value}</span>
-                <metric.TrendIcon baseColor={metric.trendBaseColor} strokeColor={metric.trendStrokeColor} />
-              </div>
-            </motion.div>
-          ))}
-        </div>
+          );
+        })}
       </div>
-    </>
+
+      <div className="mt-4 flex flex-col divide-y divide-gray-200 px-8 font-mono transition-colors duration-300 dark:divide-[#262631]">
+        {DETAILED_METRICS.map((metric) => (
+          <motion.div
+            key={metric.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: metric.delay }}
+            className="flex w-full items-center gap-2 py-4"
+          >
+            <div className="flex w-1/2 items-center gap-2 text-base text-gray-500 transition-colors duration-300 dark:text-gray-400">
+              <metric.icon fill={metric.trend === 'down' ? '#40E5D1' : '#E84045'} />
+              <span className="truncate" title={metric.tooltip}>
+                {metric.label}
+              </span>
+            </div>
+            <div className="flex w-1/2 items-center justify-end gap-2">
+              <span className="text-xl font-semibold text-gray-900 transition-colors duration-300 dark:text-white">
+                {metric.value}
+              </span>
+              <TrendBadge direction={metric.trend} color={metric.trendColor} />
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </div>
   );
 };
 

@@ -10,7 +10,7 @@
  */
 import React, { useState } from 'react'
 import { ArrowRight, Check } from 'lucide-react'
-import { AnimatePresence, motion, type HTMLMotionProps } from 'framer-motion'
+import { AnimatePresence, motion, type HTMLMotionProps } from 'motion/react'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)) }
