@@ -35,6 +35,19 @@ from src.read_service import CVMReadService
 
 router = APIRouter(tags=["companies"])
 
+COMPANY_DIRECTORY_CACHE_CONTROL = "public, max-age=300, stale-while-revalidate=3600"
+COMPANY_INFO_CACHE_CONTROL = "public, max-age=3600"
+COMPANY_YEARS_CACHE_CONTROL = "public, max-age=86400, stale-while-revalidate=604800"
+COMPANY_DATA_CACHE_CONTROL = "public, max-age=600"
+
+
+def _apply_cache_headers(response: Response, cache_control: str) -> None:
+    response.headers["Cache-Control"] = cache_control
+    vary_values = [value.strip() for value in response.headers.get("Vary", "").split(",") if value.strip()]
+    if not any(value.lower() == "origin" for value in vary_values):
+        vary_values.append("Origin")
+    response.headers["Vary"] = ", ".join(vary_values)
+
 
 @router.get(
     "/companies",
@@ -42,6 +55,7 @@ router = APIRouter(tags=["companies"])
     summary="Retorna o diretorio paginado de empresas com dados.",
 )
 def list_companies(
+    response: Response,
     request: Request,
     search: str = Query(default="", description="Filtro livre por nome, ticker ou codigo CVM."),
     sector: str | None = Query(default=None, description="Slug canonico do setor."),
@@ -50,6 +64,7 @@ def list_companies(
     service: CVMReadService = Depends(get_read_service),
 ) -> CompanyDirectoryPagePayload:
     ensure_api_ready(get_settings(request))
+    _apply_cache_headers(response, COMPANY_DIRECTORY_CACHE_CONTROL)
     page_dto = service.list_companies(
         search=search,
         sector_slug=sector,
@@ -148,6 +163,7 @@ def request_top_ranked_refresh(
 )
 def get_company(
     cd_cvm: int,
+    response: Response,
     request: Request,
     service: CVMReadService = Depends(get_read_service),
 ) -> CompanyInfoPayload:
@@ -155,6 +171,7 @@ def get_company(
     info = service.get_company_info(cd_cvm)
     if info is None:
         raise NotFoundError(f"Empresa {cd_cvm} nao encontrada.")
+    _apply_cache_headers(response, COMPANY_INFO_CACHE_CONTROL)
     return present_company_info(info)
 
 
@@ -190,11 +207,13 @@ def export_company_excel(
 )
 def get_company_years(
     cd_cvm: int,
+    response: Response,
     request: Request,
     service: CVMReadService = Depends(get_read_service),
 ) -> list[int]:
     ensure_api_ready(get_settings(request))
     coerce_company(cd_cvm, service)
+    _apply_cache_headers(response, COMPANY_YEARS_CACHE_CONTROL)
     return service.get_available_years(cd_cvm)
 
 
@@ -205,6 +224,7 @@ def get_company_years(
 )
 def get_company_statement(
     cd_cvm: int,
+    response: Response,
     request: Request,
     stmt: str = Depends(statement_dependency),
     years: list[int] = Depends(years_dependency),
@@ -212,6 +232,7 @@ def get_company_statement(
 ) -> StatementMatrixPayload:
     ensure_api_ready(get_settings(request))
     coerce_company(cd_cvm, service)
+    _apply_cache_headers(response, COMPANY_DATA_CACHE_CONTROL)
     matrix = service.get_statement_matrix(cd_cvm=cd_cvm, years=years, stmt_type=stmt)
     return present_statement(matrix)
 
@@ -223,12 +244,14 @@ def get_company_statement(
 )
 def get_company_kpis(
     cd_cvm: int,
+    response: Response,
     request: Request,
     years: list[int] = Depends(years_dependency),
     service: CVMReadService = Depends(get_read_service),
 ) -> KPIBundlePayload:
     ensure_api_ready(get_settings(request))
     coerce_company(cd_cvm, service)
+    _apply_cache_headers(response, COMPANY_DATA_CACHE_CONTROL)
     bundle = service.get_kpi_bundle(cd_cvm=cd_cvm, years=years)
     return present_kpis(bundle)
 

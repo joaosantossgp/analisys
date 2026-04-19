@@ -43,6 +43,39 @@ def test_companies_empty_search_returns_paginated_directory(client: TestClient):
     assert sem_dados["anos_disponiveis"] == []
 
 
+@pytest.mark.parametrize(
+    ("path", "params", "expected_cache_control"),
+    [
+        ("/companies", None, "public, max-age=300, stale-while-revalidate=3600"),
+        ("/companies/9512", None, "public, max-age=3600"),
+        ("/companies/9512/years", None, "public, max-age=86400, stale-while-revalidate=604800"),
+        (
+            "/companies/9512/statements",
+            {"stmt": "DRE", "years": "2023,2024"},
+            "public, max-age=600",
+        ),
+        (
+            "/companies/9512/kpis",
+            {"years": "2023,2024"},
+            "public, max-age=600",
+        ),
+        ("/sectors", None, "public, max-age=3600, stale-while-revalidate=86400"),
+    ],
+)
+def test_cacheable_endpoints_expose_cache_headers(
+    client: TestClient,
+    path: str,
+    params: dict[str, str] | None,
+    expected_cache_control: str,
+):
+    response = client.get(path, params=params)
+
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == expected_cache_control
+    vary_values = {value.strip() for value in response.headers["vary"].split(",")}
+    assert "Origin" in vary_values
+
+
 def test_companies_search_filters_results(client: TestClient):
     response = client.get("/companies", params={"search": "vale", "page_size": 20})
 
@@ -747,6 +780,13 @@ def test_company_summary_blocks_have_non_empty_titles(client: TestClient):
     assert response.status_code == 200
     for block in response.json()["blocks"]:
         assert isinstance(block["title"], str) and len(block["title"]) > 0
+
+
+def test_non_targeted_endpoints_do_not_expose_api_cache_headers(client: TestClient):
+    response = client.get("/companies/9512/summary", params={"years": "2023,2024"})
+
+    assert response.status_code == 200
+    assert "cache-control" not in response.headers
 
 
 # ── Regressao: /years exclui anos com apenas dados trimestrais ITR ─────────────

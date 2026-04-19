@@ -79,6 +79,9 @@ Regras do endpoint:
 - ordena por `company_name ASC`
 - `sector` usa slug canonico estavel, nao label livre
 - `anos_disponiveis` e montado de forma portavel na camada de leitura
+- headers de cache:
+  - `Cache-Control: public, max-age=300, stale-while-revalidate=3600`
+  - `Vary: Origin`
 - `anos_disponiveis` representa apenas anos anuais exportaveis:
   exige `PERIOD_LABEL = REPORT_YEAR`, portanto anos com apenas `1Q/2Q/3Q` nao
   entram no payload
@@ -136,6 +139,9 @@ Resposta exemplo:
 Regras do endpoint:
 - `snapshot` usa os KPIs agregados do `latest_year` do setor
 - `roe`, `mg_ebit` e `mg_liq` podem ser `null` quando o setor nao tiver contas suficientes
+- headers de cache:
+  - `Cache-Control: public, max-age=3600, stale-while-revalidate=86400`
+  - `Vary: Origin`
 - o item do setor continua valido mesmo quando o snapshot vier parcial ou nulo
 
 ### `GET /sectors/{slug}?year=`
@@ -203,6 +209,11 @@ Resposta exemplo:
 }
 ```
 
+Regras do endpoint:
+- headers de cache:
+  - `Cache-Control: public, max-age=3600`
+  - `Vary: Origin`
+
 ### `GET /companies/{cd_cvm}/export/excel`
 
 Uso:
@@ -254,6 +265,9 @@ Resposta:
 Regras do endpoint:
 - retorna apenas anos anuais exportaveis
 - usa `PERIOD_LABEL = REPORT_YEAR` como criterio de disponibilidade
+- headers de cache:
+  - `Cache-Control: public, max-age=86400, stale-while-revalidate=604800`
+  - `Vary: Origin`
 - anos com apenas ITR trimestral nao aparecem no seletor de anos
 - para anos fechados, a presenca trimestral isolada nao deve ser interpretada
   como cobertura anual
@@ -294,6 +308,9 @@ Resposta exemplo:
 Regras do endpoint:
 - aceita anos anuais no filtro `years`, mas a matriz pode expor colunas
   trimestrais quando elas existirem para os anos solicitados
+- headers de cache:
+  - `Cache-Control: public, max-age=600`
+  - `Vary: Origin`
 - `4Q` so pode aparecer quando houver base suficiente para derivacao do periodo:
   em especial, `DRE` e `DFC` dependem do anual `YYYY` combinado com `3Q`
 
@@ -332,6 +349,9 @@ Resposta exemplo:
 Regras do endpoint:
 - `annual` usa somente `PERIOD_LABEL = REPORT_YEAR`
 - `quarterly` pode usar periodos trimestrais dos anos solicitados
+- headers de cache:
+  - `Cache-Control: public, max-age=600`
+  - `Vary: Origin`
 - `4Q` depende da disponibilidade do anual `YYYY`; trimestre isolado sem anual
   nao converte o ano em disponivel no seletor
 - o bundle trimestral deduplica `4Q` contra o fechamento anual `YYYY`; quando o

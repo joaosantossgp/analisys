@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import Response
 
 from apps.api.app.dependencies import (
     InvalidRequestError,
@@ -20,6 +21,16 @@ from src.read_service import CVMReadService
 
 router = APIRouter(tags=["sectors"])
 
+SECTOR_DIRECTORY_CACHE_CONTROL = "public, max-age=3600, stale-while-revalidate=86400"
+
+
+def _apply_cache_headers(response: Response, cache_control: str) -> None:
+    response.headers["Cache-Control"] = cache_control
+    vary_values = [value.strip() for value in response.headers.get("Vary", "").split(",") if value.strip()]
+    if not any(value.lower() == "origin" for value in vary_values):
+        vary_values.append("Origin")
+    response.headers["Vary"] = ", ".join(vary_values)
+
 
 @router.get(
     "/sectors",
@@ -27,10 +38,12 @@ router = APIRouter(tags=["sectors"])
     summary="Retorna o hub setorial com snapshot agregado por setor.",
 )
 def list_sectors(
+    response: Response,
     request: Request,
     service: CVMReadService = Depends(get_read_service),
 ) -> SectorDirectoryPayload:
     ensure_api_ready(get_settings(request))
+    _apply_cache_headers(response, SECTOR_DIRECTORY_CACHE_CONTROL)
     return present_sector_directory(service.list_sectors())
 
 
