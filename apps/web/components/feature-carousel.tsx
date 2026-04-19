@@ -240,6 +240,7 @@ export function FeatureCarousel() {
                   }}
                   className="absolute inset-0 rounded-[2rem] md:rounded-[2.8rem] overflow-hidden border-4 md:border-8 border-background bg-background origin-center"
                 >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={feature.image}
                     alt={feature.label}

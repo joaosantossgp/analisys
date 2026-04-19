@@ -7,22 +7,6 @@ import {
   loadSectorsPageData,
 } from "../lib/sectors-page-data.ts";
 
-const sampleDirectory = {
-  items: [
-    {
-      sector_name: "Energia",
-      sector_slug: "energia",
-      company_count: 12,
-      latest_year: 2024,
-      snapshot: {
-        roe: 0.18,
-        mg_ebit: 0.22,
-        mg_liq: 0.14,
-      },
-    },
-  ],
-};
-
 const latestSectorDetail = {
   sector_name: "Energia",
   sector_slug: "energia",

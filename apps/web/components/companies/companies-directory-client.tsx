@@ -30,6 +30,13 @@ type RequestState = {
   loading: boolean;
 };
 
+type CompaniesDirectoryClientContentProps = Pick<
+  ReturnType<typeof readCompaniesDirectoryQuery>,
+  "page" | "pageSize" | "search" | "sector" | "viewMode"
+> & {
+  requestHref: string;
+};
+
 const DIRECTORY_LOAD_ERROR =
   "Nao foi possivel carregar o diretorio de empresas agora. Tente novamente em instantes.";
 
@@ -60,29 +67,42 @@ async function fetchCompaniesDirectoryData(
 
 export function CompaniesDirectoryClient() {
   const searchParams = useSearchParams();
-  const {
-    search: currentSearch,
-    sector: currentSector,
-    page: currentPage,
-    pageSize,
-    viewMode,
-  } = readCompaniesDirectoryQuery(searchParams, COMPANIES_DIRECTORY_PAGE_SIZE);
+  const directoryQuery = readCompaniesDirectoryQuery(
+    searchParams,
+    COMPANIES_DIRECTORY_PAGE_SIZE,
+  );
   const requestHref = buildCompaniesDirectoryApiHref({
-    search: currentSearch,
-    sector: currentSector,
-    page: currentPage,
-    pageSize,
+    search: directoryQuery.search,
+    sector: directoryQuery.sector,
+    page: directoryQuery.page,
+    pageSize: directoryQuery.pageSize,
   });
+
+  return (
+    <CompaniesDirectoryClientContent
+      key={requestHref}
+      requestHref={requestHref}
+      page={directoryQuery.page}
+      pageSize={directoryQuery.pageSize}
+      search={directoryQuery.search}
+      sector={directoryQuery.sector}
+      viewMode={directoryQuery.viewMode}
+    />
+  );
+}
+
+function CompaniesDirectoryClientContent({
+  page: currentPage,
+  pageSize,
+  search: currentSearch,
+  sector: currentSector,
+  viewMode,
+  requestHref,
+}: CompaniesDirectoryClientContentProps) {
   const [state, setState] = useState<RequestState>(INITIAL_STATE);
 
   useEffect(() => {
     const controller = new AbortController();
-
-    setState({
-      data: null,
-      requestError: null,
-      loading: true,
-    });
 
     void fetchCompaniesDirectoryData(requestHref, controller.signal)
       .then((data) => {
