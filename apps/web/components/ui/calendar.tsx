@@ -61,7 +61,6 @@ function Calendar({
   const defaultComponents = {
     Chevron: ({
       orientation,
-      ...rest
     }: {
       orientation?: "left" | "right" | "up" | "down";
       className?: string;
