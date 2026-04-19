@@ -27,6 +27,9 @@ class _RecorderConn:
             raise RuntimeError("forced execute failure")
         return None
 
+    def execution_options(self, **kwargs):
+        return self
+
 
 class _Ctx:
     def __init__(self, conn):
@@ -83,16 +86,26 @@ def test_init_db_applies_pragmas_for_sqlite_only():
     ddl_sql = "\n".join(sql for sql, _ in db._engine.begin_conn.calls)
     assert "CREATE TABLE IF NOT EXISTS financial_reports" in ddl_sql
     assert "CREATE TABLE IF NOT EXISTS qa_logs" in ddl_sql
+    # SQLite indexes use regular begin() — no CONCURRENTLY
+    assert "idx_fr_cd_cvm" in ddl_sql
+    assert "CONCURRENTLY" not in ddl_sql
 
 
 def test_init_db_skips_pragmas_for_postgresql():
     db = _new_db_with_engine(_FakeEngine("postgresql"))
     db._init_db()
 
-    assert db._engine.connect_calls == 0
+    # connect() is called once for CONCURRENTLY index creation (outside transaction)
+    assert db._engine.connect_calls == 1
     ddl_sql = "\n".join(sql for sql, _ in db._engine.begin_conn.calls)
     assert "PRAGMA" not in ddl_sql
     assert "CREATE TABLE IF NOT EXISTS financial_reports" in ddl_sql
+
+    idx_sql = "\n".join(sql for sql, _ in db._engine.connect_conn.calls)
+    assert "CONCURRENTLY" in idx_sql
+    assert "idx_fr_cd_cvm" in idx_sql
+    assert "idx_fr_cd_cvm_stmt_year" in idx_sql
+    assert "idx_companies_setor" in idx_sql
 
 
 def test_upsert_company_metadata_uses_dialect_safe_sql():

@@ -78,6 +78,25 @@ def init_db_tables(engine: Engine) -> None:
                 updated_at      TEXT NOT NULL
             )
         """))
+
+    _index_ddl = [
+        'CREATE INDEX {c}IF NOT EXISTS idx_fr_cd_cvm ON financial_reports("CD_CVM")',
+        'CREATE INDEX {c}IF NOT EXISTS idx_fr_cd_cvm_stmt_year ON financial_reports("CD_CVM", "STATEMENT_TYPE", "REPORT_YEAR")',
+        'CREATE INDEX {c}IF NOT EXISTS idx_fr_cd_conta ON financial_reports("CD_CONTA")',
+        "CREATE INDEX {c}IF NOT EXISTS idx_companies_setor ON companies(setor_analitico)",
+        "CREATE INDEX {c}IF NOT EXISTS idx_companies_ticker ON companies(ticker_b3)",
+    ]
+    if dialect == "postgresql":
+        # CONCURRENTLY cannot run inside a transaction — requires AUTOCOMMIT
+        with engine.connect() as idx_conn:
+            idx_conn = idx_conn.execution_options(isolation_level="AUTOCOMMIT")
+            for ddl in _index_ddl:
+                idx_conn.execute(text(ddl.format(c="CONCURRENTLY ")))
+    else:
+        with engine.begin() as idx_conn:
+            for ddl in _index_ddl:
+                idx_conn.execute(text(ddl.format(c="")))
+
     logger.info("init_db_tables completed dialect=%s", dialect)
 SQLITE_WRITE_BACKOFF_SECONDS = 0.6
 DEFAULT_TO_SQL_CHUNKSIZE = 2000
