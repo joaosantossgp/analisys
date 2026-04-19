@@ -75,6 +75,12 @@ parent_dir = os.path.dirname(current_dir)
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
+_CSV_USECOLS = frozenset([
+    "CD_CVM", "CD_CONTA", "DS_CONTA", "VL_CONTA", "DT_REFER",
+    "DT_INI_EXERC", "DT_FIM_EXERC", "ORDEM_EXERC", "ESCALA_MOEDA",
+])
+
+
 class CVMScraper:
     def __init__(
         self,
@@ -99,6 +105,7 @@ class CVMScraper:
         self.company_db_retry_backoff_seconds = self.settings.company_db_retry_backoff_seconds
         self.force_refresh = os.getenv("CVM_FORCE_REFRESH", "0") == "1"
         self._print_lock = threading.Lock()
+        self._csv_cache: dict[str, "pd.DataFrame"] = {}
 
         if self.report_type == "consolidated":
             self.suffix = "con"
@@ -297,6 +304,20 @@ class CVMScraper:
         df.loc[mask_milhao, 'VL_CONTA'] = df.loc[mask_milhao, 'VL_CONTA'] * 1000
         return df
 
+    def _read_csv_cached(self, filepath: str) -> "pd.DataFrame":
+        if filepath not in self._csv_cache:
+            try:
+                df = pd.read_csv(
+                    filepath, sep=";", encoding="latin1",
+                    usecols=lambda c: c in _CSV_USECOLS,
+                    dtype={"CD_CVM": "Int64"},
+                )
+            except Exception:
+                df = pd.read_csv(filepath, sep=";", encoding="latin1",
+                                 dtype={"CD_CVM": "Int64"})
+            self._csv_cache[filepath] = df
+        return self._csv_cache[filepath]
+
     def process_data(self, cvm_code, years):
         all_data = []
         file_patterns = ['BPA', 'BPP', 'DRE', 'DFC_MD', 'DFC_MI', 'DVA', 'DMPL']
@@ -307,8 +328,8 @@ class CVMScraper:
                     filepath = os.path.join(self.processed_dir, filename)
                     if os.path.exists(filepath):
                         try:
-                            df = pd.read_csv(filepath, sep=";", encoding="latin1")
-                            df_company = df[df['CD_CVM'] == cvm_code].copy()
+                            df = self._read_csv_cached(filepath)
+                            df_company = df[df['CD_CVM'] == int(cvm_code)].copy()
                             if not df_company.empty:
                                 if 'ORDEM_EXERC' in df_company.columns:
                                     df_company = df_company[df_company['ORDEM_EXERC'] == 'ÚLTIMO']
@@ -654,6 +675,7 @@ class CVMScraper:
                     break
             results[str(int(cvm))] = payload
             completed += 1
+        self._csv_cache.clear()
         return results
 
 if __name__ == "__main__":
