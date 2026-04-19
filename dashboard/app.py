@@ -31,7 +31,7 @@ st.set_page_config(
 
 import pandas as pd
 
-from src.read_service import CVMReadService
+from dashboard.services import get_read_service
 from src.startup import StartupReport, collect_startup_report, format_startup_report
 from dashboard.components.search_bar import render_sidebar
 from dashboard.tabs import demonstracoes, download, visao_geral
@@ -51,7 +51,7 @@ st.markdown(
 
 @st.cache_data(ttl=600, show_spinner="Carregando demonstracoes...")
 def load_statements(cd_cvm: int, years: tuple[int, ...]) -> dict[str, pd.DataFrame]:
-    read_service = CVMReadService()
+    read_service = get_read_service()
     years_list = list(years)
     return {
         stmt: read_service.get_statement_dataframe(cd_cvm, years_list, stmt)
@@ -61,13 +61,13 @@ def load_statements(cd_cvm: int, years: tuple[int, ...]) -> dict[str, pd.DataFra
 
 @st.cache_data(ttl=600, show_spinner="Calculando KPIs...")
 def load_kpis(cd_cvm: int, years: tuple[int, ...]) -> pd.DataFrame:
-    bundle = CVMReadService().get_kpi_bundle(cd_cvm, list(years))
+    bundle = get_read_service().get_kpi_bundle(cd_cvm, list(years))
     return bundle.annual_dataframe()
 
 
 @st.cache_data(ttl=600, show_spinner="Calculando KPIs trimestrais...")
 def load_quarterly_kpis(cd_cvm: int, years: tuple[int, ...]) -> pd.DataFrame:
-    bundle = CVMReadService().get_kpi_bundle(cd_cvm, list(years))
+    bundle = get_read_service().get_kpi_bundle(cd_cvm, list(years))
     return bundle.quarterly_dataframe()
 
 

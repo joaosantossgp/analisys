@@ -16,12 +16,12 @@ if _PROJECT_ROOT not in sys.path:
 import streamlit as st
 import pandas as pd
 
-from src.read_service import CVMReadService
+from dashboard.services import get_read_service
 
 
 @st.cache_data(ttl=300)
 def _load_companies(search: str) -> pd.DataFrame:
-    return CVMReadService().search_companies_df(search)
+    return get_read_service().search_companies_df(search)
 
 
 def render_sidebar() -> tuple[dict | None, list[int], bool]:
@@ -73,7 +73,7 @@ def render_sidebar() -> tuple[dict | None, list[int], bool]:
     cd_cvm = int(row["cd_cvm"])
 
     # Metadados da empresa selecionada
-    read_service = CVMReadService()
+    read_service = get_read_service()
     company_info = read_service.get_company_info_dict(cd_cvm)
     available_years = read_service.get_available_years(cd_cvm)
 
