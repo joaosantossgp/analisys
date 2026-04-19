@@ -9,7 +9,6 @@ from typing import Any
 import pandas as pd
 from sqlalchemy import bindparam, inspect, text
 
-from desktop.services import IntelligentSelectorService
 from src.contracts import (
     CompanyDirectoryAppliedFilters,
     CompanyDirectoryPage,
@@ -75,7 +74,14 @@ class CVMReadService:
         self.settings = settings or get_settings()
         self.engine = build_engine(self.settings)
         self.query_layer = CVMQueryLayer(engine=self.engine)
-        self.operational_service = IntelligentSelectorService(settings=self.settings)
+        self._operational_service = None
+
+    @property
+    def operational_service(self):
+        if self._operational_service is None:
+            from desktop.services import IntelligentSelectorService
+            self._operational_service = IntelligentSelectorService(settings=self.settings)
+        return self._operational_service
 
     def search_companies(self, search: str = "") -> list[CompanySearchResult]:
         df = self.query_layer.get_companies(search)
