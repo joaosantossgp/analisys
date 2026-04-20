@@ -5,6 +5,7 @@ import { ApiClientError } from "../lib/api.ts";
 import {
   buildCompaniesDirectoryApiHref,
   readCompaniesDirectoryQuery,
+  readCompaniesDirectoryQueryFromRecord,
 } from "../lib/companies-directory-query.ts";
 import { loadCompaniesPageData } from "../lib/companies-page-data.ts";
 
@@ -78,6 +79,23 @@ test("readCompaniesDirectoryQuery normalizes search params for the client loader
   const query = new URLSearchParams("busca=%20PETR4%20&setor=energia&pagina=0&view=cards");
 
   const result = readCompaniesDirectoryQuery(query);
+
+  assert.deepEqual(result, {
+    search: "PETR4",
+    sector: "energia",
+    page: 1,
+    pageSize: 20,
+    viewMode: "cards",
+  });
+});
+
+test("readCompaniesDirectoryQueryFromRecord keeps the first app-router param value", () => {
+  const result = readCompaniesDirectoryQueryFromRecord({
+    busca: [" PETR4 ", "VALE3"],
+    setor: "energia",
+    pagina: "0",
+    view: "cards",
+  });
 
   assert.deepEqual(result, {
     search: "PETR4",

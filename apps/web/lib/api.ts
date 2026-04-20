@@ -203,9 +203,12 @@ const UNCACHED_API_READ: ApiReadRequestInit = {
 };
 
 // Keep these frontend data-cache TTLs aligned with the backend Cache-Control
-// contract delivered by task #103.
+// contract delivered by the API layer.
 const COMPANY_DIRECTORY_API_READ: ApiReadRequestInit = {
   next: { revalidate: 300 },
+};
+const COMPANY_FILTERS_API_READ: ApiReadRequestInit = {
+  next: { revalidate: 3600 },
 };
 const COMPANY_INFO_API_READ: ApiReadRequestInit = {
   next: { revalidate: 3600 },
@@ -717,7 +720,7 @@ export async function fetchCompanyFilters(): Promise<CompanyFiltersResponse> {
   return (await apiFetch<CompanyFiltersResponse>(
     "/companies/filters",
     {
-      request: UNCACHED_API_READ,
+      request: COMPANY_FILTERS_API_READ,
       validate: isCompanyFiltersResponse,
       invalidResponseMessage: "A API retornou filtros de empresas invalidos.",
     },

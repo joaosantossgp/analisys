@@ -1,8 +1,4 @@
-"use client";
-
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
 
 import { CompanyDirectoryFilters } from "@/components/companies/company-directory-filters";
 import { CompanyDirectoryList } from "@/components/companies/company-directory-list";
@@ -15,127 +11,28 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
 import {
-  buildCompaniesDirectoryApiHref,
-  COMPANIES_DIRECTORY_PAGE_SIZE,
-  readCompaniesDirectoryQuery,
+  type CompaniesDirectoryQueryState,
 } from "@/lib/companies-directory-query";
 import { formatCompactInteger } from "@/lib/formatters";
 import type { CompaniesPageData } from "@/lib/companies-page-data";
 import { mergeSearchParams } from "@/lib/search-params";
 import { cn } from "@/lib/utils";
 
-type RequestState = {
-  data: CompaniesPageData | null;
-  requestError: string | null;
-  loading: boolean;
-};
-
-type CompaniesDirectoryClientContentProps = Pick<
-  ReturnType<typeof readCompaniesDirectoryQuery>,
+type CompaniesDirectoryPageContentProps = Pick<
+  CompaniesDirectoryQueryState,
   "page" | "pageSize" | "search" | "sector" | "viewMode"
 > & {
-  requestHref: string;
+  data: CompaniesPageData;
 };
 
-const DIRECTORY_LOAD_ERROR =
-  "Nao foi possivel carregar o diretorio de empresas agora. Tente novamente em instantes.";
-
-const INITIAL_STATE: RequestState = {
-  data: null,
-  requestError: null,
-  loading: true,
-};
-
-async function fetchCompaniesDirectoryData(
-  href: string,
-  signal: AbortSignal,
-): Promise<CompaniesPageData> {
-  const response = await fetch(href, {
-    cache: "no-store",
-    headers: {
-      Accept: "application/json",
-    },
-    signal,
-  });
-
-  if (!response.ok) {
-    throw new Error(DIRECTORY_LOAD_ERROR);
-  }
-
-  return (await response.json()) as CompaniesPageData;
-}
-
-export function CompaniesDirectoryClient() {
-  const searchParams = useSearchParams();
-  const directoryQuery = readCompaniesDirectoryQuery(
-    searchParams,
-    COMPANIES_DIRECTORY_PAGE_SIZE,
-  );
-  const requestHref = buildCompaniesDirectoryApiHref({
-    search: directoryQuery.search,
-    sector: directoryQuery.sector,
-    page: directoryQuery.page,
-    pageSize: directoryQuery.pageSize,
-  });
-
-  return (
-    <CompaniesDirectoryClientContent
-      key={requestHref}
-      requestHref={requestHref}
-      page={directoryQuery.page}
-      pageSize={directoryQuery.pageSize}
-      search={directoryQuery.search}
-      sector={directoryQuery.sector}
-      viewMode={directoryQuery.viewMode}
-    />
-  );
-}
-
-function CompaniesDirectoryClientContent({
+export function CompaniesDirectoryPageContent({
   page: currentPage,
   pageSize,
   search: currentSearch,
   sector: currentSector,
   viewMode,
-  requestHref,
-}: CompaniesDirectoryClientContentProps) {
-  const [state, setState] = useState<RequestState>(INITIAL_STATE);
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    void fetchCompaniesDirectoryData(requestHref, controller.signal)
-      .then((data) => {
-        if (controller.signal.aborted) {
-          return;
-        }
-
-        setState({
-          data,
-          requestError: null,
-          loading: false,
-        });
-      })
-      .catch((error) => {
-        if (controller.signal.aborted) {
-          return;
-        }
-
-        setState({
-          data: null,
-          requestError:
-            error instanceof Error && error.message ? error.message : DIRECTORY_LOAD_ERROR,
-          loading: false,
-        });
-      });
-
-    return () => controller.abort();
-  }, [requestHref]);
-
-  if (state.loading && !state.data) {
-    return <CompaniesDirectoryLoadingState />;
-  }
-
+  data,
+}: CompaniesDirectoryPageContentProps) {
   const retryParams = new URLSearchParams();
   if (currentSearch) {
     retryParams.set("busca", currentSearch);
@@ -152,7 +49,7 @@ function CompaniesDirectoryClientContent({
   const retryQuery = retryParams.toString();
   const retryHref = retryQuery ? `/empresas?${retryQuery}` : "/empresas";
 
-  if (!state.data?.directory) {
+  if (!data.directory) {
     return (
       <PageShell density="relaxed" className="max-w-4xl">
         <SurfaceCard tone="hero" padding="hero" className="space-y-6">
@@ -165,8 +62,7 @@ function CompaniesDirectoryClientContent({
           <Alert className="rounded-[1.75rem] border border-destructive/25 bg-destructive/6 px-5 py-5 text-left">
             <AlertTitle>Falha controlada da listagem</AlertTitle>
             <AlertDescription>
-              {state.requestError ??
-                state.data?.directoryError ??
+              {data.directoryError ??
                 "Nao foi possivel carregar o diretorio de empresas agora. Tente novamente em instantes."}
             </AlertDescription>
           </Alert>
@@ -192,7 +88,7 @@ function CompaniesDirectoryClientContent({
     );
   }
 
-  const { directory, directoryError, filters, filtersError } = state.data;
+  const { directory, directoryError, filters, filtersError } = data;
   const currentParamsStr = mergeSearchParams("", {
     busca: currentSearch || null,
     setor: currentSector,
