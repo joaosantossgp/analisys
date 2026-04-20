@@ -7,6 +7,7 @@ import { formatCompactInteger } from "@/lib/formatters";
 type TrustStripProps = {
   health: HealthResponse | null;
   totalCompanies: number | null;
+  healthLoading?: boolean;
 };
 
 type TrustStatProps = {
@@ -28,24 +29,42 @@ function TrustStat({ icon: Icon, label, value, hint, live }: TrustStatProps) {
           <span className="font-heading text-[1.5rem] font-medium tracking-[-0.03em] tabular-nums">
             {value}
           </span>
-          {live && (
+          {live ? (
             <span
               className="size-1.5 rounded-full bg-primary"
               style={{ animation: "pulse 2s cubic-bezier(0.4,0,0.6,1) infinite" }}
             />
-          )}
+          ) : null}
         </div>
-        <p className="text-[0.72rem] font-medium uppercase tracking-[0.15em] text-muted-foreground mt-0.5">
+        <p className="mt-0.5 text-[0.72rem] font-medium uppercase tracking-[0.15em] text-muted-foreground">
           {label}
         </p>
-        <p className="text-[0.72rem] text-muted-foreground/70 mt-0.5">{hint}</p>
+        <p className="mt-0.5 text-[0.72rem] text-muted-foreground/70">{hint}</p>
       </div>
     </div>
   );
 }
 
-export function TrustStrip({ health, totalCompanies }: TrustStripProps) {
+export function TrustStrip({
+  health,
+  totalCompanies,
+  healthLoading = false,
+}: TrustStripProps) {
   const isOnline = health?.status === "ok";
+  const healthValue = healthLoading
+    ? "Verificando"
+    : isOnline
+      ? "Ao vivo"
+      : health
+        ? "Offline"
+        : "Sem sinal";
+  const healthHint = healthLoading
+    ? "Checagem assincrona"
+    : isOnline
+      ? "Pipeline sincronizado"
+      : health
+        ? "API indisponivel no momento"
+        : "Fora do caminho critico";
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8">
@@ -54,11 +73,11 @@ export function TrustStrip({ health, totalCompanies }: TrustStripProps) {
           icon={Building2}
           label="Companhias abertas"
           value={formatCompactInteger(totalCompanies) ?? "449"}
-          hint="CVM — emissores ativos"
+          hint="CVM - emissores ativos"
         />
         <TrustStat
           icon={FileText}
-          label="Demonstrações"
+          label="Demonstracoes"
           value="2.3M"
           hint="DFP, ITR desde 2010"
         />
@@ -66,13 +85,13 @@ export function TrustStrip({ health, totalCompanies }: TrustStripProps) {
           icon={BarChart3}
           label="KPIs calculados"
           value="60+"
-          hint="Por exercício fiscal"
+          hint="Por exercicio fiscal"
         />
         <TrustStat
           icon={Zap}
-          label="Última atualização"
-          value={isOnline ? "Ao vivo" : "Offline"}
-          hint="Pipeline sincronizado"
+          label="Ultima atualizacao"
+          value={healthValue}
+          hint={healthHint}
           live={isOnline}
         />
       </div>

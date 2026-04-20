@@ -13,11 +13,12 @@ import { cn } from "@/lib/utils";
 const QUICK_CHIPS = ["PETROBRAS", "VALE3", "ITAUB4", "BBDC4", "Financeiro", "Petróleo e Gás"];
 
 type CompanySearchHeroProps = {
-  apiAvailable: boolean;
-  totalCompanies: number | null;
+  apiAvailable?: boolean;
 };
 
-export function CompanySearchHero({ apiAvailable }: CompanySearchHeroProps) {
+export function CompanySearchHero({
+  apiAvailable = true,
+}: CompanySearchHeroProps) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
@@ -29,7 +30,7 @@ export function CompanySearchHero({ apiAvailable }: CompanySearchHeroProps) {
 
   useEffect(() => {
     const normalized = deferredQuery.trim();
-    if (normalized.length < 2 || !apiAvailable) {
+    if (normalized.length < 2 || apiAvailable === false) {
       setSuggestions([]);
       return;
     }

@@ -2,32 +2,27 @@ import Link from "next/link";
 
 import { CompanySearchHero } from "@/components/home/company-search-hero";
 import { DiscoverySection } from "@/components/home/discovery-section";
-import { TrustStrip } from "@/components/home/trust-strip";
+import { HomeTrustStrip } from "@/components/home/home-trust-strip";
 import { buttonVariants } from "@/components/ui/button";
 import { PageShell } from "@/components/shared/design-system-recipes";
-import { fetchCompanies, safeFetchHealth } from "@/lib/api";
+import { fetchCompanies } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 export default async function HomePage() {
-  const [health, companySnapshot, topCompaniesResult] = await Promise.all([
-    safeFetchHealth(),
-    fetchCompanies({ page: 1, pageSize: 1 }).catch(() => null),
-    fetchCompanies({ page: 1, pageSize: 8 }).catch(() => null),
-  ]);
+  const topCompaniesResult = await fetchCompanies({ page: 1, pageSize: 8 }).catch(
+    () => null,
+  );
 
-  const totalCompanies = companySnapshot?.pagination.total_items ?? null;
+  const totalCompanies = topCompaniesResult?.pagination.total_items ?? null;
   const topCompanies = topCompaniesResult?.items ?? [];
 
   return (
     <PageShell density="relaxed" className="flex flex-col items-center gap-14 pb-20">
-      <CompanySearchHero
-        apiAvailable={health?.status === "ok"}
-        totalCompanies={totalCompanies}
-      />
+      <CompanySearchHero />
 
-      <TrustStrip health={health} totalCompanies={totalCompanies} />
+      <HomeTrustStrip totalCompanies={totalCompanies} />
 
       <DiscoverySection topCompanies={topCompanies} />
 

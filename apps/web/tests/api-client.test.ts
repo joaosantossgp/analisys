@@ -5,6 +5,7 @@ import {
   ApiClientError,
   fetchCompanies,
   fetchCompanyFilters,
+  fetchSectorDetail,
   fetchRefreshStatus,
   getUserFacingErrorCopy,
 } from "../lib/api.ts";
@@ -140,6 +141,51 @@ test("fetchCompanies opts into the backend-aligned revalidate window", async () 
 
     assert.equal(capturedInit?.cache, undefined);
     assert.deepEqual(capturedInit?.next, { revalidate: 300 });
+  } finally {
+    restore();
+  }
+});
+
+test("fetchSectorDetail opts into the backend-aligned revalidate window", async () => {
+  let capturedInit: RequestInit | undefined;
+  const restore = withFetchMock((async (_input, init) => {
+    capturedInit = init;
+
+    return new Response(
+      JSON.stringify({
+        sector_name: "Energia",
+        sector_slug: "energia",
+        company_count: 1,
+        available_years: [2023, 2024],
+        selected_year: 2024,
+        yearly_overview: [
+          { year: 2024, roe: 0.18, mg_ebit: 0.22, mg_liq: 0.14 },
+        ],
+        companies: [
+          {
+            cd_cvm: 9512,
+            company_name: "PETROBRAS",
+            ticker_b3: "PETR4",
+            roe: 0.25,
+            mg_ebit: 0.28,
+            mg_liq: 0.17,
+          },
+        ],
+      }),
+      {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+        },
+      },
+    );
+  }) as FetchMock);
+
+  try {
+    await fetchSectorDetail("energia", 2024);
+
+    assert.equal(capturedInit?.cache, undefined);
+    assert.deepEqual(capturedInit?.next, { revalidate: 3600 });
   } finally {
     restore();
   }

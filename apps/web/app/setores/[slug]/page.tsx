@@ -32,7 +32,7 @@ const SECTOR_TABS = [
   { value: "empresas", label: "Empresas" },
 ] as const;
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 function SectorDetailError({
   message,
