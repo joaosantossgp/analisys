@@ -22,6 +22,7 @@ from src.read_service import CVMReadService
 router = APIRouter(tags=["sectors"])
 
 SECTOR_DIRECTORY_CACHE_CONTROL = "public, max-age=3600, stale-while-revalidate=86400"
+SECTOR_DETAIL_CACHE_CONTROL = "public, max-age=3600, stale-while-revalidate=86400"
 
 
 def _apply_cache_headers(response: Response, cache_control: str) -> None:
@@ -55,6 +56,7 @@ def list_sectors(
 def get_sector_detail(
     sector_slug: str,
     request: Request,
+    response: Response,
     year: int | None = Depends(optional_year_dependency),
     service: CVMReadService = Depends(get_read_service),
 ) -> SectorDetailPayload:
@@ -67,4 +69,5 @@ def get_sector_detail(
     if detail is None:
         raise NotFoundError(f"Setor '{sector_slug}' nao encontrado.")
 
+    _apply_cache_headers(response, SECTOR_DETAIL_CACHE_CONTROL)
     return present_sector_detail(detail)

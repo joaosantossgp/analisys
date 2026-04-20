@@ -215,6 +215,47 @@ class CVMQueryLayer:
         df = pd.read_sql(sql, self.engine, params={"sector_name": str(sector_name)})
         return [int(year) for year in df["REPORT_YEAR"].tolist()]
 
+    def get_sector_years_map(self) -> dict[str, list[int]]:
+        """Returns sector_name → sorted list of years with annual data, for all sectors at once."""
+        sql = text(
+            f"""
+            SELECT DISTINCT {_CANONICAL_SECTOR_SQL} AS sector_name, fr."REPORT_YEAR"
+            FROM financial_reports fr
+            JOIN companies c ON c.cd_cvm = fr."CD_CVM"
+            WHERE fr."PERIOD_LABEL" = CAST(fr."REPORT_YEAR" AS TEXT)
+            ORDER BY sector_name, fr."REPORT_YEAR"
+            """
+        )
+        df = pd.read_sql(sql, self.engine)
+        result: dict[str, list[int]] = {}
+        for _, row in df.iterrows():
+            result.setdefault(str(row["sector_name"]), []).append(int(row["REPORT_YEAR"]))
+        return result
+
+    def get_sector_companies(self, sector_name: str) -> tuple[pd.DataFrame, int]:
+        """Returns (df[cd_cvm, company_name, ticker_b3], total_count) for a sector.
+
+        Lighter than get_companies_directory_page(page_size=None): no LEFT JOIN to
+        financial_reports, no aggregation columns.
+        """
+        params = {"sector_name": str(sector_name)}
+        count_sql = text(
+            f"SELECT COUNT(*) AS total_items FROM companies c WHERE {_CANONICAL_SECTOR_SQL} = :sector_name"
+        )
+        total_items = int(
+            pd.read_sql(count_sql, self.engine, params=params).iloc[0]["total_items"]
+        )
+        rows_sql = text(
+            f"""
+            SELECT c.cd_cvm, c.company_name, COALESCE(c.ticker_b3, '') AS ticker_b3
+            FROM companies c
+            WHERE {_CANONICAL_SECTOR_SQL} = :sector_name
+            ORDER BY c.company_name ASC
+            """
+        )
+        df = pd.read_sql(rows_sql, self.engine, params=params)
+        return df.reset_index(drop=True), total_items
+
     @slow_query_warn(threshold_ms=200)
     def get_sector_metric_rows(
         self,

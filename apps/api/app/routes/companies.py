@@ -36,6 +36,7 @@ from src.read_service import CVMReadService
 router = APIRouter(tags=["companies"])
 
 COMPANY_DIRECTORY_CACHE_CONTROL = "public, max-age=300, stale-while-revalidate=3600"
+COMPANY_FILTERS_CACHE_CONTROL = "public, max-age=3600, stale-while-revalidate=86400"
 COMPANY_INFO_CACHE_CONTROL = "public, max-age=3600"
 COMPANY_YEARS_CACHE_CONTROL = "public, max-age=86400, stale-while-revalidate=604800"
 COMPANY_DATA_CACHE_CONTROL = "public, max-age=600"
@@ -81,9 +82,11 @@ def list_companies(
 )
 def get_company_filters(
     request: Request,
+    response: Response,
     service: CVMReadService = Depends(get_read_service),
 ) -> CompanyFiltersPayload:
     ensure_api_ready(get_settings(request))
+    _apply_cache_headers(response, COMPANY_FILTERS_CACHE_CONTROL)
     return present_company_filters(service.get_company_filters())
 
 

@@ -182,15 +182,14 @@ class CVMReadService:
 
     def list_sectors(self) -> SectorDirectoryDTO:
         sectors_df = self.query_layer.get_available_company_sectors()
-        companies_df = self.query_layer.get_companies()
+        sector_years = self.query_layer.get_sector_years_map()
         metric_rows = self.query_layer.get_sector_metric_rows()
         yearly = self._aggregate_sector_yearly_metrics(metric_rows)
 
         items: list[SectorDirectoryItemDTO] = []
         for _, row in sectors_df.iterrows():
             sector_name = str(row["sector_name"])
-            sector_companies = companies_df[companies_df["sector_name"] == sector_name]
-            available_years = self._extract_years_from_company_rows(sector_companies)
+            available_years = sector_years.get(sector_name, [])
             latest_year = max(available_years) if available_years else None
             snapshot_row = None
             if latest_year is not None and not yearly.empty:
@@ -225,12 +224,7 @@ class CVMReadService:
         if resolved_sector_name is None:
             return None
 
-        company_rows, total_items = self.query_layer.get_companies_directory_page(
-            search="",
-            sector_name=resolved_sector_name,
-            page=1,
-            page_size=None,
-        )
+        company_rows, total_items = self.query_layer.get_sector_companies(resolved_sector_name)
         if company_rows.empty:
             return None
 

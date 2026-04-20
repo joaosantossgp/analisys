@@ -110,6 +110,11 @@ Resposta exemplo:
 }
 ```
 
+Regras do endpoint:
+- headers de cache:
+  - `Cache-Control: public, max-age=3600, stale-while-revalidate=86400`
+  - `Vary: Origin`
+
 ### `GET /sectors`
 
 Uso:
@@ -186,6 +191,9 @@ Regras do endpoint:
 - `companies` sai ordenado por `roe DESC`, depois `company_name ASC`, com `null` no fim
 - `yearly_overview` agrega `roe`, `mg_ebit` e `mg_liq` por ano, ignorando valores ausentes
 - `companies` do `selected_year` continuam presentes mesmo quando as metricas do ano vierem `null`
+- headers de cache (apenas em respostas 200; 404/422 nao recebem header):
+  - `Cache-Control: public, max-age=3600, stale-while-revalidate=86400`
+  - `Vary: Origin`
 
 ### `GET /companies/{cd_cvm}`
 
