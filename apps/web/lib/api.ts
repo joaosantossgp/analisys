@@ -37,6 +37,13 @@ export type CompanyDirectoryPage = {
   };
 };
 
+export type CompanySuggestionItem = {
+  cd_cvm: number;
+  company_name: string;
+  ticker_b3: string | null;
+  sector_slug: string;
+};
+
 export type CompanySectorFilter = {
   sector_name: string;
   sector_slug: string;
@@ -232,6 +239,12 @@ export function getApiBaseUrl(): string {
 
 export function buildApiUrl(path: string): string {
   return `${getApiBaseUrl()}${path}`;
+}
+
+export function buildApiUrlFromBase(baseUrl: string, path: string): string {
+  const normalizedBaseUrl = `${baseUrl.replace(/\/$/, "")}/`;
+  const normalizedPath = path.replace(/^\//, "");
+  return new URL(normalizedPath, normalizedBaseUrl).toString();
 }
 
 function resolveApiReadRequest(

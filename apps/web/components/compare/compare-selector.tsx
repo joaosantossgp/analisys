@@ -17,7 +17,11 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { serializeCompanyIds } from "@/lib/compare-utils";
-import type { CompanyDirectoryItem } from "@/lib/api";
+import {
+  buildApiUrlFromBase,
+  type CompanySuggestionItem,
+} from "@/lib/api";
+import { getSectorNameFromSlug } from "@/lib/constants";
 import { formatYearsLabel } from "@/lib/formatters";
 import type { CompareCompanyOption } from "@/lib/compare-page-data";
 import { mergeSearchParams, serializeYears } from "@/lib/search-params";
@@ -25,6 +29,7 @@ import { track } from "@/lib/track";
 import { cn } from "@/lib/utils";
 
 type CompareSelectorProps = {
+  apiBaseUrl: string;
   pathname: string;
   selectedCompanies: CompareCompanyOption[];
   quickCompanies: CompareCompanyOption[];
@@ -34,22 +39,23 @@ type CompareSelectorProps = {
 };
 
 type SuggestionResponse = {
-  items?: CompanyDirectoryItem[];
+  items?: CompanySuggestionItem[];
   error?: string;
 };
 
 const DEFAULT_MAX_COMPANIES = 5;
 
-function toCompareOption(item: CompanyDirectoryItem): CompareCompanyOption {
+function toCompareOption(item: CompanySuggestionItem): CompareCompanyOption {
   return {
     cd_cvm: item.cd_cvm,
     company_name: item.company_name,
     ticker_b3: item.ticker_b3,
-    sector_name: item.sector_name,
+    sector_name: getSectorNameFromSlug(item.sector_slug) ?? "Setor nao informado",
   };
 }
 
 export function CompareSelector({
+  apiBaseUrl,
   pathname,
   selectedCompanies,
   quickCompanies,
@@ -70,10 +76,7 @@ export function CompareSelector({
     () => selectedCompanies.map((company) => company.cd_cvm),
     [selectedCompanies],
   );
-  const selectedIdSet = useMemo(
-    () => new Set(selectedIds),
-    [selectedIds],
-  );
+  const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 
   useEffect(() => {
     const normalized = deferredQuery.trim();
@@ -81,6 +84,7 @@ export function CompareSelector({
     if (normalized.length < 2 || selectedCompanies.length >= maxCompanies) {
       setSuggestions([]);
       setSuggestionError(null);
+      setLoadingSuggestions(false);
       return;
     }
 
@@ -90,10 +94,13 @@ export function CompareSelector({
       setSuggestionError(null);
 
       try {
-        const response = await fetch(
-          `/api/company-search?q=${encodeURIComponent(normalized)}`,
-          { cache: "no-store" },
+        const url = new URL(
+          buildApiUrlFromBase(apiBaseUrl, "/companies/suggestions"),
         );
+        url.searchParams.set("q", normalized);
+        url.searchParams.set("limit", "6");
+
+        const response = await fetch(url.toString());
         const payload = (await response.json()) as SuggestionResponse;
 
         if (!active) {
@@ -128,7 +135,7 @@ export function CompareSelector({
       active = false;
       window.clearTimeout(timer);
     };
-  }, [deferredQuery, maxCompanies, selectedCompanies.length, selectedIdSet]);
+  }, [apiBaseUrl, deferredQuery, maxCompanies, selectedCompanies.length, selectedIdSet]);
 
   function pushSelection(nextIds: number[], nextYears: number[] | null) {
     const queryString = mergeSearchParams(searchParams.toString(), {

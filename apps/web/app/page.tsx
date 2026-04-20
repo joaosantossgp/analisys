@@ -1,11 +1,11 @@
 import Link from "next/link";
 
 import { CompanySearchHero } from "@/components/home/company-search-hero";
-import { DiscoverySection } from "@/components/home/discovery-section";
+import { DiscoverySectionLazy } from "@/components/home/discovery-section-lazy";
 import { HomeTrustStrip } from "@/components/home/home-trust-strip";
 import { buttonVariants } from "@/components/ui/button";
 import { PageShell } from "@/components/shared/design-system-recipes";
-import { fetchCompanies } from "@/lib/api";
+import { fetchCompanies, getApiBaseUrl } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 export const revalidate = 300;
@@ -20,11 +20,11 @@ export default async function HomePage() {
 
   return (
     <PageShell density="relaxed" className="flex flex-col items-center gap-14 pb-20">
-      <CompanySearchHero />
+      <CompanySearchHero apiBaseUrl={getApiBaseUrl()} />
 
       <HomeTrustStrip totalCompanies={totalCompanies} />
 
-      <DiscoverySection topCompanies={topCompanies} />
+      <DiscoverySectionLazy topCompanies={topCompanies} />
 
       {/* Compare CTA */}
       <div
