@@ -11,9 +11,40 @@ export const SECTOR_COLOR: Record<string, string> = {
   'Imobiliário':'#7B1FA2',
 };
 
+const SECTOR_NAME_BY_SLUG: Record<string, string> = {
+  agronegocio: "Agronegocio",
+  energia: "Energia",
+  financeiro: "Financeiro",
+  imobiliario: "Imobiliario",
+  industrial: "Industrial",
+  mineracao: "Mineracao",
+  saude: "Saude",
+  tecnologia: "Tecnologia",
+  utilidades: "Utilidades",
+  varejo: "Varejo",
+};
+
 export function getSectorColor(sector: string | null | undefined): string {
   if (!sector) return '#64748B';
   return SECTOR_COLOR[sector] ?? '#64748B';
+}
+
+function formatSectorSlug(slug: string): string {
+  return slug
+    .split("-")
+    .filter(Boolean)
+    .map((segment) => segment[0]!.toUpperCase() + segment.slice(1))
+    .join(" ");
+}
+
+export function getSectorNameFromSlug(
+  sectorSlug: string | null | undefined,
+): string | null {
+  if (!sectorSlug) {
+    return null;
+  }
+
+  return SECTOR_NAME_BY_SLUG[sectorSlug] ?? formatSectorSlug(sectorSlug);
 }
 
 export const HOME_QUICK_LINKS = [

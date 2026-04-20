@@ -1,5 +1,5 @@
 import { CompanyFreshnessCard } from "@/components/company/company-freshness-card";
-import { CompanyHeroChart } from "@/components/company/company-hero-chart";
+import { CompanyHeroChartLazy } from "@/components/company/company-hero-chart-lazy";
 import { CompanyKpiRow } from "@/components/company/company-kpi-row";
 import { CompanySectorRanking } from "@/components/company/company-sector-ranking";
 import { SparklineChip } from "@/components/shared/sparkline-chip";
@@ -88,7 +88,7 @@ export function CompanyOverview({ bundle, cdCvm }: CompanyOverviewProps) {
       <div className="flex flex-col gap-6 lg:col-span-8">
         <CompanyKpiRow bundle={bundle} />
 
-        {chartSeries.length > 0 ? <CompanyHeroChart series={chartSeries} /> : null}
+        {chartSeries.length > 0 ? <CompanyHeroChartLazy series={chartSeries} /> : null}
 
         {/* 3-group KPI tiles */}
         <section className="space-y-5">

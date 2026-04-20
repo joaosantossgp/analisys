@@ -6,7 +6,7 @@ import { CompanyDetailTracker } from "@/components/company/company-detail-tracke
 import { CompanyHeader } from "@/components/company/company-header";
 import { CompanyNoDataPage } from "@/components/company/company-no-data";
 import { CompanyOverview } from "@/components/company/company-overview";
-import { CompanyStatements } from "@/components/company/company-statements";
+import { CompanyStatementsLazy } from "@/components/company/company-statements-lazy";
 import { CompanyUrlTabs } from "@/components/company/company-url-tabs";
 import { CompanyYearSelector } from "@/components/company/company-year-selector";
 import {
@@ -220,7 +220,7 @@ export default async function EmpresaDetailPage({
             />
           </div>
           {statement ? (
-            <CompanyStatements matrix={statement} />
+            <CompanyStatementsLazy matrix={statement} />
           ) : (
             <Alert className="rounded-[1.75rem] border border-destructive/25 bg-destructive/6 px-5 py-5 text-left">
               <AlertTitle>Demonstracao indisponivel</AlertTitle>

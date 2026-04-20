@@ -7,7 +7,7 @@ import {
   SectionHeading,
   SurfaceCard,
 } from "@/components/shared/design-system-recipes";
-import { CompanyRequestRefresh } from "@/components/company/company-request-refresh";
+import { CompanyRequestRefreshLazy } from "@/components/company/company-request-refresh-lazy";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
 import type { CompanyInfo } from "@/lib/api";
@@ -93,7 +93,7 @@ export function CompanyNoDataPage({ company }: CompanyNoDataPageProps) {
           </Alert>
 
           <div className="flex flex-wrap items-start gap-3">
-            <CompanyRequestRefresh cdCvm={company.cd_cvm} />
+            <CompanyRequestRefreshLazy cdCvm={company.cd_cvm} />
             <Link
               href="/empresas"
               className={cn(

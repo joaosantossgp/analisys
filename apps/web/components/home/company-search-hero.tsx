@@ -5,33 +5,46 @@ import { useDeferredValue, useEffect, useRef, useState, useTransition } from "re
 import { useRouter } from "next/navigation";
 
 import { buttonVariants } from "@/components/ui/button";
-import type { CompanyDirectoryItem } from "@/lib/api";
-import { getSectorColor } from "@/lib/constants";
+import {
+  buildApiUrlFromBase,
+  type CompanySuggestionItem,
+} from "@/lib/api";
+import { getSectorColor, getSectorNameFromSlug } from "@/lib/constants";
 import { track } from "@/lib/track";
 import { cn } from "@/lib/utils";
 
-const QUICK_CHIPS = ["PETROBRAS", "VALE3", "ITAUB4", "BBDC4", "Financeiro", "Petróleo e Gás"];
+const QUICK_CHIPS = [
+  "PETROBRAS",
+  "VALE3",
+  "ITAUB4",
+  "BBDC4",
+  "Financeiro",
+  "PetrÃ³leo e GÃ¡s",
+];
 
 type CompanySearchHeroProps = {
-  apiAvailable?: boolean;
+  apiBaseUrl: string;
 };
 
-export function CompanySearchHero({
-  apiAvailable = true,
-}: CompanySearchHeroProps) {
+type SuggestionResponse = {
+  items?: CompanySuggestionItem[];
+};
+
+export function CompanySearchHero({ apiBaseUrl }: CompanySearchHeroProps) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const [focused, setFocused] = useState(false);
-  const [suggestions, setSuggestions] = useState<CompanyDirectoryItem[]>([]);
+  const [suggestions, setSuggestions] = useState<CompanySuggestionItem[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [isPending, startTransition] = useTransition();
   const deferredQuery = useDeferredValue(query);
 
   useEffect(() => {
     const normalized = deferredQuery.trim();
-    if (normalized.length < 2 || apiAvailable === false) {
+    if (normalized.length < 2) {
       setSuggestions([]);
+      setLoadingSuggestions(false);
       return;
     }
 
@@ -39,16 +52,33 @@ export function CompanySearchHero({
     const timer = window.setTimeout(async () => {
       setLoadingSuggestions(true);
       try {
-        const res = await fetch(
-          `/api/company-search?q=${encodeURIComponent(normalized)}`,
-          { cache: "no-store" },
+        const url = new URL(
+          buildApiUrlFromBase(apiBaseUrl, "/companies/suggestions"),
         );
-        const data = (await res.json()) as { items?: CompanyDirectoryItem[] };
-        if (active) setSuggestions(data.items?.slice(0, 6) ?? []);
+        url.searchParams.set("q", normalized);
+        url.searchParams.set("limit", "6");
+
+        const response = await fetch(url.toString());
+        const payload = (await response.json()) as SuggestionResponse;
+
+        if (!active) {
+          return;
+        }
+
+        if (!response.ok) {
+          setSuggestions([]);
+          return;
+        }
+
+        setSuggestions(payload.items ?? []);
       } catch {
-        if (active) setSuggestions([]);
+        if (active) {
+          setSuggestions([]);
+        }
       } finally {
-        if (active) setLoadingSuggestions(false);
+        if (active) {
+          setLoadingSuggestions(false);
+        }
       }
     }, 180);
 
@@ -56,12 +86,15 @@ export function CompanySearchHero({
       active = false;
       window.clearTimeout(timer);
     };
-  }, [apiAvailable, deferredQuery]);
+  }, [apiBaseUrl, deferredQuery]);
 
   const showDropdown = focused && (loadingSuggestions || suggestions.length > 0);
 
-  function navigateToCompany(item: CompanyDirectoryItem) {
-    track("home_suggestion_selected", { cd_cvm: item.cd_cvm, company_name: item.company_name });
+  function navigateToCompany(item: CompanySuggestionItem) {
+    track("home_suggestion_selected", {
+      cd_cvm: item.cd_cvm,
+      company_name: item.company_name,
+    });
     startTransition(() => router.push(`/empresas/${item.cd_cvm}`));
   }
 
@@ -75,21 +108,20 @@ export function CompanySearchHero({
 
   return (
     <div className="w-full max-w-[680px] mx-auto space-y-6 text-center">
-      {/* Heading */}
       <div className="space-y-4">
         <h1 className="font-heading text-[clamp(2.5rem,5.5vw,4.25rem)] leading-[1.02] tracking-[-0.045em] text-foreground">
-          Análise financeira<br />
+          AnÃ¡lise financeira
+          <br />
           <span className="text-muted-foreground italic font-normal">
-            de quem está na bolsa.
+            de quem estÃ¡ na bolsa.
           </span>
         </h1>
         <p className="max-w-[560px] mx-auto text-[1.0625rem] leading-[1.55] text-muted-foreground">
-          Pesquise qualquer companhia aberta brasileira. Leia DRE, balanço e KPIs
-          com 10+ anos de histórico, direto da CVM.
+          Pesquise qualquer companhia aberta brasileira. Leia DRE, balanÃ§o e KPIs
+          com 10+ anos de histÃ³rico, direto da CVM.
         </p>
       </div>
 
-      {/* Search box */}
       <div className="relative text-left">
         <div
           onClick={() => inputRef.current?.focus()}
@@ -105,24 +137,27 @@ export function CompanySearchHero({
           <input
             ref={inputRef}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(event) => setQuery(event.target.value)}
             onFocus={() => setFocused(true)}
             onBlur={() => setTimeout(() => setFocused(false), 150)}
-            onKeyDown={(e) => e.key === "Enter" && submit()}
-            placeholder="Petrobras, VALE3, setor financeiro…"
+            onKeyDown={(event) => event.key === "Enter" && submit()}
+            placeholder="Petrobras, VALE3, setor financeiroâ€¦"
             className="flex-1 border-none bg-transparent py-[0.85rem] text-[1.125rem] text-foreground outline-none placeholder:text-muted-foreground"
             aria-label="Buscar empresa"
           />
-          {query && (
+          {query ? (
             <button
               type="button"
-              onClick={() => { setQuery(""); inputRef.current?.focus(); }}
-              className="flex size-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors mr-1"
+              onClick={() => {
+                setQuery("");
+                inputRef.current?.focus();
+              }}
+              className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground mr-1"
               aria-label="Limpar busca"
             >
               <XIcon className="size-4" />
             </button>
-          )}
+          ) : null}
           <button
             type="button"
             onClick={submit}
@@ -134,16 +169,16 @@ export function CompanySearchHero({
           </button>
         </div>
 
-        {/* Suggestions dropdown */}
-        {showDropdown && (
+        {showDropdown ? (
           <div className="absolute inset-x-0 top-full z-20 overflow-hidden rounded-[0_0_1.25rem_1.25rem] border border-t-0 border-ring/50 bg-card shadow-[0_20px_60px_-30px_rgba(16,30,24,0.25)]">
             <div className="border-t border-border bg-muted/30 px-5 py-1.5 text-[0.7rem] font-medium uppercase tracking-[0.2em] text-muted-foreground">
               {loadingSuggestions
-                ? "Buscando…"
+                ? "Buscandoâ€¦"
                 : `${suggestions.length} resultado${suggestions.length !== 1 ? "s" : ""}`}
             </div>
             {suggestions.map((item) => {
-              const color = getSectorColor(item.sector_name);
+              const sectorName = getSectorNameFromSlug(item.sector_slug);
+              const color = getSectorColor(sectorName);
               const initials = (item.ticker_b3 ?? item.company_name).slice(0, 2).toUpperCase();
               return (
                 <button
@@ -165,7 +200,7 @@ export function CompanySearchHero({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold text-sm text-foreground">{item.company_name}</span>
-                      {item.ticker_b3 && (
+                      {item.ticker_b3 ? (
                         <span
                           className="font-mono text-[0.7rem] font-medium px-1.5 py-0.5 rounded-[0.35rem]"
                           style={{
@@ -176,23 +211,27 @@ export function CompanySearchHero({
                         >
                           {item.ticker_b3}
                         </span>
-                      )}
+                      ) : null}
                     </div>
-                    <p className="text-[0.8rem] text-muted-foreground mt-0.5">{item.sector_name}</p>
+                    <p className="text-[0.8rem] text-muted-foreground mt-0.5">
+                      {sectorName ?? "Setor nao informado"}
+                    </p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-[0.72rem] uppercase tracking-[0.15em] text-muted-foreground tabular-nums">
-                      {(item.anos_disponiveis?.length ?? 0)} anos
+                    <p className="text-[0.72rem] uppercase tracking-[0.15em] text-muted-foreground">
+                      CVM
+                    </p>
+                    <p className="mt-0.5 font-mono text-[0.78rem] font-medium text-foreground tabular-nums">
+                      {item.cd_cvm}
                     </p>
                   </div>
                 </button>
               );
             })}
           </div>
-        )}
+        ) : null}
       </div>
 
-      {/* Quick chips */}
       <div className="flex flex-wrap justify-center items-center gap-2">
         <span className="text-[0.8rem] text-muted-foreground">Tente:</span>
         {QUICK_CHIPS.map((chip) => (

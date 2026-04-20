@@ -1,4 +1,4 @@
-import { CompanyRequestRefresh } from "@/components/company/company-request-refresh";
+import { CompanyRequestRefreshLazy } from "@/components/company/company-request-refresh-lazy";
 
 type CompanyFreshnessCardProps = {
   cdCvm: number;
@@ -16,7 +16,7 @@ export function CompanyFreshnessCard({ cdCvm }: CompanyFreshnessCardProps) {
       <p className="mb-3 text-[0.72rem] font-medium uppercase tracking-[0.18em] text-muted-foreground">
         Atualização
       </p>
-      <CompanyRequestRefresh cdCvm={cdCvm} />
+      <CompanyRequestRefreshLazy cdCvm={cdCvm} />
     </div>
   );
 }

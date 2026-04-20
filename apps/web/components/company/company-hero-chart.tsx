@@ -5,16 +5,16 @@ import { useState } from "react";
 import { SurfaceCard } from "@/components/shared/design-system-recipes";
 import { cn } from "@/lib/utils";
 
-type ChartPoint = { year: number; value: number };
+export type ChartPoint = { year: number; value: number };
 
-type HeroChartSeries = {
+export type CompanyHeroChartSeries = {
   label: string;
   points: ChartPoint[];
   formatSuffix?: string;
 };
 
 type CompanyHeroChartProps = {
-  series: HeroChartSeries[];
+  series: CompanyHeroChartSeries[];
 };
 
 const PERIODS: { id: string; label: string; years: number }[] = [

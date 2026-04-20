@@ -9,6 +9,7 @@ import { Accordion, AccordionItem, AccordionPanel, AccordionTrigger } from "@/co
 import ContentTooltipDemo from "@/components/contemt-tooltip";
 import { NativeDelete } from "@/components/delete-button";
 import { InteractiveMenu } from "@/components/modern-mobile-menu";
+import { Providers } from "@/components/providers";
 import {
   InfoChip,
   SectionHeading,
@@ -276,7 +277,7 @@ function Section({
 
 export default function DesignSystemPage() {
   return (
-    <>
+    <Providers>
       {/* eslint-disable-next-line @next/next/no-page-custom-font */}
       <link
         rel="stylesheet"
@@ -808,6 +809,6 @@ export default function DesignSystemPage() {
           </div>
         </main>
       </div>
-    </>
+    </Providers>
   );
 }

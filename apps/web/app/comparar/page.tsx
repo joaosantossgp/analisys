@@ -12,7 +12,7 @@ import {
 } from "@/components/shared/design-system-recipes";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
-import { fetchCompanies } from "@/lib/api";
+import { fetchCompanies, getApiBaseUrl } from "@/lib/api";
 import {
   loadComparePageData,
   type CompareCompanyOption,
@@ -132,6 +132,7 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
       />
 
       <CompareSelector
+        apiBaseUrl={getApiBaseUrl()}
         pathname="/comparar"
         selectedCompanies={compareData.selectedCompanies}
         quickCompanies={saneQuickCompanies}
