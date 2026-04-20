@@ -130,6 +130,8 @@ def test_companies_empty_search_returns_paginated_directory(client: TestClient):
         ("/sectors", None, "public, max-age=3600, stale-while-revalidate=86400"),
         ("/sectors/energia", None, "public, max-age=3600, stale-while-revalidate=86400"),
         ("/companies/filters", None, "public, max-age=3600, stale-while-revalidate=86400"),
+        ("/companies/suggestions", None, "public, max-age=60, stale-while-revalidate=300"),
+        ("/companies/suggestions", {"q": "petro"}, "public, max-age=60, stale-while-revalidate=300"),
     ],
 )
 def test_cacheable_endpoints_expose_cache_headers(
@@ -212,6 +214,74 @@ def test_companies_filters_returns_canonical_sector_options(client: TestClient):
         {"sector_name": "Materiais Basicos", "sector_slug": "materiais-basicos", "company_count": 1},
         {"sector_name": "Saneamento", "sector_slug": "saneamento", "company_count": 1},
     ]
+
+
+def test_company_suggestions_empty_query_returns_items_alphabetically(client: TestClient):
+    response = client.get("/companies/suggestions")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert "items" in payload
+    names = [item["company_name"] for item in payload["items"]]
+    assert names == sorted(names)
+
+
+def test_company_suggestions_payload_has_minimal_fields_only(client: TestClient):
+    response = client.get("/companies/suggestions", params={"q": "petro"})
+
+    assert response.status_code == 200
+    items = response.json()["items"]
+    assert len(items) == 1
+    item = items[0]
+    assert set(item.keys()) == {"cd_cvm", "company_name", "ticker_b3", "sector_slug"}
+    assert item["cd_cvm"] == 9512
+    assert item["company_name"] == "PETROBRAS"
+    assert item["ticker_b3"] == "PETR4"
+    assert item["sector_slug"] == "energia"
+
+
+def test_company_suggestions_filters_by_ticker(client: TestClient):
+    response = client.get("/companies/suggestions", params={"q": "vale3"})
+
+    assert response.status_code == 200
+    items = response.json()["items"]
+    assert len(items) == 1
+    assert items[0]["company_name"] == "VALE"
+
+
+def test_company_suggestions_exact_ticker_ranks_first(client: TestClient):
+    response = client.get("/companies/suggestions", params={"q": "petr4"})
+
+    assert response.status_code == 200
+    items = response.json()["items"]
+    assert len(items) >= 1
+    assert items[0]["cd_cvm"] == 9512
+
+
+def test_company_suggestions_respects_limit(client: TestClient):
+    response = client.get("/companies/suggestions", params={"limit": 2})
+
+    assert response.status_code == 200
+    assert len(response.json()["items"]) <= 2
+
+
+def test_company_suggestions_returns_empty_for_no_match(client: TestClient):
+    response = client.get("/companies/suggestions", params={"q": "xxxxnomatch"})
+
+    assert response.status_code == 200
+    assert response.json()["items"] == []
+
+
+def test_company_suggestions_rejects_limit_above_max(client: TestClient):
+    response = client.get("/companies/suggestions", params={"limit": 21})
+
+    assert response.status_code == 422
+
+
+def test_company_suggestions_rejects_limit_below_min(client: TestClient):
+    response = client.get("/companies/suggestions", params={"limit": 0})
+
+    assert response.status_code == 422
 
 
 def test_sectors_returns_directory_with_latest_year_and_snapshot(client: TestClient):

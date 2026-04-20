@@ -115,6 +115,48 @@ Regras do endpoint:
   - `Cache-Control: public, max-age=3600, stale-while-revalidate=86400`
   - `Vary: Origin`
 
+### `GET /companies/suggestions?q=&limit=`
+
+Uso:
+- endpoint dedicado para autocomplete; retorna apenas os campos minimos necessarios para widgets de sugestao
+- substitui o fluxo que usava `GET /companies?search=...&page_size=6` no hot path do frontend
+
+Parametros:
+- `q` (string, default `""`): texto livre de busca por nome, ticker ou codigo CVM
+- `limit` (int, default `6`, min `1`, max `20`): numero maximo de sugestoes retornadas
+
+Ranking das sugestoes:
+1. ticker exato (case-insensitive)
+2. prefixo do nome da empresa
+3. prefixo do ticker
+4. qualquer correspondencia por `LIKE %q%`
+
+DTO de saida:
+- `src.contracts.CompanySuggestionDTO`
+
+Resposta exemplo:
+
+```json
+{
+  "items": [
+    {
+      "cd_cvm": 9512,
+      "company_name": "PETROBRAS",
+      "ticker_b3": "PETR4",
+      "sector_slug": "energia"
+    }
+  ]
+}
+```
+
+Regras do endpoint:
+- payload retorna apenas `cd_cvm`, `company_name`, `ticker_b3`, `sector_slug` — sem `anos_disponiveis`, `has_financial_data`, nem metricas de cobertura
+- `ticker_b3` e `null` quando a empresa nao possui ticker cadastrado
+- resposta vazia (`items: []`) quando nenhuma empresa corresponde a `q`; nunca 404
+- headers de cache:
+  - `Cache-Control: public, max-age=60, stale-while-revalidate=300`
+  - `Vary: Origin`
+
 ### `GET /sectors`
 
 Uso:

@@ -18,6 +18,7 @@ from apps.api.app.presenters import (
     CompanyDirectoryPagePayload,
     CompanyFiltersPayload,
     CompanyInfoPayload,
+    CompanySuggestionsPayload,
     KPIBundlePayload,
     RankedRefreshQueuePayload,
     RefreshDispatchPayload,
@@ -26,6 +27,7 @@ from apps.api.app.presenters import (
     present_company_directory_page,
     present_company_filters,
     present_company_info,
+    present_company_suggestions,
     present_kpis,
     present_ranked_refresh_queue,
     present_statement,
@@ -37,6 +39,7 @@ router = APIRouter(tags=["companies"])
 
 COMPANY_DIRECTORY_CACHE_CONTROL = "public, max-age=300, stale-while-revalidate=3600"
 COMPANY_FILTERS_CACHE_CONTROL = "public, max-age=3600, stale-while-revalidate=86400"
+COMPANY_SUGGESTIONS_CACHE_CONTROL = "public, max-age=60, stale-while-revalidate=300"
 COMPANY_INFO_CACHE_CONTROL = "public, max-age=3600"
 COMPANY_YEARS_CACHE_CONTROL = "public, max-age=86400, stale-while-revalidate=604800"
 COMPANY_DATA_CACHE_CONTROL = "public, max-age=600"
@@ -88,6 +91,24 @@ def get_company_filters(
     ensure_api_ready(get_settings(request))
     _apply_cache_headers(response, COMPANY_FILTERS_CACHE_CONTROL)
     return present_company_filters(service.get_company_filters())
+
+
+@router.get(
+    "/companies/suggestions",
+    response_model=CompanySuggestionsPayload,
+    summary="Retorna sugestoes de empresas para autocomplete.",
+)
+def get_company_suggestions(
+    request: Request,
+    response: Response,
+    q: str = Query(default="", description="Texto de busca livre (nome, ticker ou codigo CVM)."),
+    limit: int = Query(default=6, ge=1, le=20, description="Numero maximo de sugestoes retornadas."),
+    service: CVMReadService = Depends(get_read_service),
+) -> CompanySuggestionsPayload:
+    ensure_api_ready(get_settings(request))
+    _apply_cache_headers(response, COMPANY_SUGGESTIONS_CACHE_CONTROL)
+    items = service.suggest_companies(q=q, limit=limit)
+    return present_company_suggestions(items)
 
 
 @router.get(
