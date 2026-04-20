@@ -85,6 +85,13 @@ def init_db_tables(engine: Engine) -> None:
         'CREATE INDEX {c}IF NOT EXISTS idx_fr_cd_conta ON financial_reports("CD_CONTA")',
         "CREATE INDEX {c}IF NOT EXISTS idx_companies_setor ON companies(setor_analitico)",
         "CREATE INDEX {c}IF NOT EXISTS idx_companies_ticker ON companies(ticker_b3)",
+        # Benchmarked 2026-04-20 (issue #134): EXPLAIN QUERY PLAN confirmed full SCAN of
+        # financial_reports for any query filtered only by PERIOD_LABEL (sector_years_map,
+        # available_years, sector_metric_rows). These composites let the planner eliminate
+        # annual-vs-quarterly rows and the CD_CONTA IN filter without additional table scans.
+        'CREATE INDEX {c}IF NOT EXISTS idx_fr_period_label ON financial_reports("PERIOD_LABEL")',
+        'CREATE INDEX {c}IF NOT EXISTS idx_fr_cd_cvm_period_label ON financial_reports("CD_CVM", "PERIOD_LABEL")',
+        'CREATE INDEX {c}IF NOT EXISTS idx_fr_cd_conta_period_label ON financial_reports("CD_CONTA", "PERIOD_LABEL")',
     ]
     if dialect == "postgresql":
         # CONCURRENTLY cannot run inside a transaction — requires AUTOCOMMIT
