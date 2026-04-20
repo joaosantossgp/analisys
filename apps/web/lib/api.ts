@@ -222,6 +222,9 @@ const COMPANY_DATA_API_READ: ApiReadRequestInit = {
 const SECTOR_DIRECTORY_API_READ: ApiReadRequestInit = {
   next: { revalidate: 3600 },
 };
+const SECTOR_DETAIL_API_READ: ApiReadRequestInit = {
+  next: { revalidate: 3600 },
+};
 
 export function getApiBaseUrl(): string {
   return (process.env.API_BASE_URL ?? DEFAULT_API_BASE_URL).replace(/\/$/, "");
@@ -743,7 +746,7 @@ export async function fetchSectorDetail(
     `/sectors/${sectorSlug}${buildQuery({ year })}`,
     {
       allowNotFound: true,
-      request: UNCACHED_API_READ,
+      request: SECTOR_DETAIL_API_READ,
       validate: isSectorDetail,
       invalidResponseMessage: "A API retornou um detalhe setorial invalido.",
     },
