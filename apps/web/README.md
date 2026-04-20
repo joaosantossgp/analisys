@@ -11,7 +11,7 @@ read-only em `apps/api`.
 - Material Symbols Outlined como sistema de icones
 - Componentes 21st.dev adaptados ao contexto do produto
 - `next-themes` para suporte a light/dark mode
-- `components/providers.tsx` localizado em `/design-system` para demos de theme e tooltip
+- `components/providers.tsx` com ThemeProvider e TooltipProvider
 
 ## Rotas de produto
 
@@ -88,7 +88,7 @@ job `deploy-web`) a cada push no `main`.
 ## Observacoes
 
 - O app usa Server Components por padrao; `"use client"` fica restrito a interacao e URL state.
-- Home e compare consultam `GET /companies/suggestions` direto na API usando `API_BASE_URL`.
+- O autocomplete da home usa `app/api/company-search/route.ts` como proxy interno.
 - A fonte de verdade da aplicacao continua sendo a API V2.
 - O Design System documenta o produto; nao substitui a navegacao de produto.
 - O layout raiz usa um video ambiente sutil apenas na faixa superior da pagina, com overlay escuro para preservar contraste.
