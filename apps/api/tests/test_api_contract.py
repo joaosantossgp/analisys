@@ -128,6 +128,8 @@ def test_companies_empty_search_returns_paginated_directory(client: TestClient):
             "public, max-age=600",
         ),
         ("/sectors", None, "public, max-age=3600, stale-while-revalidate=86400"),
+        ("/sectors/energia", None, "public, max-age=3600, stale-while-revalidate=86400"),
+        ("/companies/filters", None, "public, max-age=3600, stale-while-revalidate=86400"),
     ],
 )
 def test_cacheable_endpoints_expose_cache_headers(
