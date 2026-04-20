@@ -1,4 +1,4 @@
-import { coercePositiveInt } from "./search-params.ts";
+import { coercePositiveInt, getFirstParam } from "./search-params.ts";
 
 export const COMPANIES_DIRECTORY_PAGE_SIZE = 20;
 
@@ -30,6 +30,22 @@ export function readCompaniesDirectoryQuery(
     pageSize,
     viewMode: searchParams.get("view") === "cards" ? "cards" : "rows",
   };
+}
+
+export function readCompaniesDirectoryQueryFromRecord(
+  searchParamsRecord: Record<string, string | string[] | undefined>,
+  pageSize = COMPANIES_DIRECTORY_PAGE_SIZE,
+): CompaniesDirectoryQueryState {
+  const searchParams = new URLSearchParams();
+
+  Object.entries(searchParamsRecord).forEach(([key, value]) => {
+    const firstValue = getFirstParam(value);
+    if (firstValue !== undefined) {
+      searchParams.set(key, firstValue);
+    }
+  });
+
+  return readCompaniesDirectoryQuery(searchParams, pageSize);
 }
 
 export function buildCompaniesDirectoryApiHref(

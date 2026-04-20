@@ -77,6 +77,34 @@ test("fetchCompanyFilters maps upstream 5xx responses to upstream_unavailable", 
   }
 });
 
+test("fetchCompanyFilters opts into the backend-aligned revalidate window", async () => {
+  let capturedInit: RequestInit | undefined;
+  const restore = withFetchMock((async (_input, init) => {
+    capturedInit = init;
+
+    return new Response(
+      JSON.stringify({
+        sectors: [],
+      }),
+      {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+        },
+      },
+    );
+  }) as FetchMock);
+
+  try {
+    await fetchCompanyFilters();
+
+    assert.equal(capturedInit?.cache, undefined);
+    assert.deepEqual(capturedInit?.next, { revalidate: 3600 });
+  } finally {
+    restore();
+  }
+});
+
 test("fetchCompanies opts into the backend-aligned revalidate window", async () => {
   let capturedInit: RequestInit | undefined;
   const restore = withFetchMock((async (_input, init) => {
