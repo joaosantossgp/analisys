@@ -232,6 +232,54 @@ class CVMQueryLayer:
             result.setdefault(str(row["sector_name"]), []).append(int(row["REPORT_YEAR"]))
         return result
 
+    def get_company_suggestions(self, q: str, limit: int) -> pd.DataFrame:
+        """Returns up to `limit` companies ranked by relevance to query `q`.
+
+        Ranking: exact ticker > name prefix > ticker prefix > contains match.
+        Empty `q` returns the first `limit` companies alphabetically.
+        """
+        normalized = q.strip().lower()
+        if not normalized:
+            sql = text(
+                f"""
+                SELECT c.cd_cvm, c.company_name,
+                       COALESCE(c.ticker_b3, '') AS ticker_b3,
+                       {_CANONICAL_SECTOR_SQL} AS sector_name
+                FROM companies c
+                ORDER BY c.company_name ASC
+                LIMIT :limit
+                """
+            )
+            return pd.read_sql(sql, self.engine, params={"limit": int(limit)}).reset_index(drop=True)
+
+        sql = text(
+            f"""
+            SELECT c.cd_cvm, c.company_name,
+                   COALESCE(c.ticker_b3, '') AS ticker_b3,
+                   {_CANONICAL_SECTOR_SQL} AS sector_name
+            FROM companies c
+            WHERE
+                LOWER(c.company_name) LIKE :contains
+                OR LOWER(COALESCE(c.ticker_b3, '')) LIKE :contains
+                OR CAST(c.cd_cvm AS TEXT) LIKE :contains
+            ORDER BY
+                CASE
+                    WHEN LOWER(COALESCE(c.ticker_b3, '')) = :exact   THEN 0
+                    WHEN LOWER(c.company_name)             LIKE :prefix THEN 1
+                    WHEN LOWER(COALESCE(c.ticker_b3, '')) LIKE :prefix THEN 2
+                    ELSE 3
+                END ASC,
+                c.company_name ASC
+            LIMIT :limit
+            """
+        )
+        return pd.read_sql(sql, self.engine, params={
+            "contains": f"%{normalized}%",
+            "prefix": f"{normalized}%",
+            "exact": normalized,
+            "limit": int(limit),
+        }).reset_index(drop=True)
+
     def get_sector_companies(self, sector_name: str) -> tuple[pd.DataFrame, int]:
         """Returns (df[cd_cvm, company_name, ticker_b3], total_count) for a sector.
 

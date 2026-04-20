@@ -10,6 +10,7 @@ from src.contracts import (
     CompanyFiltersDTO,
     CompanyInfoDTO,
     CompanySearchResult,
+    CompanySuggestionDTO,
     HealthSnapshot,
     KPIBundle,
     RankedRefreshQueueResult,
@@ -92,6 +93,17 @@ class CompanyDirectoryPagePayload(BaseModel):
     items: list[CompanySearchResultPayload]
     pagination: CompanyDirectoryPaginationPayload
     applied_filters: CompanyDirectoryAppliedFiltersPayload
+
+
+class CompanySuggestionPayload(BaseModel):
+    cd_cvm: int
+    company_name: str
+    ticker_b3: str | None = None
+    sector_slug: str
+
+
+class CompanySuggestionsPayload(BaseModel):
+    items: list[CompanySuggestionPayload]
 
 
 class CompanySectorFilterPayload(BaseModel):
@@ -298,6 +310,12 @@ def present_company_directory_page(dto: CompanyDirectoryPage) -> CompanyDirector
     payload = dto.to_dict()
     payload["items"] = [item.model_dump() for item in present_company_search(list(dto.items))]
     return CompanyDirectoryPagePayload(**payload)
+
+
+def present_company_suggestions(items: tuple[CompanySuggestionDTO, ...]) -> CompanySuggestionsPayload:
+    return CompanySuggestionsPayload(
+        items=[CompanySuggestionPayload(**item.to_dict()) for item in items]
+    )
 
 
 def present_company_filters(dto: CompanyFiltersDTO) -> CompanyFiltersPayload:

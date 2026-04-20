@@ -17,6 +17,7 @@ from src.contracts import (
     CompanyInfoDTO,
     CompanySectorFilterOption,
     CompanySearchResult,
+    CompanySuggestionDTO,
     HealthSnapshot,
     KPIBundle,
     RankedRefreshQueueItem,
@@ -176,6 +177,18 @@ class CVMReadService:
             for _, row in df.iterrows()
         )
         return CompanyFiltersDTO(sectors=sectors)
+
+    def suggest_companies(self, q: str, limit: int) -> tuple[CompanySuggestionDTO, ...]:
+        df = self.query_layer.get_company_suggestions(q=q, limit=limit)
+        return tuple(
+            CompanySuggestionDTO(
+                cd_cvm=int(row["cd_cvm"]),
+                company_name=str(row["company_name"]),
+                ticker_b3=str(row["ticker_b3"]) if row["ticker_b3"] else None,
+                sector_slug=sector_slugify(str(row["sector_name"])),
+            )
+            for _, row in df.iterrows()
+        )
 
     def resolve_sector_slug(self, sector_slug: str | None) -> str | None:
         return self._resolve_sector_slug(sector_slug)

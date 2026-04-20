@@ -229,6 +229,17 @@ class CompanyFiltersDTO:
 
 
 @dataclass(frozen=True)
+class CompanySuggestionDTO:
+    cd_cvm: int
+    company_name: str
+    ticker_b3: str | None
+    sector_slug: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
 class SectorSnapshotDTO:
     roe: float | None
     mg_ebit: float | None
