@@ -19,7 +19,7 @@ const QUICK_CHIPS = [
   "ITAUB4",
   "BBDC4",
   "Financeiro",
-  "PetrÃ³leo e GÃ¡s",
+  "Petróleo e Gás",
 ];
 
 type CompanySearchHeroProps = {
@@ -110,15 +110,15 @@ export function CompanySearchHero({ apiBaseUrl }: CompanySearchHeroProps) {
     <div className="w-full max-w-[680px] mx-auto space-y-6 text-center">
       <div className="space-y-4">
         <h1 className="font-heading text-[clamp(2.5rem,5.5vw,4.25rem)] leading-[1.02] tracking-[-0.045em] text-foreground">
-          AnÃ¡lise financeira
+          Análise financeira
           <br />
           <span className="text-muted-foreground italic font-normal">
-            de quem estÃ¡ na bolsa.
+            de quem está na bolsa.
           </span>
         </h1>
         <p className="max-w-[560px] mx-auto text-[1.0625rem] leading-[1.55] text-muted-foreground">
-          Pesquise qualquer companhia aberta brasileira. Leia DRE, balanÃ§o e KPIs
-          com 10+ anos de histÃ³rico, direto da CVM.
+          Pesquise qualquer companhia aberta brasileira. Leia DRE, balanço e KPIs
+          com 10+ anos de histórico, direto da CVM.
         </p>
       </div>
 
@@ -141,7 +141,7 @@ export function CompanySearchHero({ apiBaseUrl }: CompanySearchHeroProps) {
             onFocus={() => setFocused(true)}
             onBlur={() => setTimeout(() => setFocused(false), 150)}
             onKeyDown={(event) => event.key === "Enter" && submit()}
-            placeholder="Petrobras, VALE3, setor financeiroâ€¦"
+            placeholder="Petrobras, VALE3, setor financeiro…"
             className="flex-1 border-none bg-transparent py-[0.85rem] text-[1.125rem] text-foreground outline-none placeholder:text-muted-foreground"
             aria-label="Buscar empresa"
           />
@@ -173,7 +173,7 @@ export function CompanySearchHero({ apiBaseUrl }: CompanySearchHeroProps) {
           <div className="absolute inset-x-0 top-full z-20 overflow-hidden rounded-[0_0_1.25rem_1.25rem] border border-t-0 border-ring/50 bg-card shadow-[0_20px_60px_-30px_rgba(16,30,24,0.25)]">
             <div className="border-t border-border bg-muted/30 px-5 py-1.5 text-[0.7rem] font-medium uppercase tracking-[0.2em] text-muted-foreground">
               {loadingSuggestions
-                ? "Buscandoâ€¦"
+                ? "Buscando…"
                 : `${suggestions.length} resultado${suggestions.length !== 1 ? "s" : ""}`}
             </div>
             {suggestions.map((item) => {
@@ -214,7 +214,7 @@ export function CompanySearchHero({ apiBaseUrl }: CompanySearchHeroProps) {
                       ) : null}
                     </div>
                     <p className="text-[0.8rem] text-muted-foreground mt-0.5">
-                      {sectorName ?? "Setor nao informado"}
+                      {sectorName ?? "Setor não informado"}
                     </p>
                   </div>
                   <div className="text-right shrink-0">
