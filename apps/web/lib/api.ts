@@ -96,6 +96,23 @@ export type RefreshStatusItem = {
   estimate_confidence: string | null;
 };
 
+type RawRefreshStatusItem = Omit<
+  RefreshStatusItem,
+  | "estimated_progress_pct"
+  | "estimated_eta_seconds"
+  | "estimated_total_seconds"
+  | "elapsed_seconds"
+  | "estimated_completion_at"
+  | "estimate_confidence"
+> & {
+  estimated_progress_pct?: number | null;
+  estimated_eta_seconds?: number | null;
+  estimated_total_seconds?: number | null;
+  elapsed_seconds?: number | null;
+  estimated_completion_at?: string | null;
+  estimate_confidence?: string | null;
+};
+
 export type TabularDataRow = Record<string, string | number | boolean | null>;
 
 export type TabularData = {
@@ -282,6 +299,12 @@ function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === "string";
 }
 
+function isOptionalNullableString(
+  value: unknown,
+): value is string | null | undefined {
+  return value === undefined || isNullableString(value);
+}
+
 function isTabularData(value: unknown): value is TabularData {
   return (
     isRecord(value) &&
@@ -382,7 +405,13 @@ function isNullableNumber(value: unknown): value is number | null {
   return value === null || typeof value === "number";
 }
 
-function isRefreshStatusItem(value: unknown): value is RefreshStatusItem {
+function isOptionalNullableNumber(
+  value: unknown,
+): value is number | null | undefined {
+  return value === undefined || isNullableNumber(value);
+}
+
+function isRefreshStatusItem(value: unknown): value is RawRefreshStatusItem {
   return (
     isRecord(value) &&
     typeof value.cd_cvm === "number" &&
@@ -396,17 +425,31 @@ function isRefreshStatusItem(value: unknown): value is RefreshStatusItem {
     isNullableNumber(value.last_end_year) &&
     isNullableNumber(value.last_rows_inserted) &&
     isNullableString(value.updated_at) &&
-    isNullableNumber(value.estimated_progress_pct) &&
-    isNullableNumber(value.estimated_eta_seconds) &&
-    isNullableNumber(value.estimated_total_seconds) &&
-    isNullableNumber(value.elapsed_seconds) &&
-    isNullableString(value.estimated_completion_at) &&
-    isNullableString(value.estimate_confidence)
+    isOptionalNullableNumber(value.estimated_progress_pct) &&
+    isOptionalNullableNumber(value.estimated_eta_seconds) &&
+    isOptionalNullableNumber(value.estimated_total_seconds) &&
+    isOptionalNullableNumber(value.elapsed_seconds) &&
+    isOptionalNullableString(value.estimated_completion_at) &&
+    isOptionalNullableString(value.estimate_confidence)
   );
 }
 
-function isRefreshStatusList(value: unknown): value is RefreshStatusItem[] {
+function isRefreshStatusList(value: unknown): value is RawRefreshStatusItem[] {
   return Array.isArray(value) && value.every((item) => isRefreshStatusItem(item));
+}
+
+function normalizeRefreshStatusItem(
+  item: RawRefreshStatusItem,
+): RefreshStatusItem {
+  return {
+    ...item,
+    estimated_progress_pct: item.estimated_progress_pct ?? null,
+    estimated_eta_seconds: item.estimated_eta_seconds ?? null,
+    estimated_total_seconds: item.estimated_total_seconds ?? null,
+    elapsed_seconds: item.elapsed_seconds ?? null,
+    estimated_completion_at: item.estimated_completion_at ?? null,
+    estimate_confidence: item.estimate_confidence ?? null,
+  };
 }
 
 function isSectorSnapshot(value: unknown): value is SectorSnapshot {
@@ -886,7 +929,7 @@ export async function fetchRequestRefresh(
 export async function fetchRefreshStatus(
   cdCvm: number,
 ): Promise<RefreshStatusItem[]> {
-  return (await routeFetch<RefreshStatusItem[]>(
+  const items = (await routeFetch<RawRefreshStatusItem[]>(
     `/api/refresh-status/${cdCvm}`,
     undefined,
     {
@@ -894,13 +937,15 @@ export async function fetchRefreshStatus(
       invalidResponseMessage:
         "A rota interna retornou um status invalido para o refresh on-demand.",
     },
-  )) as RefreshStatusItem[];
+  )) as RawRefreshStatusItem[];
+
+  return items.map(normalizeRefreshStatusItem);
 }
 
 export async function fetchCompanyFreshness(
   cdCvm: number,
 ): Promise<RefreshStatusItem | null> {
-  const items = (await apiFetch<RefreshStatusItem[]>(
+  const items = (await apiFetch<RawRefreshStatusItem[]>(
     `/refresh-status${buildQuery({ cd_cvm: cdCvm })}`,
     {
       request: UNCACHED_API_READ,
@@ -908,7 +953,7 @@ export async function fetchCompanyFreshness(
       invalidResponseMessage:
         "A API retornou um status invalido para a companhia.",
     },
-  )) as RefreshStatusItem[];
+  )) as RawRefreshStatusItem[];
 
-  return items[0] ?? null;
+  return items[0] ? normalizeRefreshStatusItem(items[0]) : null;
 }
