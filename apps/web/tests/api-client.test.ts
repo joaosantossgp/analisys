@@ -5,6 +5,7 @@ import {
   ApiClientError,
   fetchCompanies,
   fetchCompanyFilters,
+  fetchCompanyFreshness,
   fetchCompanySuggestions,
   fetchSectorDetail,
   fetchRefreshStatus,
@@ -312,6 +313,83 @@ test("fetchRefreshStatus accepts estimated progress fields from the API", async 
     assert.equal(payload[0]?.estimated_progress_pct, 31.4);
     assert.equal(payload[0]?.estimated_eta_seconds, 840);
     assert.equal(payload[0]?.estimate_confidence, "medium");
+  } finally {
+    restore();
+  }
+});
+
+test("fetchRefreshStatus normalizes missing estimate fields from legacy payloads", async () => {
+  const restore = withFetchMock((async () =>
+    new Response(
+      JSON.stringify([
+        {
+          cd_cvm: 4170,
+          company_name: "VALE",
+          source_scope: "on_demand",
+          last_attempt_at: "2026-04-21T12:00:00+00:00",
+          last_success_at: null,
+          last_status: "queued",
+          last_error: null,
+          last_start_year: 2010,
+          last_end_year: 2024,
+          last_rows_inserted: null,
+          updated_at: "2026-04-21T12:00:00+00:00",
+        },
+      ]),
+      {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+        },
+      },
+    )) as FetchMock);
+
+  try {
+    const payload = await fetchRefreshStatus(4170);
+
+    assert.equal(payload[0]?.estimated_progress_pct, null);
+    assert.equal(payload[0]?.estimated_eta_seconds, null);
+    assert.equal(payload[0]?.estimated_total_seconds, null);
+    assert.equal(payload[0]?.elapsed_seconds, null);
+    assert.equal(payload[0]?.estimated_completion_at, null);
+    assert.equal(payload[0]?.estimate_confidence, null);
+  } finally {
+    restore();
+  }
+});
+
+test("fetchCompanyFreshness normalizes missing estimate fields from legacy API payloads", async () => {
+  const restore = withFetchMock((async () =>
+    new Response(
+      JSON.stringify([
+        {
+          cd_cvm: 4170,
+          company_name: "VALE",
+          source_scope: "on_demand",
+          last_attempt_at: "2026-04-21T12:00:00+00:00",
+          last_success_at: null,
+          last_status: "queued",
+          last_error: null,
+          last_start_year: 2010,
+          last_end_year: 2024,
+          last_rows_inserted: null,
+          updated_at: "2026-04-21T12:00:00+00:00",
+        },
+      ]),
+      {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+        },
+      },
+    )) as FetchMock);
+
+  try {
+    const payload = await fetchCompanyFreshness(4170);
+
+    assert.equal(payload?.estimated_progress_pct, null);
+    assert.equal(payload?.estimated_eta_seconds, null);
+    assert.equal(payload?.estimate_confidence, null);
   } finally {
     restore();
   }
