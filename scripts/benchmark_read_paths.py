@@ -54,7 +54,7 @@ STMT_ACCOUNTS = {
 ANNUAL_YEARS = list(range(2019, 2025))
 
 
-def _build_engine() -> object:
+def build_synthetic_benchmark_engine() -> object:
     engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
@@ -63,7 +63,7 @@ def _build_engine() -> object:
     return engine
 
 
-def _seed(engine) -> None:
+def seed_synthetic_benchmark_data(engine) -> None:
     rng = random.Random(42)
     company_rows = []
     for i in range(N_COMPANIES):
@@ -322,9 +322,9 @@ def run(runs: int, phase: str) -> None:
     print(f"  dataset: {N_COMPANIES} companies  ~{N_COMPANIES * len(ANNUAL_YEARS) * 15:,} fr rows")
     print(f"{'='*78}\n")
 
-    engine = _build_engine()
+    engine = build_synthetic_benchmark_engine()
     print("Seeding synthetic data…", end=" ", flush=True)
-    _seed(engine)
+    seed_synthetic_benchmark_data(engine)
     print("done.\n")
 
     print(f"{'Query':<52} {'Timings':>40}")

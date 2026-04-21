@@ -1,0 +1,222 @@
+{
+  "generated_at": "2026-04-21T11:59:35Z",
+  "web": {
+    "framework": {
+      "name": "Next.js",
+      "version": "16.2.2"
+    },
+    "routes": {
+      "/": {
+        "rendering_mode": "static",
+        "revalidate_seconds": 300,
+        "first_load_uncompressed_js_bytes": 594365,
+        "first_load_chunk_count": 11,
+        "guardrail": {
+          "required_rendering_mode": "static",
+          "required_revalidate_seconds": 300,
+          "max_first_load_uncompressed_js_bytes": 644365
+        }
+      },
+      "/empresas": {
+        "rendering_mode": "dynamic",
+        "revalidate_seconds": null,
+        "first_load_uncompressed_js_bytes": 742622,
+        "first_load_chunk_count": 13,
+        "guardrail": {
+          "required_rendering_mode": "dynamic",
+          "required_revalidate_seconds": null,
+          "max_first_load_uncompressed_js_bytes": 802031
+        }
+      },
+      "/empresas/[cd_cvm]": {
+        "rendering_mode": "dynamic",
+        "revalidate_seconds": null,
+        "first_load_uncompressed_js_bytes": 627869,
+        "first_load_chunk_count": 12,
+        "guardrail": {
+          "required_rendering_mode": "dynamic",
+          "required_revalidate_seconds": null,
+          "max_first_load_uncompressed_js_bytes": 678098
+        }
+      },
+      "/comparar": {
+        "rendering_mode": "dynamic",
+        "revalidate_seconds": null,
+        "first_load_uncompressed_js_bytes": 620241,
+        "first_load_chunk_count": 11,
+        "guardrail": {
+          "required_rendering_mode": "dynamic",
+          "required_revalidate_seconds": null,
+          "max_first_load_uncompressed_js_bytes": 670241
+        }
+      },
+      "/setores": {
+        "rendering_mode": "static",
+        "revalidate_seconds": 3600,
+        "first_load_uncompressed_js_bytes": 571480,
+        "first_load_chunk_count": 11,
+        "guardrail": {
+          "required_rendering_mode": "static",
+          "required_revalidate_seconds": 3600,
+          "max_first_load_uncompressed_js_bytes": 621480
+        }
+      },
+      "/setores/[slug]": {
+        "rendering_mode": "dynamic",
+        "revalidate_seconds": null,
+        "first_load_uncompressed_js_bytes": 616355,
+        "first_load_chunk_count": 12,
+        "guardrail": {
+          "required_rendering_mode": "dynamic",
+          "required_revalidate_seconds": null,
+          "max_first_load_uncompressed_js_bytes": 666355
+        }
+      }
+    }
+  },
+  "api": {
+    "dataset": {
+      "companies": 449,
+      "annual_years": [
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "rows_note": "Synthetic benchmark dataset seeded via scripts/benchmark_read_paths.py"
+    },
+    "endpoints": {
+      "GET /companies": {
+        "method": "GET",
+        "path": "/companies",
+        "params": {},
+        "median_ms": 22.04,
+        "p95_ms": 65.67,
+        "min_ms": 20.9,
+        "max_ms": 65.67,
+        "guardrail": {
+          "max_median_ms": 38.57,
+          "max_p95_ms": 124.77
+        }
+      },
+      "GET /companies/filters": {
+        "method": "GET",
+        "path": "/companies/filters",
+        "params": {},
+        "median_ms": 27.02,
+        "p95_ms": 28.17,
+        "min_ms": 26.55,
+        "max_ms": 28.17,
+        "guardrail": {
+          "max_median_ms": 47.28,
+          "max_p95_ms": 53.52
+        }
+      },
+      "GET /companies/suggestions?q=emp": {
+        "method": "GET",
+        "path": "/companies/suggestions",
+        "params": {
+          "q": "emp"
+        },
+        "median_ms": 3.71,
+        "p95_ms": 4.3,
+        "min_ms": 3.46,
+        "max_ms": 4.3,
+        "guardrail": {
+          "max_median_ms": 15.0,
+          "max_p95_ms": 25.0
+        }
+      },
+      "GET /companies/1000": {
+        "method": "GET",
+        "path": "/companies/1000",
+        "params": {},
+        "median_ms": 3.18,
+        "p95_ms": 3.36,
+        "min_ms": 2.79,
+        "max_ms": 3.36,
+        "guardrail": {
+          "max_median_ms": 15.0,
+          "max_p95_ms": 25.0
+        }
+      },
+      "GET /companies/1000/years": {
+        "method": "GET",
+        "path": "/companies/1000/years",
+        "params": {},
+        "median_ms": 3.71,
+        "p95_ms": 4.07,
+        "min_ms": 3.31,
+        "max_ms": 4.07,
+        "guardrail": {
+          "max_median_ms": 15.0,
+          "max_p95_ms": 25.0
+        }
+      },
+      "GET /companies/1000/statements?stmt=DRE&years=2023,2024": {
+        "method": "GET",
+        "path": "/companies/1000/statements",
+        "params": {
+          "stmt": "DRE",
+          "years": "2023,2024"
+        },
+        "median_ms": 9.24,
+        "p95_ms": 9.81,
+        "min_ms": 8.7,
+        "max_ms": 9.81,
+        "guardrail": {
+          "max_median_ms": 16.17,
+          "max_p95_ms": 25.0
+        }
+      },
+      "GET /companies/1000/kpis?years=2023,2024": {
+        "method": "GET",
+        "path": "/companies/1000/kpis",
+        "params": {
+          "years": "2023,2024"
+        },
+        "median_ms": 22.61,
+        "p95_ms": 23.46,
+        "min_ms": 22.18,
+        "max_ms": 23.46,
+        "guardrail": {
+          "max_median_ms": 39.57,
+          "max_p95_ms": 44.57
+        }
+      },
+      "GET /sectors": {
+        "method": "GET",
+        "path": "/sectors",
+        "params": {},
+        "median_ms": 125.24,
+        "p95_ms": 166.27,
+        "min_ms": 121.74,
+        "max_ms": 166.27,
+        "guardrail": {
+          "max_median_ms": 219.17,
+          "max_p95_ms": 315.91
+        }
+      },
+      "GET /sectors/energia": {
+        "method": "GET",
+        "path": "/sectors/energia",
+        "params": {},
+        "median_ms": 68.6,
+        "p95_ms": 72.18,
+        "min_ms": 67.66,
+        "max_ms": 72.18,
+        "guardrail": {
+          "max_median_ms": 120.05,
+          "max_p95_ms": 137.14
+        }
+      }
+    }
+  },
+  "metadata": {
+    "owner_lane": "ops-quality",
+    "issue": 138,
+    "purpose": "Baseline and light guardrails for main web routes and hot API endpoints."
+  }
+}
