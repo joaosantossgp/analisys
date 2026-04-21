@@ -76,7 +76,7 @@ pessoa que trabalhe em qualquer uma das duas areas deve atualizar este arquivo
 | `GET /companies/{cd_cvm}/kpis` | `years=2023,2024` | Aba Visao Geral |
 | `GET /companies/{cd_cvm}/export/excel` | - | Download do workbook Excel completo da empresa, sempre com todos os anos disponiveis |
 | `POST /companies/{cd_cvm}/request-refresh` | - | Dispara bootstrap/refresh on-demand da empresa |
-| `GET /refresh-status` | `cd_cvm=` | Polling do status de refresh na pagina sem dados |
+| `GET /refresh-status` | `cd_cvm=` | Polling do status de refresh e da barra estimada de progresso/ETA |
 
 **Query params publicos da rota**: `?anos=2023,2024&aba=visao-geral\|demonstracoes&stmt=DRE\|BPA\|BPP\|DFC`
 
@@ -89,6 +89,8 @@ Notas de contrato:
   explicito permanece visivel na aba Demonstracoes
 - `GET /companies/{cd_cvm}` e `POST /companies/{cd_cvm}/request-refresh` podem
   usar fallback de catalogo CVM quando a empresa ainda nao existe na base local
+- `GET /refresh-status` alimenta a experiencia de acompanhamento on-demand
+  tanto na pagina sem dados quanto no card de freshness da empresa
 
 ---
 

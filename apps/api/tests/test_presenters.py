@@ -149,10 +149,18 @@ def test_presenters_serialize_dtos_without_raw_pandas_objects():
                 last_end_year=2024,
                 last_rows_inserted=30,
                 updated_at="2026-04-08T08:55:00",
+                estimated_progress_pct=64.5,
+                estimated_eta_seconds=420,
+                estimated_total_seconds=1200,
+                elapsed_seconds=780,
+                estimated_completion_at="2026-04-08T09:10:00",
+                estimate_confidence="medium",
             )
         ]
     )[0]
     assert refresh.last_status == "success"
+    assert refresh.estimated_progress_pct == 64.5
+    assert refresh.estimate_confidence == "medium"
 
     health = present_health_snapshot(
         HealthSnapshot(

@@ -88,6 +88,12 @@ export type RefreshStatusItem = {
   last_end_year: number | null;
   last_rows_inserted: number | null;
   updated_at: string | null;
+  estimated_progress_pct: number | null;
+  estimated_eta_seconds: number | null;
+  estimated_total_seconds: number | null;
+  elapsed_seconds: number | null;
+  estimated_completion_at: string | null;
+  estimate_confidence: string | null;
 };
 
 export type TabularDataRow = Record<string, string | number | boolean | null>;
@@ -389,7 +395,13 @@ function isRefreshStatusItem(value: unknown): value is RefreshStatusItem {
     isNullableNumber(value.last_start_year) &&
     isNullableNumber(value.last_end_year) &&
     isNullableNumber(value.last_rows_inserted) &&
-    isNullableString(value.updated_at)
+    isNullableString(value.updated_at) &&
+    isNullableNumber(value.estimated_progress_pct) &&
+    isNullableNumber(value.estimated_eta_seconds) &&
+    isNullableNumber(value.estimated_total_seconds) &&
+    isNullableNumber(value.elapsed_seconds) &&
+    isNullableString(value.estimated_completion_at) &&
+    isNullableString(value.estimate_confidence)
   );
 }
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import logging
 import zipfile
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -899,6 +900,112 @@ def test_refresh_status_returns_operational_rows(client: TestClient):
     payload = response.json()
     assert len(payload) == 1
     assert payload[0]["last_status"] == "success"
+    assert payload[0]["estimated_progress_pct"] is None
+    assert payload[0]["estimated_eta_seconds"] is None
+
+
+def test_refresh_status_returns_estimated_progress_for_active_refresh(client: TestClient):
+    from sqlalchemy import text as sa_text
+
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    now_iso = now.isoformat()
+    queued_at = (now - timedelta(minutes=4)).isoformat()
+
+    with client.app.state.read_service.engine.begin() as conn:
+        conn.execute(
+            sa_text(
+                """
+                INSERT INTO company_refresh_status (
+                    cd_cvm, company_name, source_scope, last_attempt_at, last_success_at,
+                    last_status, last_error, last_start_year, last_end_year,
+                    last_rows_inserted, updated_at
+                ) VALUES (
+                    :cd_cvm, :company_name, :source_scope, :last_attempt_at, :last_success_at,
+                    :last_status, :last_error, :last_start_year, :last_end_year,
+                    :last_rows_inserted, :updated_at
+                )
+                ON CONFLICT (cd_cvm) DO UPDATE SET
+                    company_name = excluded.company_name,
+                    source_scope = excluded.source_scope,
+                    last_attempt_at = excluded.last_attempt_at,
+                    last_success_at = excluded.last_success_at,
+                    last_status = excluded.last_status,
+                    last_error = excluded.last_error,
+                    last_start_year = excluded.last_start_year,
+                    last_end_year = excluded.last_end_year,
+                    last_rows_inserted = excluded.last_rows_inserted,
+                    updated_at = excluded.updated_at
+                """
+            ),
+            [
+                {
+                    "cd_cvm": 4170,
+                    "company_name": "VALE",
+                    "source_scope": "on_demand",
+                    "last_attempt_at": queued_at,
+                    "last_success_at": None,
+                    "last_status": "queued",
+                    "last_error": None,
+                    "last_start_year": 2010,
+                    "last_end_year": 2024,
+                    "last_rows_inserted": None,
+                    "updated_at": now_iso,
+                },
+                {
+                    "cd_cvm": 19348,
+                    "company_name": "LOCALIZA",
+                    "source_scope": "local",
+                    "last_attempt_at": (now - timedelta(hours=3)).isoformat(),
+                    "last_success_at": (now - timedelta(hours=2, minutes=44)).isoformat(),
+                    "last_status": "success",
+                    "last_error": None,
+                    "last_start_year": 2010,
+                    "last_end_year": 2024,
+                    "last_rows_inserted": 120,
+                    "updated_at": (now - timedelta(hours=2, minutes=44)).isoformat(),
+                },
+                {
+                    "cd_cvm": 20532,
+                    "company_name": "WEG",
+                    "source_scope": "local",
+                    "last_attempt_at": (now - timedelta(hours=2, minutes=30)).isoformat(),
+                    "last_success_at": (now - timedelta(hours=2, minutes=12)).isoformat(),
+                    "last_status": "success",
+                    "last_error": None,
+                    "last_start_year": 2010,
+                    "last_end_year": 2024,
+                    "last_rows_inserted": 116,
+                    "updated_at": (now - timedelta(hours=2, minutes=12)).isoformat(),
+                },
+                {
+                    "cd_cvm": 90678,
+                    "company_name": "ITAU",
+                    "source_scope": "local",
+                    "last_attempt_at": (now - timedelta(hours=2)).isoformat(),
+                    "last_success_at": (now - timedelta(hours=1, minutes=47)).isoformat(),
+                    "last_status": "success",
+                    "last_error": None,
+                    "last_start_year": 2010,
+                    "last_end_year": 2024,
+                    "last_rows_inserted": 112,
+                    "updated_at": (now - timedelta(hours=1, minutes=47)).isoformat(),
+                },
+            ],
+        )
+
+    response = client.get("/refresh-status", params={"cd_cvm": 4170})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload) == 1
+    assert payload[0]["last_status"] == "queued"
+    assert payload[0]["estimated_progress_pct"] > 10.0
+    assert payload[0]["estimated_progress_pct"] < 96.0
+    assert payload[0]["estimated_eta_seconds"] is not None
+    assert payload[0]["estimated_total_seconds"] is not None
+    assert payload[0]["elapsed_seconds"] >= 240
+    assert payload[0]["estimated_completion_at"] is not None
+    assert payload[0]["estimate_confidence"] == "medium"
 
 
 def test_base_health_returns_snapshot(client: TestClient):
