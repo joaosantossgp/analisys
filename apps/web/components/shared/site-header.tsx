@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import ThemeToggle from "@/components/toggle-theme";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -56,8 +57,9 @@ export function SiteHeader() {
           )}
         </nav>
 
-        <div className="hidden items-center gap-3 lg:flex">
-          <span className="text-xs uppercase tracking-[0.26em] text-muted-foreground">
+        <div className="flex items-center gap-3">
+          <ThemeToggle className="rounded-full border border-border/65 bg-background/78 px-2 py-1 shadow-sm shadow-black/5" />
+          <span className="hidden text-xs uppercase tracking-[0.26em] text-muted-foreground lg:inline">
             Slice publico V2
           </span>
         </div>
