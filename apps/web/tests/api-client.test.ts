@@ -274,6 +274,49 @@ test("fetchRefreshStatus keeps explicit no-store semantics for polling flows", a
   }
 });
 
+test("fetchRefreshStatus accepts estimated progress fields from the API", async () => {
+  const restore = withFetchMock((async () =>
+    new Response(
+      JSON.stringify([
+        {
+          cd_cvm: 4170,
+          company_name: "VALE",
+          source_scope: "on_demand",
+          last_attempt_at: "2026-04-21T12:00:00+00:00",
+          last_success_at: null,
+          last_status: "queued",
+          last_error: null,
+          last_start_year: 2010,
+          last_end_year: 2024,
+          last_rows_inserted: null,
+          updated_at: "2026-04-21T12:00:00+00:00",
+          estimated_progress_pct: 31.4,
+          estimated_eta_seconds: 840,
+          estimated_total_seconds: 1260,
+          elapsed_seconds: 420,
+          estimated_completion_at: "2026-04-21T12:21:00+00:00",
+          estimate_confidence: "medium",
+        },
+      ]),
+      {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+        },
+      },
+    )) as FetchMock);
+
+  try {
+    const payload = await fetchRefreshStatus(4170);
+
+    assert.equal(payload[0]?.estimated_progress_pct, 31.4);
+    assert.equal(payload[0]?.estimated_eta_seconds, 840);
+    assert.equal(payload[0]?.estimate_confidence, "medium");
+  } finally {
+    restore();
+  }
+});
+
 test("getFilenameFromDisposition keeps quoted filenames when present", () => {
   const filename = getFilenameFromDisposition(
     'attachment; filename="PETR4_20260409.xlsx"',

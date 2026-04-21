@@ -4,6 +4,7 @@ import io
 import zipfile
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+from statistics import median
 from typing import Any
 
 import pandas as pd
@@ -75,6 +76,11 @@ class CVMReadService:
     THROUGHPUT_MIN_SUCCESS_SAMPLES = 3
     RANKED_REFRESH_QUEUE_WINDOW_MINUTES = 10
     PRIORITIZED_BACKLOG_STALE_HOURS = 12
+    ACTIVE_REFRESH_STATUSES = {"queued", "running"}
+    REFRESH_ESTIMATE_DEFAULT_TOTAL_SECONDS = 18 * 60
+    REFRESH_ESTIMATE_PROGRESS_FLOOR = 12.0
+    REFRESH_ESTIMATE_PROGRESS_CEILING = 92.0
+    REFRESH_ESTIMATE_PROGRESS_CAP = 96.0
 
     def __init__(self, settings: AppSettings | None = None):
         self.settings = settings or get_settings()
@@ -622,22 +628,64 @@ class CVMReadService:
         )
         with self.engine.connect() as conn:
             rows = conn.execute(query, {"cd_cvm": int(cd_cvm) if cd_cvm is not None else None}).mappings().all()
+        duration_profile = (
+            self._estimate_refresh_duration_profile()
+            if any(
+                str(row.get("last_status") or "").strip().lower()
+                in self.ACTIVE_REFRESH_STATUSES
+                for row in rows
+            )
+            else None
+        )
         return [
-            RefreshStatusDTO(
-                cd_cvm=int(row["cd_cvm"]),
-                company_name=str(row["company_name"] or ""),
-                source_scope=row.get("source_scope"),
-                last_attempt_at=row.get("last_attempt_at"),
-                last_success_at=row.get("last_success_at"),
-                last_status=row.get("last_status"),
-                last_error=row.get("last_error"),
-                last_start_year=int(row["last_start_year"]) if row.get("last_start_year") is not None else None,
-                last_end_year=int(row["last_end_year"]) if row.get("last_end_year") is not None else None,
-                last_rows_inserted=int(row["last_rows_inserted"]) if row.get("last_rows_inserted") is not None else None,
-                updated_at=row.get("updated_at"),
+            self._build_refresh_status_dto(
+                row,
+                duration_profile=duration_profile,
             )
             for row in rows
         ]
+
+    def _build_refresh_status_dto(
+        self,
+        row: dict[str, Any],
+        *,
+        duration_profile: dict[str, Any] | None,
+    ) -> RefreshStatusDTO:
+        estimate = self._estimate_refresh_runtime(
+            row,
+            duration_profile=duration_profile,
+        )
+        return RefreshStatusDTO(
+            cd_cvm=int(row["cd_cvm"]),
+            company_name=str(row["company_name"] or ""),
+            source_scope=row.get("source_scope"),
+            last_attempt_at=row.get("last_attempt_at"),
+            last_success_at=row.get("last_success_at"),
+            last_status=row.get("last_status"),
+            last_error=row.get("last_error"),
+            last_start_year=(
+                int(row["last_start_year"])
+                if row.get("last_start_year") is not None
+                else None
+            ),
+            last_end_year=(
+                int(row["last_end_year"])
+                if row.get("last_end_year") is not None
+                else None
+            ),
+            last_rows_inserted=(
+                int(row["last_rows_inserted"])
+                if row.get("last_rows_inserted") is not None
+                else None
+            ),
+            updated_at=row.get("updated_at"),
+            estimated_progress_pct=estimate["estimated_progress_pct"],
+            estimated_eta_seconds=estimate["estimated_eta_seconds"],
+            estimated_total_seconds=estimate["estimated_total_seconds"],
+            elapsed_seconds=estimate["elapsed_seconds"],
+            estimated_completion_at=estimate["estimated_completion_at"],
+            estimate_confidence=estimate["estimate_confidence"],
+        )
 
     def request_company_refresh(self, cd_cvm: int) -> str:
         """Dispatch on-demand ingest for one company.
@@ -1266,6 +1314,157 @@ class CVMReadService:
         with self.engine.connect() as conn:
             rows = conn.execute(query, params).mappings().all()
         return {int(row["cd_cvm"]): dict(row) for row in rows}
+
+    def _default_refresh_year_span(self) -> int:
+        start_year, end_year = self._resolve_refresh_range(
+            start_year=2010,
+            end_year=None,
+        )
+        return max(1, int(end_year) - int(start_year) + 1)
+
+    def _refresh_year_span(self, row: dict[str, Any]) -> int:
+        start_year = row.get("last_start_year")
+        end_year = row.get("last_end_year")
+        if start_year is None or end_year is None:
+            return self._default_refresh_year_span()
+        try:
+            year_span = int(end_year) - int(start_year) + 1
+        except (TypeError, ValueError):
+            return self._default_refresh_year_span()
+        return max(1, year_span)
+
+    def _estimate_refresh_duration_profile(self) -> dict[str, Any]:
+        typical_year_span = float(self._default_refresh_year_span())
+        year_span_samples = 0
+
+        if inspect(self.engine).has_table("company_refresh_status"):
+            query = text(
+                """
+                SELECT last_start_year, last_end_year
+                FROM company_refresh_status
+                WHERE last_status = 'success'
+                  AND last_start_year IS NOT NULL
+                  AND last_end_year IS NOT NULL
+                ORDER BY last_success_at DESC
+                LIMIT 200
+                """
+            )
+            with self.engine.connect() as conn:
+                rows = conn.execute(query).mappings().all()
+
+            year_spans = []
+            for row in rows:
+                try:
+                    year_span = int(row["last_end_year"]) - int(row["last_start_year"]) + 1
+                except (TypeError, ValueError):
+                    continue
+                if year_span > 0:
+                    year_spans.append(year_span)
+
+            if year_spans:
+                typical_year_span = float(median(year_spans))
+                year_span_samples = len(year_spans)
+
+        throughput = self._estimate_refresh_throughput()
+        per_hour = throughput.get("per_hour")
+        typical_total_seconds = (
+            max(60.0, 3600.0 / float(per_hour))
+            if per_hour
+            else float(self.REFRESH_ESTIMATE_DEFAULT_TOTAL_SECONDS)
+        )
+
+        return {
+            "typical_year_span": max(1.0, typical_year_span),
+            "typical_total_seconds": float(typical_total_seconds),
+            "sample_size": max(
+                int(throughput.get("sample_size") or 0),
+                int(year_span_samples),
+            ),
+            "confidence": str(throughput.get("confidence") or "low"),
+        }
+
+    def _estimate_refresh_runtime(
+        self,
+        row: dict[str, Any],
+        *,
+        duration_profile: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        last_status = str(row.get("last_status") or "").strip().lower()
+        if last_status not in self.ACTIVE_REFRESH_STATUSES:
+            return {
+                "estimated_progress_pct": None,
+                "estimated_eta_seconds": None,
+                "estimated_total_seconds": None,
+                "elapsed_seconds": None,
+                "estimated_completion_at": None,
+                "estimate_confidence": None,
+            }
+
+        attempted_at = self._parse_timestamp(row.get("last_attempt_at"))
+        profile = duration_profile or self._estimate_refresh_duration_profile()
+        typical_year_span = max(
+            1.0,
+            float(profile.get("typical_year_span") or self._default_refresh_year_span()),
+        )
+        current_year_span = float(self._refresh_year_span(row))
+        typical_total_seconds = max(
+            60.0,
+            float(
+                profile.get("typical_total_seconds")
+                or self.REFRESH_ESTIMATE_DEFAULT_TOTAL_SECONDS
+            ),
+        )
+        estimated_total_seconds = max(
+            60,
+            int(round(typical_total_seconds * (current_year_span / typical_year_span))),
+        )
+
+        now = datetime.now(timezone.utc)
+        elapsed_seconds = (
+            max(0, int(round((now - attempted_at).total_seconds())))
+            if attempted_at is not None
+            else None
+        )
+        estimated_completion_at = (
+            (
+                attempted_at + timedelta(seconds=estimated_total_seconds)
+                if attempted_at is not None
+                else now + timedelta(seconds=estimated_total_seconds)
+            )
+            .replace(microsecond=0)
+            .isoformat()
+        )
+
+        if elapsed_seconds is None:
+            estimated_progress_pct = self.REFRESH_ESTIMATE_PROGRESS_FLOOR
+            estimated_eta_seconds = estimated_total_seconds
+        else:
+            ratio = float(elapsed_seconds) / float(estimated_total_seconds)
+            estimated_progress_pct = self.REFRESH_ESTIMATE_PROGRESS_FLOOR + (
+                min(1.0, ratio)
+                * (
+                    self.REFRESH_ESTIMATE_PROGRESS_CEILING
+                    - self.REFRESH_ESTIMATE_PROGRESS_FLOOR
+                )
+            )
+            if ratio > 1.0:
+                estimated_progress_pct = min(
+                    self.REFRESH_ESTIMATE_PROGRESS_CAP,
+                    estimated_progress_pct + min(6.0, (ratio - 1.0) * 10.0),
+                )
+            estimated_eta_seconds = max(0, estimated_total_seconds - elapsed_seconds)
+
+        if last_status == "running":
+            estimated_progress_pct = max(estimated_progress_pct, 28.0)
+
+        return {
+            "estimated_progress_pct": round(float(estimated_progress_pct), 1),
+            "estimated_eta_seconds": int(estimated_eta_seconds),
+            "estimated_total_seconds": int(estimated_total_seconds),
+            "elapsed_seconds": elapsed_seconds,
+            "estimated_completion_at": estimated_completion_at,
+            "estimate_confidence": str(profile.get("confidence") or "low"),
+        }
 
     def _estimate_refresh_throughput(self) -> dict[str, Any]:
         if not inspect(self.engine).has_table("company_refresh_status"):

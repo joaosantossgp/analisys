@@ -2,6 +2,8 @@
 
 import dynamic from "next/dynamic";
 
+import type { RefreshStatusItem } from "@/lib/api";
+
 const CompanyRequestRefresh = dynamic(
   () =>
     import("@/components/company/company-request-refresh").then(
@@ -18,10 +20,14 @@ const CompanyRequestRefresh = dynamic(
 
 type CompanyRequestRefreshLazyProps = {
   cdCvm: number;
+  initialStatus?: RefreshStatusItem | null;
 };
 
 export function CompanyRequestRefreshLazy({
   cdCvm,
+  initialStatus = null,
 }: CompanyRequestRefreshLazyProps) {
-  return <CompanyRequestRefresh cdCvm={cdCvm} />;
+  return (
+    <CompanyRequestRefresh cdCvm={cdCvm} initialStatus={initialStatus} />
+  );
 }

@@ -233,6 +233,12 @@ class RefreshStatusPayload(BaseModel):
     last_end_year: int | None = None
     last_rows_inserted: int | None = None
     updated_at: str | None = None
+    estimated_progress_pct: float | None = None
+    estimated_eta_seconds: int | None = None
+    estimated_total_seconds: int | None = None
+    elapsed_seconds: int | None = None
+    estimated_completion_at: str | None = None
+    estimate_confidence: str | None = None
 
 
 class HealthYearCoveragePayload(BaseModel):

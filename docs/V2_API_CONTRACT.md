@@ -491,20 +491,39 @@ Resposta exemplo:
 ```json
 [
   {
-    "cd_cvm": 9512,
-    "company_name": "PETROBRAS",
-    "source_scope": "local",
-    "last_attempt_at": "2026-04-08T08:50:00",
-    "last_success_at": "2026-04-08T08:55:00",
-    "last_status": "success",
+    "cd_cvm": 4170,
+    "company_name": "VALE",
+    "source_scope": "on_demand",
+    "last_attempt_at": "2026-04-21T12:00:00+00:00",
+    "last_success_at": null,
+    "last_status": "queued",
     "last_error": null,
-    "last_start_year": 2023,
+    "last_start_year": 2010,
     "last_end_year": 2024,
-    "last_rows_inserted": 30,
-    "updated_at": "2026-04-08T08:55:00"
+    "last_rows_inserted": null,
+    "updated_at": "2026-04-21T12:04:00+00:00",
+    "estimated_progress_pct": 31.4,
+    "estimated_eta_seconds": 840,
+    "estimated_total_seconds": 1260,
+    "elapsed_seconds": 420,
+    "estimated_completion_at": "2026-04-21T12:21:00+00:00",
+    "estimate_confidence": "medium"
   }
 ]
 ```
+
+Regras do endpoint:
+- `cd_cvm` continua opcional; quando informado, o payload tende a retornar `[]`
+  ou um unico item
+- `estimated_progress_pct`, `estimated_eta_seconds`, `estimated_total_seconds`,
+  `elapsed_seconds`, `estimated_completion_at` e `estimate_confidence` sao
+  campos aditivos e podem vir `null`
+- os campos de estimativa sao preenchidos apenas para refresh ativo
+  (`last_status = queued|running`); para estados finais o contrato pode manter
+  esses campos nulos
+- a estimativa usa throughput historico recente da propria base e deve ser
+  tratada como aproximacao de UX, nao como SLA operacional
+- `estimate_confidence` usa `low|medium|high`
 
 ### `GET /base-health?start_year=&end_year=&force_refresh=`
 

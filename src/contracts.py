@@ -394,6 +394,12 @@ class RefreshStatusDTO:
     last_end_year: int | None
     last_rows_inserted: int | None
     updated_at: str | None
+    estimated_progress_pct: float | None = None
+    estimated_eta_seconds: int | None = None
+    estimated_total_seconds: int | None = None
+    elapsed_seconds: int | None = None
+    estimated_completion_at: str | None = None
+    estimate_confidence: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

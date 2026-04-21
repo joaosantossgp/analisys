@@ -10,7 +10,7 @@ import {
 import { CompanyRequestRefreshLazy } from "@/components/company/company-request-refresh-lazy";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
-import type { CompanyInfo } from "@/lib/api";
+import { fetchCompanyFreshness, type CompanyInfo } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 type CompanyNoDataPageProps = {
@@ -33,9 +33,16 @@ function CompanyMetaCard({ label, value }: CompanyMetaCardProps) {
   );
 }
 
-export function CompanyNoDataPage({ company }: CompanyNoDataPageProps) {
+export async function CompanyNoDataPage({ company }: CompanyNoDataPageProps) {
   const sectorLabel =
     company.sector_name || company.setor_analitico || company.setor_cvm || "Setor nao informado";
+  let initialFreshness = null;
+
+  try {
+    initialFreshness = await fetchCompanyFreshness(company.cd_cvm);
+  } catch {
+    initialFreshness = null;
+  }
 
   return (
     <PageShell density="relaxed" className="max-w-5xl">
@@ -93,7 +100,10 @@ export function CompanyNoDataPage({ company }: CompanyNoDataPageProps) {
           </Alert>
 
           <div className="flex flex-wrap items-start gap-3">
-            <CompanyRequestRefreshLazy cdCvm={company.cd_cvm} />
+            <CompanyRequestRefreshLazy
+              cdCvm={company.cd_cvm}
+              initialStatus={initialFreshness}
+            />
             <Link
               href="/empresas"
               className={cn(

@@ -129,7 +129,7 @@ export async function CompanyFreshnessCard({
         </p>
       ) : null}
 
-      <CompanyRequestRefreshLazy cdCvm={cdCvm} />
+      <CompanyRequestRefreshLazy cdCvm={cdCvm} initialStatus={freshness} />
     </SurfaceCard>
   );
 }
