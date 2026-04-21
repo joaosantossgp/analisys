@@ -9,6 +9,11 @@ from typing import Any
 import pandas as pd
 from sqlalchemy import bindparam, inspect, text
 
+from src.company_catalog import (
+    CompanyCatalogEntry,
+    CompanyCatalogUnavailableError,
+    CompanyCatalogService,
+)
 from src.contracts import (
     CompanyDirectoryAppliedFilters,
     CompanyDirectoryPage,
@@ -75,6 +80,7 @@ class CVMReadService:
         self.settings = settings or get_settings()
         self.engine = build_engine(self.settings)
         self.query_layer = CVMQueryLayer(engine=self.engine)
+        self._company_catalog = None
         self._operational_service = None
 
     @property
@@ -83,6 +89,14 @@ class CVMReadService:
             from desktop.services import IntelligentSelectorService
             self._operational_service = IntelligentSelectorService(settings=self.settings)
         return self._operational_service
+
+    @property
+    def company_catalog(self) -> CompanyCatalogService:
+        if self._company_catalog is None:
+            self._company_catalog = CompanyCatalogService(
+                timeout=self.settings.company_list_timeout
+            )
+        return self._company_catalog
 
     def search_companies(self, search: str = "") -> list[CompanySearchResult]:
         df = self.query_layer.get_companies(search)
@@ -94,20 +108,15 @@ class CVMReadService:
 
     def get_company_info(self, cd_cvm: int) -> CompanyInfoDTO | None:
         payload = self.query_layer.get_company_info(cd_cvm)
-        if not payload:
+        if payload:
+            return self._build_company_info_dto(payload, default_cd_cvm=cd_cvm)
+
+        catalog_entry = self.company_catalog.lookup_company(cd_cvm)
+        if catalog_entry is None:
             return None
-        sector_name = canonical_sector_name(payload.get("setor_analitico"), payload.get("setor_cvm"))
-        return CompanyInfoDTO(
-            cd_cvm=int(payload.get("cd_cvm") or cd_cvm),
-            company_name=str(payload.get("company_name") or ""),
-            nome_comercial=payload.get("nome_comercial"),
-            cnpj=payload.get("cnpj"),
-            setor_cvm=payload.get("setor_cvm"),
-            setor_analitico=payload.get("setor_analitico"),
-            sector_name=sector_name,
-            sector_slug=sector_slugify(sector_name),
-            company_type=payload.get("company_type"),
-            ticker_b3=payload.get("ticker_b3"),
+        return self._build_company_info_dto(
+            self._company_catalog_payload(catalog_entry),
+            default_cd_cvm=cd_cvm,
         )
 
     def get_company_info_dict(self, cd_cvm: int) -> dict[str, Any]:
@@ -119,6 +128,103 @@ class CVMReadService:
 
     def get_available_statements(self, cd_cvm: int) -> list[str]:
         return self.query_layer.get_available_statements(cd_cvm)
+
+    @staticmethod
+    def _company_catalog_payload(entry: CompanyCatalogEntry) -> dict[str, Any]:
+        return {
+            "cd_cvm": int(entry.cd_cvm),
+            "company_name": entry.company_name,
+            "nome_comercial": entry.nome_comercial,
+            "cnpj": entry.cnpj,
+            "setor_cvm": entry.setor_cvm,
+            "setor_analitico": None,
+            "company_type": "comercial",
+            "ticker_b3": entry.ticker_b3,
+        }
+
+    @staticmethod
+    def _build_company_info_dto(
+        payload: dict[str, Any],
+        *,
+        default_cd_cvm: int,
+    ) -> CompanyInfoDTO:
+        sector_name = canonical_sector_name(
+            payload.get("setor_analitico"),
+            payload.get("setor_cvm"),
+        )
+        company_name = str(payload.get("company_name") or "").strip() or f"CVM_{default_cd_cvm}"
+        company_type = str(payload.get("company_type") or "comercial").strip() or "comercial"
+        return CompanyInfoDTO(
+            cd_cvm=int(payload.get("cd_cvm") or default_cd_cvm),
+            company_name=company_name,
+            nome_comercial=payload.get("nome_comercial"),
+            cnpj=payload.get("cnpj"),
+            setor_cvm=payload.get("setor_cvm"),
+            setor_analitico=payload.get("setor_analitico"),
+            sector_name=sector_name,
+            sector_slug=sector_slugify(sector_name),
+            company_type=company_type,
+            ticker_b3=payload.get("ticker_b3"),
+        )
+
+    def _ensure_company_catalog_metadata(self, cd_cvm: int) -> bool:
+        if self.query_layer.get_company_info(cd_cvm):
+            return False
+
+        catalog_entry = self.company_catalog.lookup_company(cd_cvm)
+        if catalog_entry is None:
+            return False
+
+        now_iso = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+        with self.engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO companies (
+                        cd_cvm,
+                        company_name,
+                        nome_comercial,
+                        cnpj,
+                        setor_cvm,
+                        company_type,
+                        ticker_b3,
+                        is_active,
+                        updated_at
+                    ) VALUES (
+                        :cd_cvm,
+                        :company_name,
+                        :nome_comercial,
+                        :cnpj,
+                        :setor_cvm,
+                        :company_type,
+                        :ticker_b3,
+                        :is_active,
+                        :updated_at
+                    )
+                    ON CONFLICT(cd_cvm) DO UPDATE SET
+                        company_name = excluded.company_name,
+                        nome_comercial = COALESCE(excluded.nome_comercial, companies.nome_comercial),
+                        cnpj = COALESCE(excluded.cnpj, companies.cnpj),
+                        setor_cvm = COALESCE(excluded.setor_cvm, companies.setor_cvm),
+                        company_type = COALESCE(excluded.company_type, companies.company_type),
+                        ticker_b3 = COALESCE(excluded.ticker_b3, companies.ticker_b3),
+                        is_active = excluded.is_active,
+                        updated_at = excluded.updated_at
+                    """
+                ),
+                {
+                    "cd_cvm": int(catalog_entry.cd_cvm),
+                    "company_name": catalog_entry.company_name,
+                    "nome_comercial": catalog_entry.nome_comercial,
+                    "cnpj": catalog_entry.cnpj,
+                    "setor_cvm": catalog_entry.setor_cvm,
+                    "company_type": "comercial",
+                    "ticker_b3": catalog_entry.ticker_b3,
+                    "is_active": 1 if catalog_entry.is_active else 0,
+                    "updated_at": now_iso,
+                },
+            )
+        return True
 
     def list_companies(
         self,
@@ -180,7 +286,7 @@ class CVMReadService:
 
     def suggest_companies(self, q: str, limit: int) -> tuple[CompanySuggestionDTO, ...]:
         df = self.query_layer.get_company_suggestions(q=q, limit=limit)
-        return tuple(
+        local_items = tuple(
             CompanySuggestionDTO(
                 cd_cvm=int(row["cd_cvm"]),
                 company_name=str(row["company_name"]),
@@ -189,6 +295,31 @@ class CVMReadService:
             )
             for _, row in df.iterrows()
         )
+        if not str(q or "").strip() or len(local_items) >= int(limit):
+            return local_items[: int(limit)]
+
+        seen_codes = {item.cd_cvm for item in local_items}
+        try:
+            catalog_items = self.company_catalog.search_companies(
+                q=q,
+                limit=max(0, int(limit) - len(local_items)),
+                exclude_codes=seen_codes,
+            )
+        except CompanyCatalogUnavailableError:
+            return local_items[: int(limit)]
+
+        fallback_items = tuple(
+            CompanySuggestionDTO(
+                cd_cvm=int(entry.cd_cvm),
+                company_name=entry.company_name,
+                ticker_b3=entry.ticker_b3,
+                sector_slug=sector_slugify(
+                    canonical_sector_name(None, entry.setor_cvm)
+                ),
+            )
+            for entry in catalog_items
+        )
+        return (local_items + fallback_items)[: int(limit)]
 
     def resolve_sector_slug(self, sector_slug: str | None) -> str | None:
         return self._resolve_sector_slug(sector_slug)
@@ -514,12 +645,13 @@ class CVMReadService:
         Returns one of: "dispatched", "dispatch_failed", "already_queued".
         Raises NotFoundError if cd_cvm is unknown.
         """
+        bootstrapped = self._ensure_company_catalog_metadata(cd_cvm)
         start_year, end_year = self._resolve_refresh_range(start_year=2010, end_year=None)
         return self._dispatch_refresh_request(
             cd_cvm=cd_cvm,
             start_year=start_year,
             end_year=end_year,
-            source_scope="on_demand",
+            source_scope="on_demand_bootstrap" if bootstrapped else "on_demand",
             already_queued_window=timedelta(minutes=self.RANKED_REFRESH_QUEUE_WINDOW_MINUTES),
         )
 

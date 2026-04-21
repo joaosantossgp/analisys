@@ -32,16 +32,14 @@ export function CompanyCard({ item }: CompanyCardProps) {
 
   return (
     <Link
-      href={hasData ? `/empresas/${item.cd_cvm}` : "#"}
-      aria-disabled={!hasData}
+      href={`/empresas/${item.cd_cvm}`}
       className={cn(
         "group flex flex-col gap-4 overflow-hidden rounded-[1.25rem] border border-border/60 bg-card p-5 transition-all duration-200",
         hasData
           ? "hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-[0_18px_36px_-24px_rgba(16,30,24,0.2)]"
-          : "pointer-events-none opacity-50",
+          : "hover:-translate-y-0.5 hover:border-primary/20 hover:bg-muted/30",
       )}
     >
-      {/* Header: avatar + ticker + arrow */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <div
@@ -54,9 +52,9 @@ export function CompanyCard({ item }: CompanyCardProps) {
           >
             {initials}
           </div>
-          {item.ticker_b3 && (
+          {item.ticker_b3 ? (
             <span
-              className="rounded-[0.35rem] border font-mono text-[0.7rem] font-medium px-1.5 py-0.5"
+              className="rounded-[0.35rem] border px-1.5 py-0.5 font-mono text-[0.7rem] font-medium"
               style={{
                 background: `color-mix(in oklch, ${color} 10%, transparent)`,
                 borderColor: `color-mix(in oklch, ${color} 22%, transparent)`,
@@ -65,7 +63,7 @@ export function CompanyCard({ item }: CompanyCardProps) {
             >
               {item.ticker_b3}
             </span>
-          )}
+          ) : null}
         </div>
         <svg
           width="14"
@@ -85,23 +83,26 @@ export function CompanyCard({ item }: CompanyCardProps) {
         </svg>
       </div>
 
-      {/* Name + sector */}
       <div className="min-w-0 flex-1">
-        <p className="font-heading text-[0.95rem] font-medium leading-tight text-foreground line-clamp-2">
+        <p className="line-clamp-2 font-heading text-[0.95rem] font-medium leading-tight text-foreground">
           {item.company_name}
         </p>
-        {item.sector_name && (
+        {item.sector_name ? (
           <p className="mt-0.5 text-[0.75rem] text-muted-foreground">{item.sector_name}</p>
-        )}
+        ) : null}
+        {!hasData ? (
+          <p className="mt-2 text-[0.72rem] font-medium uppercase tracking-[0.18em] text-primary/80">
+            Disponivel on-demand
+          </p>
+        ) : null}
       </div>
 
-      {/* Metrics row */}
       <div className="grid grid-cols-3 divide-x divide-border/60 border-t border-border/60 pt-3">
         {(
           [
-            { label: "Receita", value: "—" },
-            { label: "YoY", value: "—" },
-            { label: "ROE", value: "—" },
+            { label: "Receita", value: "--" },
+            { label: "YoY", value: "--" },
+            { label: "ROE", value: "--" },
           ] as const
         ).map(({ label, value }) => (
           <div key={label} className="px-2 first:pl-0 last:pr-0">
@@ -115,8 +116,7 @@ export function CompanyCard({ item }: CompanyCardProps) {
         ))}
       </div>
 
-      {/* Sparkline */}
-      {sparkPts && (
+      {sparkPts ? (
         <div className="overflow-hidden rounded-[0.5rem]">
           <svg
             width="100%"
@@ -141,7 +141,7 @@ export function CompanyCard({ item }: CompanyCardProps) {
             />
           </svg>
         </div>
-      )}
+      ) : null}
     </Link>
   );
 }

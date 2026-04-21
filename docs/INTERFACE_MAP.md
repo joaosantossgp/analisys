@@ -38,10 +38,12 @@ pessoa que trabalhe em qualquer uma das duas areas deve atualizar este arquivo
 |---|---|---|
 | `GET /health` | - | Trust strip / sinal de saude da API |
 | `GET /companies` | `page=1&page_size=8` | Sugestoes rapidas de empresas na home |
+| `GET /companies/suggestions` | `q=`, `limit=` | Autocomplete com fallback para catalogo CVM |
 
-**Rota interna Next.js**:
-- `GET /api/company-search?q=<termo>` -> chama `GET /companies` com `search=q` e
-  retorna ate 6 itens para o autocomplete do hero.
+**Notas de implementacao**:
+- o hero consulta `GET /companies/suggestions` diretamente
+- quando a busca local nao encontra resultados suficientes, o autocomplete pode
+  complementar itens do catalogo CVM para abrir o detalhe on-demand
 
 ---
 
@@ -73,6 +75,8 @@ pessoa que trabalhe em qualquer uma das duas areas deve atualizar este arquivo
 | `GET /companies/{cd_cvm}/statements` | `stmt=DRE\|BPA\|BPP\|DFC`, `years=2023,2024` | Aba Demonstracoes |
 | `GET /companies/{cd_cvm}/kpis` | `years=2023,2024` | Aba Visao Geral |
 | `GET /companies/{cd_cvm}/export/excel` | - | Download do workbook Excel completo da empresa, sempre com todos os anos disponiveis |
+| `POST /companies/{cd_cvm}/request-refresh` | - | Dispara bootstrap/refresh on-demand da empresa |
+| `GET /refresh-status` | `cd_cvm=` | Polling do status de refresh na pagina sem dados |
 
 **Query params publicos da rota**: `?anos=2023,2024&aba=visao-geral\|demonstracoes&stmt=DRE\|BPA\|BPP\|DFC`
 
@@ -83,6 +87,8 @@ Notas de contrato:
 - `4Q` depende do anual `YYYY` combinado com a base trimestral do mesmo ano
 - no bundle de KPIs trimestrais, `4Q` e deduplicado contra `YYYY`; o periodo
   explicito permanece visivel na aba Demonstracoes
+- `GET /companies/{cd_cvm}` e `POST /companies/{cd_cvm}/request-refresh` podem
+  usar fallback de catalogo CVM quando a empresa ainda nao existe na base local
 
 ---
 
@@ -227,16 +233,18 @@ de produto. Nao consome endpoints de API.
 |---|---|
 | `GET /health` | `/` |
 | `GET /companies` | `/`, `/empresas`, `/comparar` |
+| `GET /companies/suggestions` | `/` |
 | `GET /companies/filters` | `/empresas` |
 | `GET /companies/{cd_cvm}` | `/empresas/[cd_cvm]`, `/comparar` |
 | `GET /companies/{cd_cvm}/years` | `/empresas/[cd_cvm]`, `/comparar` |
 | `GET /companies/{cd_cvm}/statements` | `/empresas/[cd_cvm]` |
 | `GET /companies/{cd_cvm}/kpis` | `/empresas/[cd_cvm]`, `/comparar` |
 | `GET /companies/{cd_cvm}/export/excel` | `/empresas/[cd_cvm]` |
+| `POST /companies/{cd_cvm}/request-refresh` | `/empresas/[cd_cvm]` |
 | `GET /companies/export/excel-batch` | `/comparar` |
 | `GET /sectors` | `/setores` |
 | `GET /sectors/{slug}` | `/setores/[slug]` |
-| `GET /refresh-status` | Nao consumido pelo frontend ainda |
+| `GET /refresh-status` | `/empresas/[cd_cvm]` |
 | `GET /base-health` | `/` (parcialmente, se trust strip expandir) |
 
 ---

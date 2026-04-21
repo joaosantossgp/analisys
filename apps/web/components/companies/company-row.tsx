@@ -30,24 +30,19 @@ export function CompanyRow({ item }: CompanyRowProps) {
   const anos = item.anos_disponiveis ?? [];
   const sparkPts = buildSparklinePoints(anos);
   const initials = (item.ticker_b3 ?? item.company_name).slice(0, 2).toUpperCase();
-  const yearsRange =
-    anos.length > 0 ? `${Math.min(...anos)}–${Math.max(...anos)}` : "—";
+  const yearsRange = anos.length > 0 ? `${Math.min(...anos)}-${Math.max(...anos)}` : "--";
 
   return (
     <Link
-      href={hasData ? `/empresas/${item.cd_cvm}` : "#"}
-      aria-disabled={!hasData}
+      href={`/empresas/${item.cd_cvm}`}
       className={cn(
         "group grid items-center gap-x-4 px-5 py-3 transition-colors",
         "[grid-template-columns:42px_minmax(0,1fr)_32px]",
         "sm:[grid-template-columns:42px_minmax(0,2fr)_minmax(0,1fr)_32px]",
         "lg:[grid-template-columns:42px_minmax(0,2.2fr)_minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,0.85fr)_32px]",
-        hasData
-          ? "cursor-pointer hover:bg-muted/40"
-          : "pointer-events-none opacity-50",
+        hasData ? "cursor-pointer hover:bg-muted/40" : "hover:bg-muted/25",
       )}
     >
-      {/* Sector avatar */}
       <div
         className="flex size-[42px] shrink-0 items-center justify-center rounded-[10px] font-heading text-sm font-semibold"
         style={{
@@ -59,15 +54,14 @@ export function CompanyRow({ item }: CompanyRowProps) {
         {initials}
       </div>
 
-      {/* Name + ticker + CVM */}
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="truncate font-medium text-[0.9rem] text-foreground">
+          <span className="truncate text-[0.9rem] font-medium text-foreground">
             {item.company_name}
           </span>
-          {item.ticker_b3 && (
+          {item.ticker_b3 ? (
             <span
-              className="shrink-0 rounded-[0.35rem] border font-mono text-[0.68rem] font-medium px-1.5 py-0.5"
+              className="shrink-0 rounded-[0.35rem] border px-1.5 py-0.5 font-mono text-[0.68rem] font-medium"
               style={{
                 background: `color-mix(in oklch, ${color} 10%, transparent)`,
                 borderColor: `color-mix(in oklch, ${color} 22%, transparent)`,
@@ -76,19 +70,20 @@ export function CompanyRow({ item }: CompanyRowProps) {
             >
               {item.ticker_b3}
             </span>
-          )}
+          ) : null}
+          {!hasData ? (
+            <span className="shrink-0 rounded-full border border-primary/20 bg-primary/8 px-2 py-0.5 text-[0.62rem] font-medium uppercase tracking-[0.14em] text-primary/80">
+              On-demand
+            </span>
+          ) : null}
         </div>
-        <p className="mt-0.5 text-[0.72rem] text-muted-foreground">
-          CVM {item.cd_cvm}
-        </p>
+        <p className="mt-0.5 text-[0.72rem] text-muted-foreground">CVM {item.cd_cvm}</p>
       </div>
 
-      {/* Sector — sm+ */}
       <p className="hidden truncate text-[0.82rem] text-muted-foreground sm:block">
-        {item.sector_name ?? "—"}
+        {item.sector_name ?? "--"}
       </p>
 
-      {/* Sparkline + range — lg+ */}
       <div className="hidden items-center gap-2 lg:flex">
         {sparkPts ? (
           <svg width={54} height={20} viewBox="0 0 54 20" aria-hidden className="shrink-0">
@@ -107,14 +102,12 @@ export function CompanyRow({ item }: CompanyRowProps) {
         </span>
       </div>
 
-      {/* Anos count — lg+ */}
       <div className="hidden text-right lg:block">
         <span className="font-mono text-[0.78rem] tabular-nums text-muted-foreground">
-          {anos.length > 0 ? `${anos.length} anos` : "—"}
+          {anos.length > 0 ? `${anos.length} anos` : "--"}
         </span>
       </div>
 
-      {/* Chevron */}
       <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
     </Link>
   );

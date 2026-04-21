@@ -16,6 +16,14 @@ from src.settings import AppSettings, build_settings
 API_TEST_DATABASE_URL_ENV = "API_TEST_DATABASE_URL"
 
 
+class _EmptyCompanyCatalog:
+    def lookup_company(self, cd_cvm: int):
+        return None
+
+    def search_companies(self, *, q: str, limit: int, exclude_codes=None):
+        return ()
+
+
 def _write_active_universe_cache(settings: AppSettings) -> None:
     settings.paths.cache_dir.mkdir(parents=True, exist_ok=True)
     payload = {
@@ -301,5 +309,6 @@ def api_settings(tmp_path: Path) -> AppSettings:
 @pytest.fixture
 def client(api_settings: AppSettings) -> TestClient:
     app = create_app(settings=api_settings)
+    app.state.read_service._company_catalog = _EmptyCompanyCatalog()
     with TestClient(app) as test_client:
         yield test_client

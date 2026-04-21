@@ -186,6 +186,9 @@ export function CompaniesDirectoryPageContent({
           viewMode={viewMode}
           hasActiveFilters={Boolean(currentSearch || currentSector)}
           clearHref={clearHref}
+          fallbackSuggestions={data.fallbackSuggestions?.items ?? []}
+          searchTerm={currentSearch}
+          showCatalogFallback={!currentSector}
         />
 
         <DirectoryPagination
