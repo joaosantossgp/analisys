@@ -6,9 +6,9 @@ import { CompanyDetailTracker } from "@/components/company/company-detail-tracke
 import { CompanyHeader } from "@/components/company/company-header";
 import { CompanyNoDataPage } from "@/components/company/company-no-data";
 import { CompanyOverview } from "@/components/company/company-overview";
+import { CompanyPeriodPreset } from "@/components/company/company-period-preset";
 import { CompanyStatementsLazy } from "@/components/company/company-statements-lazy";
 import { CompanyUrlTabs } from "@/components/company/company-url-tabs";
-import { CompanyYearSelector } from "@/components/company/company-year-selector";
 import {
   InfoChip,
   PageShell,
@@ -171,16 +171,11 @@ export default async function EmpresaDetailPage({
 
       <CompanyHeader company={company} selectedYears={selectedYears} />
 
-      <div className="flex flex-wrap items-center gap-3 px-1">
-        <span className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-          Periodo
-        </span>
-        <CompanyYearSelector
-          pathname={pathname}
-          availableYears={availableYears}
-          selectedYears={selectedYears}
-        />
-      </div>
+      <CompanyPeriodPreset
+        pathname={pathname}
+        availableYears={availableYears}
+        selectedYears={selectedYears}
+      />
 
       <CompanyUrlTabs
         pathname={pathname}

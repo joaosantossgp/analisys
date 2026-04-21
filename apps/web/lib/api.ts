@@ -848,3 +848,19 @@ export async function fetchRefreshStatus(
     },
   )) as RefreshStatusItem[];
 }
+
+export async function fetchCompanyFreshness(
+  cdCvm: number,
+): Promise<RefreshStatusItem | null> {
+  const items = (await apiFetch<RefreshStatusItem[]>(
+    `/refresh-status${buildQuery({ cd_cvm: cdCvm })}`,
+    {
+      request: UNCACHED_API_READ,
+      validate: isRefreshStatusList,
+      invalidResponseMessage:
+        "A API retornou um status invalido para a companhia.",
+    },
+  )) as RefreshStatusItem[];
+
+  return items[0] ?? null;
+}
