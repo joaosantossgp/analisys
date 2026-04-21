@@ -1,10 +1,11 @@
 "use client";
 
-import { startTransition, useState } from "react";
+import { startTransition, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { CompanyYearSelector } from "@/components/company/company-year-selector";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { resolveCompanyPeriodRange } from "@/lib/company-period-range";
 import { mergeSearchParams, serializeYears } from "@/lib/search-params";
 import { track } from "@/lib/track";
 
@@ -78,6 +79,123 @@ function resolvePresetYears(
   }
 }
 
+type CustomCompanyPeriodRangeProps = {
+  pathname: string;
+  availableYears: number[];
+  selectedYears: number[];
+};
+
+function CustomCompanyPeriodRange({
+  pathname,
+  availableYears,
+  selectedYears,
+}: CustomCompanyPeriodRangeProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [fromInput, setFromInput] = useState(String(selectedYears[0] ?? ""));
+  const [toInput, setToInput] = useState(String(selectedYears.at(-1) ?? ""));
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const resolution = resolveCompanyPeriodRange(
+      availableYears,
+      fromInput,
+      toInput,
+    );
+
+    if (!resolution.ok) {
+      setErrorMessage(resolution.error);
+      return;
+    }
+
+    setErrorMessage(null);
+
+    if (arraysEqual(resolution.years, selectedYears)) {
+      return;
+    }
+
+    const query = mergeSearchParams(searchParams.toString(), {
+      anos: serializeYears(resolution.years),
+    });
+
+    track("company_years_changed", {
+      years: resolution.years.join(","),
+      preset: "custom",
+      range_from: fromInput.trim(),
+      range_to: toInput.trim(),
+    });
+
+    startTransition(() => {
+      router.push(`${pathname}?${query}`);
+    });
+  }
+
+  return (
+    <form
+      className="rounded-[1.25rem] border border-border/60 bg-muted/20 p-4"
+      onSubmit={handleSubmit}
+    >
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
+        <label className="space-y-2">
+          <span className="text-[0.72rem] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            De:
+          </span>
+          <Input
+            value={fromInput}
+            onChange={(event) => {
+              setFromInput(event.target.value);
+              if (errorMessage) {
+                setErrorMessage(null);
+              }
+            }}
+            placeholder="2021 ou 2021 3T"
+            inputMode="text"
+            aria-invalid={errorMessage ? "true" : undefined}
+          />
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-[0.72rem] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            Até:
+          </span>
+          <Input
+            value={toInput}
+            onChange={(event) => {
+              setToInput(event.target.value);
+              if (errorMessage) {
+                setErrorMessage(null);
+              }
+            }}
+            placeholder="2024 ou 2024T1"
+            inputMode="text"
+            aria-invalid={errorMessage ? "true" : undefined}
+          />
+        </label>
+
+        <Button type="submit" size="sm" className="rounded-full px-4">
+          Aplicar
+        </Button>
+      </div>
+
+      <div className="mt-3 flex flex-col gap-1 text-xs">
+        <p className="text-muted-foreground">
+          Aceita ano e trimestre nos formatos 2022, 2022T3 e 2022 3T.
+        </p>
+        <p className="text-muted-foreground/80">
+          O detalhe continua usando os anos cobertos pelo intervalo informado.
+        </p>
+        {errorMessage ? (
+          <p className="text-destructive" role="alert">
+            {errorMessage}
+          </p>
+        ) : null}
+      </div>
+    </form>
+  );
+}
+
 export function CompanyPeriodPreset({
   pathname,
   availableYears,
@@ -148,7 +266,8 @@ export function CompanyPeriodPreset({
 
       {activePreset === "custom" ? (
         <div className="px-1">
-          <CompanyYearSelector
+          <CustomCompanyPeriodRange
+            key={selectedYears.join(",")}
             pathname={pathname}
             availableYears={availableYears}
             selectedYears={selectedYears}
