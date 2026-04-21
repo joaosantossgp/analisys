@@ -5,6 +5,7 @@ import {
   ApiClientError,
   fetchCompanies,
   fetchCompanyFilters,
+  fetchCompanySuggestions,
   fetchSectorDetail,
   fetchRefreshStatus,
   getUserFacingErrorCopy,
@@ -101,6 +102,34 @@ test("fetchCompanyFilters opts into the backend-aligned revalidate window", asyn
 
     assert.equal(capturedInit?.cache, undefined);
     assert.deepEqual(capturedInit?.next, { revalidate: 3600 });
+  } finally {
+    restore();
+  }
+});
+
+test("fetchCompanySuggestions opts into the backend-aligned revalidate window", async () => {
+  let capturedInit: RequestInit | undefined;
+  const restore = withFetchMock((async (_input, init) => {
+    capturedInit = init;
+
+    return new Response(
+      JSON.stringify({
+        items: [],
+      }),
+      {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+        },
+      },
+    );
+  }) as FetchMock);
+
+  try {
+    await fetchCompanySuggestions("itub4", 6);
+
+    assert.equal(capturedInit?.cache, undefined);
+    assert.deepEqual(capturedInit?.next, { revalidate: 60 });
   } finally {
     restore();
   }

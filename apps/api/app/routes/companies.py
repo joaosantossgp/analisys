@@ -5,7 +5,7 @@ from fastapi.responses import Response
 
 from apps.api.app.dependencies import (
     InvalidRequestError,
-    NotFoundError,
+    ServiceUnavailableError,
     company_ids_dependency,
     coerce_company,
     ensure_api_ready,
@@ -33,6 +33,7 @@ from apps.api.app.presenters import (
     present_statement,
     present_statement_summary,
 )
+from src.company_catalog import CompanyCatalogUnavailableError
 from src.read_service import CVMReadService
 
 router = APIRouter(tags=["companies"])
@@ -149,7 +150,10 @@ def request_company_refresh(
     service: CVMReadService = Depends(get_read_service),
 ) -> RefreshDispatchPayload:
     ensure_api_ready(get_settings(request))
-    result = service.request_company_refresh(cd_cvm)
+    try:
+        result = service.request_company_refresh(cd_cvm)
+    except CompanyCatalogUnavailableError as exc:
+        raise ServiceUnavailableError(str(exc)) from exc
     if result == "already_queued":
         raise HTTPException(status_code=429, detail={"code": "refresh_already_queued"})
     return RefreshDispatchPayload(status=result, cd_cvm=cd_cvm)
@@ -192,9 +196,7 @@ def get_company(
     service: CVMReadService = Depends(get_read_service),
 ) -> CompanyInfoPayload:
     ensure_api_ready(get_settings(request))
-    info = service.get_company_info(cd_cvm)
-    if info is None:
-        raise NotFoundError(f"Empresa {cd_cvm} nao encontrada.")
+    info = coerce_company(cd_cvm, service)
     _apply_cache_headers(response, COMPANY_INFO_CACHE_CONTROL)
     return present_company_info(info)
 

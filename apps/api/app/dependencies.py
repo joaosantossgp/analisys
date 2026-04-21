@@ -5,6 +5,7 @@ from typing import Iterable
 
 from fastapi import HTTPException, Query, Request, status
 
+from src.company_catalog import CompanyCatalogUnavailableError
 from src.read_service import CVMReadService
 from src.settings import AppSettings
 from src.startup import StartupReport, collect_startup_report
@@ -177,9 +178,16 @@ def limit_dependency(
     return int(limit)
 
 
-def coerce_company(cd_cvm: int, service: CVMReadService) -> None:
-    if service.get_company_info(cd_cvm) is None:
+def coerce_company(cd_cvm: int, service: CVMReadService):
+    try:
+        company = service.get_company_info(cd_cvm)
+    except CompanyCatalogUnavailableError as exc:
+        raise ServiceUnavailableError(
+            "Nao foi possivel consultar o catalogo CVM agora."
+        ) from exc
+    if company is None:
         raise NotFoundError(f"Empresa {cd_cvm} nao encontrada.")
+    return company
 
 
 def serialize_error(exc: ApiError) -> dict[str, dict[str, str]]:

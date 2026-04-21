@@ -11,7 +11,43 @@ import pytest
 from fastapi.testclient import TestClient
 
 from apps.api.app.main import create_app
+from src.company_catalog import CompanyCatalogEntry
 from src.settings import build_settings
+
+
+class StaticCompanyCatalog:
+    def __init__(self, *entries: CompanyCatalogEntry):
+        self.entries = tuple(entries)
+        self.by_cd_cvm = {entry.cd_cvm: entry for entry in entries}
+
+    def lookup_company(self, cd_cvm: int) -> CompanyCatalogEntry | None:
+        return self.by_cd_cvm.get(int(cd_cvm))
+
+    def search_companies(
+        self,
+        *,
+        q: str,
+        limit: int,
+        exclude_codes=None,
+    ) -> tuple[CompanyCatalogEntry, ...]:
+        normalized = str(q or "").strip().lower()
+        excluded = set(exclude_codes or set())
+        if not normalized:
+            return ()
+
+        matches = []
+        for entry in self.entries:
+            if entry.cd_cvm in excluded:
+                continue
+            haystacks = [
+                entry.company_name.lower(),
+                (entry.nome_comercial or "").lower(),
+                (entry.ticker_b3 or "").lower(),
+                str(entry.cd_cvm),
+            ]
+            if any(normalized in value for value in haystacks):
+                matches.append(entry)
+        return tuple(matches[: int(limit)])
 
 
 def test_health_returns_ok_payload(client: TestClient):
@@ -272,6 +308,34 @@ def test_company_suggestions_returns_empty_for_no_match(client: TestClient):
     assert response.json()["items"] == []
 
 
+def test_company_suggestions_fall_back_to_catalog_when_local_matches_are_missing(
+    client: TestClient,
+):
+    client.app.state.read_service._company_catalog = StaticCompanyCatalog(
+        CompanyCatalogEntry(
+            cd_cvm=19348,
+            company_name="ITAU UNIBANCO HOLDING S.A.",
+            nome_comercial="Itau Unibanco",
+            cnpj="60.872.504/0001-23",
+            setor_cvm="Financeiro",
+            ticker_b3="ITUB4",
+            is_active=True,
+        )
+    )
+
+    response = client.get("/companies/suggestions", params={"q": "itub4"})
+
+    assert response.status_code == 200
+    assert response.json()["items"] == [
+        {
+            "cd_cvm": 19348,
+            "company_name": "ITAU UNIBANCO HOLDING S.A.",
+            "ticker_b3": "ITUB4",
+            "sector_slug": "financeiro",
+        }
+    ]
+
+
 def test_company_suggestions_rejects_limit_above_max(client: TestClient):
     response = client.get("/companies/suggestions", params={"limit": 21})
 
@@ -383,6 +447,59 @@ def test_request_refresh_returns_202_dispatch_failed_without_github_token(client
     payload = response.json()
     assert payload["cd_cvm"] == 9512
     assert payload["status"] == "dispatch_failed"
+
+
+def test_request_refresh_bootstraps_unknown_local_company_from_catalog(
+    client: TestClient,
+):
+    from sqlalchemy import text as sa_text
+
+    client.app.state.read_service._company_catalog = StaticCompanyCatalog(
+        CompanyCatalogEntry(
+            cd_cvm=19348,
+            company_name="ITAU UNIBANCO HOLDING S.A.",
+            nome_comercial="Itau Unibanco",
+            cnpj="60.872.504/0001-23",
+            setor_cvm="Financeiro",
+            ticker_b3="ITUB4",
+            is_active=True,
+        )
+    )
+
+    response = client.post("/companies/19348/request-refresh")
+
+    assert response.status_code == 202
+    payload = response.json()
+    assert payload["cd_cvm"] == 19348
+    assert payload["status"] == "dispatch_failed"
+
+    engine = client.app.state.read_service.engine
+    with engine.connect() as conn:
+        company_row = conn.execute(
+            sa_text(
+                """
+                SELECT company_name, nome_comercial, setor_cvm, ticker_b3
+                FROM companies
+                WHERE cd_cvm = 19348
+                """
+            )
+        ).mappings().one()
+        refresh_row = conn.execute(
+            sa_text(
+                """
+                SELECT source_scope, last_status
+                FROM company_refresh_status
+                WHERE cd_cvm = 19348
+                """
+            )
+        ).mappings().one()
+
+    assert company_row["company_name"] == "ITAU UNIBANCO HOLDING S.A."
+    assert company_row["nome_comercial"] == "Itau Unibanco"
+    assert company_row["setor_cvm"] == "Financeiro"
+    assert company_row["ticker_b3"] == "ITUB4"
+    assert refresh_row["source_scope"] == "on_demand_bootstrap"
+    assert refresh_row["last_status"] == "dispatch_failed"
 
 
 def test_request_refresh_returns_404_for_unknown_company(client: TestClient):
@@ -520,6 +637,32 @@ def test_company_detail_returns_metadata(client: TestClient):
     assert payload["sector_slug"] == "energia"
 
 
+def test_company_detail_uses_catalog_fallback_for_unknown_local_company(
+    client: TestClient,
+):
+    client.app.state.read_service._company_catalog = StaticCompanyCatalog(
+        CompanyCatalogEntry(
+            cd_cvm=19348,
+            company_name="ITAU UNIBANCO HOLDING S.A.",
+            nome_comercial="Itau Unibanco",
+            cnpj="60.872.504/0001-23",
+            setor_cvm="Financeiro",
+            ticker_b3="ITUB4",
+            is_active=True,
+        )
+    )
+
+    response = client.get("/companies/19348")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["company_name"] == "ITAU UNIBANCO HOLDING S.A."
+    assert payload["nome_comercial"] == "Itau Unibanco"
+    assert payload["sector_name"] == "Financeiro"
+    assert payload["sector_slug"] == "financeiro"
+    assert payload["ticker_b3"] == "ITUB4"
+
+
 def test_company_detail_uses_sector_fallback_when_analytical_sector_is_missing(client: TestClient):
     response = client.get("/companies/11223")
 
@@ -546,6 +689,27 @@ def test_company_years_returns_sorted_values(client: TestClient):
 
 def test_company_years_returns_empty_list_when_company_has_no_reports(client: TestClient):
     response = client.get("/companies/77889/years")
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_company_years_return_empty_list_for_catalog_company_without_local_reports(
+    client: TestClient,
+):
+    client.app.state.read_service._company_catalog = StaticCompanyCatalog(
+        CompanyCatalogEntry(
+            cd_cvm=19348,
+            company_name="ITAU UNIBANCO HOLDING S.A.",
+            nome_comercial="Itau Unibanco",
+            cnpj="60.872.504/0001-23",
+            setor_cvm="Financeiro",
+            ticker_b3="ITUB4",
+            is_active=True,
+        )
+    )
+
+    response = client.get("/companies/19348/years")
 
     assert response.status_code == 200
     assert response.json() == []

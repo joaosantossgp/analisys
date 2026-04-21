@@ -75,6 +75,50 @@ test("loadCompaniesPageData keeps the directory when filters fail", async () => 
   assert.match(result.filtersError ?? "", /A API da V2 nao conseguiu concluir esta solicitacao agora/i);
 });
 
+test("loadCompaniesPageData keeps catalog fallback suggestions for empty local search results", async () => {
+  const result = await loadCompaniesPageData(
+    {
+      search: "itub4",
+      sector: null,
+      page: 1,
+      pageSize: 20,
+    },
+    {
+      fetchDirectory: async () => ({
+        items: [],
+        pagination: {
+          page: 1,
+          page_size: 20,
+          total_items: 0,
+          total_pages: 1,
+          has_next: false,
+          has_previous: false,
+        },
+        applied_filters: {
+          search: "itub4",
+          sector: null,
+        },
+      }),
+      fetchFilters: async () => ({ sectors: [] }),
+      fetchFallbackSuggestions: async () => ({
+        items: [
+          {
+            cd_cvm: 19348,
+            company_name: "ITAU UNIBANCO HOLDING S.A.",
+            ticker_b3: "ITUB4",
+            sector_slug: "financeiro",
+          },
+        ],
+      }),
+    },
+  );
+
+  assert.equal(result.directory?.items.length, 0);
+  assert.equal(result.fallbackSuggestions?.items.length, 1);
+  assert.equal(result.fallbackSuggestions?.items[0]?.cd_cvm, 19348);
+  assert.equal(result.fallbackSuggestionsError, null);
+});
+
 test("readCompaniesDirectoryQuery normalizes search params for the client loader", () => {
   const query = new URLSearchParams("busca=%20PETR4%20&setor=energia&pagina=0&view=cards");
 

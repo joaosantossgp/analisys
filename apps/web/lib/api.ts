@@ -44,6 +44,10 @@ export type CompanySuggestionItem = {
   sector_slug: string;
 };
 
+export type CompanySuggestionsResponse = {
+  items: CompanySuggestionItem[];
+};
+
 export type CompanySectorFilter = {
   sector_name: string;
   sector_slug: string;
@@ -217,6 +221,9 @@ const COMPANY_DIRECTORY_API_READ: ApiReadRequestInit = {
 const COMPANY_FILTERS_API_READ: ApiReadRequestInit = {
   next: { revalidate: 3600 },
 };
+const COMPANY_SUGGESTIONS_API_READ: ApiReadRequestInit = {
+  next: { revalidate: 60 },
+};
 const COMPANY_INFO_API_READ: ApiReadRequestInit = {
   next: { revalidate: 3600 },
 };
@@ -308,6 +315,21 @@ function isCompanyFiltersResponse(value: unknown): value is CompanyFiltersRespon
   return (
     isRecord(value) &&
     Array.isArray(value.sectors)
+  );
+}
+
+function isCompanySuggestionsResponse(value: unknown): value is CompanySuggestionsResponse {
+  return (
+    isRecord(value) &&
+    Array.isArray(value.items) &&
+    value.items.every(
+      (item) =>
+        isRecord(item) &&
+        typeof item.cd_cvm === "number" &&
+        typeof item.company_name === "string" &&
+        isNullableString(item.ticker_b3) &&
+        typeof item.sector_slug === "string",
+    )
   );
 }
 
@@ -741,6 +763,20 @@ export async function fetchCompanyFilters(): Promise<CompanyFiltersResponse> {
       invalidResponseMessage: "A API retornou filtros de empresas invalidos.",
     },
   )) as CompanyFiltersResponse;
+}
+
+export async function fetchCompanySuggestions(
+  q: string,
+  limit = 6,
+): Promise<CompanySuggestionsResponse> {
+  return (await apiFetch<CompanySuggestionsResponse>(
+    `/companies/suggestions${buildQuery({ q, limit })}`,
+    {
+      request: COMPANY_SUGGESTIONS_API_READ,
+      validate: isCompanySuggestionsResponse,
+      invalidResponseMessage: "A API retornou sugestoes de empresas invalidas.",
+    },
+  )) as CompanySuggestionsResponse;
 }
 
 export async function fetchSectorDirectory(): Promise<SectorDirectory> {

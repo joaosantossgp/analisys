@@ -75,7 +75,7 @@ Resposta exemplo:
 ```
 
 Regras do endpoint:
-- retorna apenas empresas que possuem dados em `financial_reports`
+- retorna empresas da tabela local `companies`, inclusive companhias ainda sem demonstracoes financeiras processadas
 - ordena por `company_name ASC`
 - `sector` usa slug canonico estavel, nao label livre
 - `anos_disponiveis` e montado de forma portavel na camada de leitura
@@ -152,10 +152,32 @@ Resposta exemplo:
 Regras do endpoint:
 - payload retorna apenas `cd_cvm`, `company_name`, `ticker_b3`, `sector_slug` — sem `anos_disponiveis`, `has_financial_data`, nem metricas de cobertura
 - `ticker_b3` e `null` quando a empresa nao possui ticker cadastrado
+- quando a busca local nao encontra resultados suficientes, o endpoint pode complementar as sugestoes com itens validos do catalogo remoto da CVM
 - resposta vazia (`items: []`) quando nenhuma empresa corresponde a `q`; nunca 404
 - headers de cache:
   - `Cache-Control: public, max-age=60, stale-while-revalidate=300`
   - `Vary: Origin`
+
+### `POST /companies/{cd_cvm}/request-refresh`
+
+Uso:
+- dispara ingestao on-demand para uma companhia especifica
+- quando o `cd_cvm` ainda nao existe na tabela local `companies`, o backend pode bootstrapar o metadata a partir do catalogo remoto da CVM antes de enfileirar o workflow
+
+Resposta exemplo:
+
+```json
+{
+  "status": "dispatched",
+  "cd_cvm": 19348
+}
+```
+
+Regras do endpoint:
+- `202` quando o dispatch foi tentado (`dispatched` ou `dispatch_failed`)
+- `429` quando ja existe uma execucao recente em fila para o mesmo `cd_cvm`
+- `404` apenas quando o `cd_cvm` nao existe no catalogo consultado
+- `503` quando o catalogo remoto precisa ser consultado mas esta indisponivel
 
 ### `GET /sectors`
 
@@ -260,6 +282,7 @@ Resposta exemplo:
 ```
 
 Regras do endpoint:
+- quando a empresa nao existe na tabela local `companies`, o backend pode usar o catalogo remoto da CVM como fallback de metadata
 - headers de cache:
   - `Cache-Control: public, max-age=3600`
   - `Vary: Origin`
@@ -278,7 +301,7 @@ Headers principais:
 - `Content-Disposition: attachment; filename="<ticker-ou-cvm>_<yyyymmdd>.xlsx"`
 
 Regras do endpoint:
-- `404` para empresa inexistente
+- `404` para `cd_cvm` inexistente no catalogo consultado
 - `422` para empresa existente sem anos exportaveis
 - o workbook e gerado no dominio Python (`src/read_service.py` +
   `src/excel_exporter.py`), nao na camada HTTP
@@ -315,6 +338,7 @@ Resposta:
 Regras do endpoint:
 - retorna apenas anos anuais exportaveis
 - usa `PERIOD_LABEL = REPORT_YEAR` como criterio de disponibilidade
+- empresa valida sem dados anuais locais retorna `[]` em vez de `404`
 - headers de cache:
   - `Cache-Control: public, max-age=86400, stale-while-revalidate=604800`
   - `Vary: Origin`
@@ -358,6 +382,7 @@ Resposta exemplo:
 Regras do endpoint:
 - aceita anos anuais no filtro `years`, mas a matriz pode expor colunas
   trimestrais quando elas existirem para os anos solicitados
+- empresa valida sem dados locais pode retornar tabela vazia; `404` fica reservado a `cd_cvm` inexistente
 - headers de cache:
   - `Cache-Control: public, max-age=600`
   - `Vary: Origin`
@@ -399,6 +424,7 @@ Resposta exemplo:
 Regras do endpoint:
 - `annual` usa somente `PERIOD_LABEL = REPORT_YEAR`
 - `quarterly` pode usar periodos trimestrais dos anos solicitados
+- empresa valida sem dados locais pode retornar tabelas vazias; `404` fica reservado a `cd_cvm` inexistente
 - headers de cache:
   - `Cache-Control: public, max-age=600`
   - `Vary: Origin`
@@ -449,6 +475,7 @@ Regras do endpoint:
 - cada bloco expoe apenas linhas de resumo condensado (codigos subtotais e filhos diretos selecionados)
 - `IS_SUBTOTAL` e `true` para codigos marcados como subtotais em cada demonstracao
 - se nenhuma demonstracao tiver dados, `blocks` retorna `[]` (nao e erro)
+- `404` fica reservado a `cd_cvm` inexistente; empresa valida sem dados locais retorna `blocks: []`
 - `years` no response reflete exatamente os anos solicitados, ordenados ascendente
 
 ### `GET /refresh-status?cd_cvm=`
