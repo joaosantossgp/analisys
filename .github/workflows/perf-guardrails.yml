@@ -1,0 +1,49 @@
+name: Perf Guardrails
+
+on:
+  push:
+    branches:
+      - main
+      - "task/**"
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+
+jobs:
+  perf-guardrails:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install root dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Install API dependencies
+        run: python -m pip install -r apps/api/requirements-dev.txt
+
+      - name: Install web dependencies
+        run: npm ci --prefix apps/web
+
+      - name: Run performance guardrails
+        run: >
+          python scripts/perf_guardrail.py check
+          --baseline docs/perf/performance_baseline.json
+          --report perf-guardrail-report.json
+
+      - name: Upload guardrail report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-guardrail-report
+          path: perf-guardrail-report.json
