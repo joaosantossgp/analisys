@@ -209,7 +209,7 @@ def test_companies_pagination_respects_page_and_page_size(client: TestClient):
         "has_previous": True,
     }
     assert len(payload["items"]) == 1
-    assert payload["items"][0]["company_name"] == "SABESP"
+    assert payload["items"][0]["company_name"] == "VALE"
 
 
 def test_companies_sector_filter_uses_canonical_slug(client: TestClient):
@@ -300,6 +300,33 @@ def test_company_suggestions_respects_limit(client: TestClient):
 
     assert response.status_code == 200
     assert len(response.json()["items"]) <= 2
+
+
+def test_company_suggestions_can_limit_to_ready_companies(client: TestClient):
+    response = client.get("/companies/suggestions", params={"ready_only": "true"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["items"] == [
+        {
+            "cd_cvm": 9512,
+            "company_name": "PETROBRAS",
+            "ticker_b3": "PETR4",
+            "sector_slug": "energia",
+        },
+        {
+            "cd_cvm": 11223,
+            "company_name": "SABESP",
+            "ticker_b3": "SBSP3",
+            "sector_slug": "saneamento",
+        },
+        {
+            "cd_cvm": 4170,
+            "company_name": "VALE",
+            "ticker_b3": "VALE3",
+            "sector_slug": "materiais-basicos",
+        },
+    ]
 
 
 def test_company_suggestions_returns_empty_for_no_match(client: TestClient):
@@ -453,6 +480,9 @@ def test_request_refresh_returns_202_and_enqueues_internal_job(client: TestClien
     assert isinstance(payload["job_id"], str) and payload["job_id"]
     assert isinstance(payload["accepted_at"], str)
     assert "enfileirada" in payload["message"].lower()
+    assert payload["status_reason_code"] == "refresh_queued"
+    assert "aguardando processamento interno" in payload["status_reason_message"].lower()
+    assert payload["is_retry_allowed"] is False
 
     engine = client.app.state.read_service.engine
     with engine.connect() as conn:
@@ -594,6 +624,9 @@ def test_request_refresh_returns_already_current_without_creating_job(
     assert payload["status"] == "already_current"
     assert payload["job_id"] is None
     assert "ja atualizada" in payload["message"].lower()
+    assert payload["status_reason_code"] == "already_current"
+    assert "ja estava atualizada" in payload["status_reason_message"].lower()
+    assert payload["is_retry_allowed"] is False
 
     with engine.connect() as conn:
         queued_jobs = conn.execute(
@@ -1023,6 +1056,15 @@ def test_refresh_status_returns_operational_rows(client: TestClient):
     assert payload[0]["queue_position"] is None
     assert payload[0]["estimated_progress_pct"] is None
     assert payload[0]["estimated_eta_seconds"] is None
+    assert payload[0]["tracking_state"] == "success"
+    assert payload[0]["progress_mode"] == "none"
+    assert payload[0]["is_retry_allowed"] is False
+    assert payload[0]["status_reason_code"] == "refresh_completed"
+    assert payload[0]["status_reason_message"] == "Dados prontos para leitura nesta pagina."
+    assert payload[0]["has_readable_current_data"] is True
+    assert payload[0]["readable_years_count"] == 2
+    assert payload[0]["latest_attempt_outcome"] == "success"
+    assert payload[0]["source_label"] == "Base local materializada"
 
 
 def test_refresh_status_exposes_terminal_no_data_state(client: TestClient):
@@ -1060,6 +1102,18 @@ def test_refresh_status_exposes_terminal_no_data_state(client: TestClient):
     assert payload[0]["progress_message"] == "Nenhuma demonstracao encontrada para 2010-2025."
     assert payload[0]["finished_at"] == "2026-04-21T12:01:00+00:00"
     assert payload[0]["estimated_progress_pct"] is None
+    assert payload[0]["tracking_state"] == "no_data"
+    assert payload[0]["progress_mode"] == "none"
+    assert payload[0]["is_retry_allowed"] is True
+    assert payload[0]["status_reason_code"] == "no_new_financial_history"
+    assert (
+        payload[0]["status_reason_message"]
+        == "A ultima tentativa nao encontrou novos demonstrativos, mas a leitura atual continua disponivel."
+    )
+    assert payload[0]["has_readable_current_data"] is True
+    assert payload[0]["readable_years_count"] == 1
+    assert payload[0]["latest_attempt_outcome"] == "no_data"
+    assert payload[0]["source_label"] == "Solicitacao on-demand"
 
 
 def test_refresh_status_returns_real_progress_fields_for_active_refresh(client: TestClient):
@@ -1199,6 +1253,59 @@ def test_refresh_status_returns_real_progress_fields_for_active_refresh(client: 
                 },
             ],
         )
+        conn.execute(
+            sa_text(
+                """
+                INSERT INTO refresh_jobs (
+                    id,
+                    cd_cvm,
+                    company_name,
+                    source_scope,
+                    start_year,
+                    end_year,
+                    state,
+                    stage,
+                    requested_at,
+                    started_at,
+                    heartbeat_at,
+                    progress_current,
+                    progress_total,
+                    progress_message
+                ) VALUES (
+                    :id,
+                    :cd_cvm,
+                    :company_name,
+                    :source_scope,
+                    :start_year,
+                    :end_year,
+                    :state,
+                    :stage,
+                    :requested_at,
+                    :started_at,
+                    :heartbeat_at,
+                    :progress_current,
+                    :progress_total,
+                    :progress_message
+                )
+                """
+            ),
+            {
+                "id": "job-active-vale",
+                "cd_cvm": 4170,
+                "company_name": "VALE",
+                "source_scope": "on_demand",
+                "start_year": 2010,
+                "end_year": 2024,
+                "state": "running",
+                "stage": "download_extract",
+                "requested_at": started_at,
+                "started_at": started_at,
+                "heartbeat_at": now_iso,
+                "progress_current": 9,
+                "progress_total": 20,
+                "progress_message": "Download concluido para DFP/2018.",
+            },
+        )
 
     response = client.get("/refresh-status", params={"cd_cvm": 4170})
 
@@ -1218,6 +1325,18 @@ def test_refresh_status_returns_real_progress_fields_for_active_refresh(client: 
     assert payload[0]["elapsed_seconds"] >= 240
     assert payload[0]["estimated_completion_at"] is not None
     assert payload[0]["estimate_confidence"] == "high"
+    assert payload[0]["tracking_state"] == "running"
+    assert payload[0]["progress_mode"] == "real_progress"
+    assert payload[0]["is_retry_allowed"] is False
+    assert payload[0]["status_reason_code"] == "refresh_running"
+    assert (
+        payload[0]["status_reason_message"]
+        == "Os demonstrativos desta companhia estao sendo atualizados agora."
+    )
+    assert payload[0]["has_readable_current_data"] is True
+    assert payload[0]["readable_years_count"] == 1
+    assert payload[0]["latest_attempt_outcome"] == "queued"
+    assert payload[0]["source_label"] == "Solicitacao on-demand"
 
 
 def test_base_health_returns_snapshot(client: TestClient):

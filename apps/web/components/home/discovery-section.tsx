@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { TrendingUpIcon, TrendingDownIcon, ArrowRightIcon } from "lucide-react";
+import { ArrowRightIcon, TrendingDownIcon, TrendingUpIcon } from "lucide-react";
 
 import type { CompanyDirectoryItem } from "@/lib/api";
+import { getCompanyAvailability } from "@/lib/company-discovery";
 import { SECTOR_COLOR, getSectorColor } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
@@ -39,6 +40,9 @@ function CompanyCard({ co }: { co: CompanyDirectoryItem }) {
   const color = getSectorColor(co.sector_name);
   const anos = co.anos_disponiveis ?? [];
   const sparkPts = buildSparkPoints(anos);
+  const availability = getCompanyAvailability(co);
+  const historyLabel =
+    anos.length > 0 ? `${Math.min(...anos)}-${Math.max(...anos)}` : availability.yearsLabel;
 
   return (
     <Link
@@ -47,24 +51,39 @@ function CompanyCard({ co }: { co: CompanyDirectoryItem }) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <div
-            className="mb-2 inline-block font-mono text-[0.7rem] font-medium px-1.5 py-0.5 rounded-[0.35rem]"
-            style={{
-              background: `color-mix(in oklch, ${color} 12%, transparent)`,
-              border: `1px solid color-mix(in oklch, ${color} 25%, transparent)`,
-              color,
-            }}
-          >
-            {co.ticker_b3 ?? `CVM ${co.cd_cvm}`}
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <div
+              className="inline-block rounded-[0.35rem] px-1.5 py-0.5 font-mono text-[0.7rem] font-medium"
+              style={{
+                background: `color-mix(in oklch, ${color} 12%, transparent)`,
+                border: `1px solid color-mix(in oklch, ${color} 25%, transparent)`,
+                color,
+              }}
+            >
+              {co.ticker_b3 ?? `CVM ${co.cd_cvm}`}
+            </div>
+            <span
+              className={cn(
+                "rounded-full border px-2 py-0.5 text-[0.62rem] font-medium uppercase tracking-[0.14em]",
+                availability.kind === "ready"
+                  ? "border-emerald-500/20 bg-emerald-500/8 text-emerald-700 dark:text-emerald-300"
+                  : "border-primary/20 bg-primary/8 text-primary/80",
+              )}
+            >
+              {availability.badge}
+            </span>
           </div>
-          <p className="font-semibold text-[0.95rem] text-foreground line-clamp-1">
+          <p className="line-clamp-1 text-[0.95rem] font-semibold text-foreground">
             {co.company_name}
           </p>
-          {co.sector_name && (
+          {co.sector_name ? (
             <p className="mt-0.5 text-[0.75rem] text-muted-foreground">{co.sector_name}</p>
-          )}
+          ) : null}
+          <p className="mt-2 text-[0.78rem] leading-6 text-muted-foreground">
+            {availability.detail}
+          </p>
         </div>
-        {sparkPts && (
+        {sparkPts ? (
           <svg
             width={70}
             height={32}
@@ -87,21 +106,19 @@ function CompanyCard({ co }: { co: CompanyDirectoryItem }) {
               strokeLinejoin="round"
             />
           </svg>
-        )}
+        ) : null}
       </div>
       <div className="flex items-end justify-between border-t border-dashed border-border/60 pt-3">
         <div>
           <p className="text-[0.65rem] uppercase tracking-[0.15em] text-muted-foreground">
-            Dados disponíveis
+            Historico local
           </p>
           <p className="mt-0.5 font-mono text-sm font-medium text-foreground tabular-nums">
-            {anos.length > 0
-              ? `${Math.min(...anos)}–${Math.max(...anos)}`
-              : "—"}
+            {historyLabel}
           </p>
         </div>
-        <div className="flex items-center gap-1 text-[0.8rem] font-medium text-muted-foreground group-hover:text-primary transition-colors">
-          <span>{anos.length} anos</span>
+        <div className="flex items-center gap-1 text-[0.8rem] font-medium text-muted-foreground transition-colors group-hover:text-primary">
+          <span>{availability.summary}</span>
           <ArrowRightIcon className="size-3.5" />
         </div>
       </div>
@@ -113,6 +130,7 @@ function DestaquCard({ co, rank }: { co: CompanyDirectoryItem; rank: number }) {
   const color = getSectorColor(co.sector_name);
   const anos = co.anos_disponiveis ?? [];
   const sparkPts = buildSparkPoints(anos, 54, 22);
+  const availability = getCompanyAvailability(co);
   const isTop = rank < 3;
 
   return (
@@ -125,7 +143,7 @@ function DestaquCard({ co, rank }: { co: CompanyDirectoryItem; rank: number }) {
         {rank}
       </span>
       <span
-        className="shrink-0 font-mono text-[0.7rem] font-medium px-1.5 py-0.5 rounded-[0.35rem]"
+        className="shrink-0 rounded-[0.35rem] px-1.5 py-0.5 font-mono text-[0.7rem] font-medium"
         style={{
           background: `color-mix(in oklch, ${color} 12%, transparent)`,
           border: `1px solid color-mix(in oklch, ${color} 25%, transparent)`,
@@ -137,7 +155,7 @@ function DestaquCard({ co, rank }: { co: CompanyDirectoryItem; rank: number }) {
       <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[0.9rem] text-foreground">
         {co.company_name}
       </span>
-      {sparkPts && (
+      {sparkPts ? (
         <svg width={54} height={22} viewBox="0 0 54 22" aria-hidden className="shrink-0">
           <polyline
             points={sparkPts}
@@ -148,12 +166,12 @@ function DestaquCard({ co, rank }: { co: CompanyDirectoryItem; rank: number }) {
             strokeLinejoin="round"
           />
         </svg>
-      )}
+      ) : null}
       <span
-        className="shrink-0 font-mono text-[0.82rem] font-medium tabular-nums"
+        className="shrink-0 text-[0.78rem] font-medium"
         style={{ color: isTop ? "var(--chart-1)" : "var(--destructive)" }}
       >
-        {anos.length} anos
+        {availability.badge}
       </span>
     </button>
   );
@@ -167,17 +185,19 @@ export function DiscoverySection({ topCompanies }: DiscoverySectionProps) {
 
   return (
     <section className="w-full max-w-5xl mx-auto space-y-6 text-left">
-      {/* Header */}
       <div className="flex items-end justify-between flex-wrap gap-4">
         <div>
-          <p className="text-[0.72rem] font-medium uppercase tracking-[0.26em] text-muted-foreground mb-1">
+          <p className="mb-1 text-[0.72rem] font-medium uppercase tracking-[0.26em] text-muted-foreground">
             Descobrir
           </p>
           <h2 className="font-heading text-[2rem] font-medium leading-tight tracking-[-0.04em] text-foreground">
-            Por onde começar
+            Por onde comecar
           </h2>
+          <p className="mt-2 max-w-2xl text-sm leading-7 text-muted-foreground">
+            A home prioriza companhias com leitura pronta e deixa claro quando a
+            pagina ainda depende de uma carga on-demand.
+          </p>
         </div>
-        {/* Segmented control */}
         <div className="inline-flex items-center gap-0.5 rounded-full border border-border bg-muted p-1">
           {TABS.map((tab) => (
             <button
@@ -197,22 +217,20 @@ export function DiscoverySection({ topCompanies }: DiscoverySectionProps) {
         </div>
       </div>
 
-      {/* Populares */}
-      {activeTab === "populares" && (
+      {activeTab === "populares" ? (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {topCompanies.slice(0, 8).map((co) => (
             <CompanyCard key={co.cd_cvm} co={co} />
           ))}
         </div>
-      )}
+      ) : null}
 
-      {/* Em destaque — 2-col mover lists */}
-      {activeTab === "destaque" && (
+      {activeTab === "destaque" ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="rounded-[1.25rem] border border-border/60 bg-card p-5">
             <div className="mb-3 flex items-center gap-2">
               <TrendingUpIcon className="size-4 text-[color:var(--chart-1)]" />
-              <span className="text-[0.95rem] font-semibold">Maior cobertura de dados</span>
+              <span className="text-[0.95rem] font-semibold">Leitura pronta agora</span>
             </div>
             <div className="flex flex-col gap-0.5">
               {topHalf.map((co, i) => (
@@ -223,7 +241,7 @@ export function DiscoverySection({ topCompanies }: DiscoverySectionProps) {
           <div className="rounded-[1.25rem] border border-border/60 bg-muted/30 p-5">
             <div className="mb-3 flex items-center gap-2">
               <TrendingDownIcon className="size-4 text-destructive" />
-              <span className="text-[0.95rem] font-semibold">Outros destaques</span>
+              <span className="text-[0.95rem] font-semibold">Outras entradas</span>
             </div>
             <div className="flex flex-col gap-0.5">
               {bottomHalf.map((co, i) => (
@@ -232,10 +250,9 @@ export function DiscoverySection({ topCompanies }: DiscoverySectionProps) {
             </div>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {/* Setores */}
-      {activeTab === "setores" && (
+      {activeTab === "setores" ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {Object.entries(SECTOR_COLOR).map(([sector, color]) => (
             <Link
@@ -255,12 +272,12 @@ export function DiscoverySection({ topCompanies }: DiscoverySectionProps) {
                 <p className="text-[0.88rem] font-semibold text-foreground leading-tight">
                   {sector}
                 </p>
-                <p className="text-[0.72rem] text-muted-foreground mt-0.5">Ver empresas</p>
+                <p className="mt-0.5 text-[0.72rem] text-muted-foreground">Ver empresas</p>
               </div>
             </Link>
           ))}
         </div>
-      )}
+      ) : null}
     </section>
   );
 }

@@ -12,12 +12,13 @@ import {
 } from "@/components/shared/design-system-recipes";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
-import { fetchCompanies, getApiBaseUrl } from "@/lib/api";
+import { fetchCompanySuggestions, type CompanySuggestionItem } from "@/lib/api";
 import {
   loadComparePageData,
   type CompareCompanyOption,
   type ComparePageData,
 } from "@/lib/compare-page-data";
+import { getSectorNameFromSlug } from "@/lib/constants";
 import { getFirstParam } from "@/lib/search-params";
 import { cn } from "@/lib/utils";
 
@@ -33,17 +34,12 @@ type ComparePageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-function toQuickOption(item: {
-  cd_cvm: number;
-  company_name: string;
-  ticker_b3: string | null;
-  sector_name: string;
-}): CompareCompanyOption {
+function toQuickOption(item: CompanySuggestionItem): CompareCompanyOption {
   return {
     cd_cvm: item.cd_cvm,
     company_name: item.company_name,
     ticker_b3: item.ticker_b3,
-    sector_name: item.sector_name,
+    sector_name: getSectorNameFromSlug(item.sector_slug) ?? "Setor nao informado",
   };
 }
 
@@ -85,7 +81,7 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
 
   const [compareData, quickPayload] = await Promise.all([
     loadComparePageData(ids, years),
-    fetchCompanies({ page: 1, pageSize: 8 }).catch(() => null),
+    fetchCompanySuggestions("", 8, { readyOnly: true }).catch(() => null),
   ]);
 
   const quickCompanies = (quickPayload?.items ?? []).map(toQuickOption);
@@ -132,7 +128,6 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
       />
 
       <CompareSelector
-        apiBaseUrl={getApiBaseUrl()}
         pathname="/comparar"
         selectedCompanies={compareData.selectedCompanies}
         quickCompanies={saneQuickCompanies}

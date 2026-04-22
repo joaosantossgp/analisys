@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ChevronRightIcon } from "lucide-react";
 
 import type { CompanyDirectoryItem } from "@/lib/api";
+import { getCompanyAvailability } from "@/lib/company-discovery";
 import { getSectorColor } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
@@ -26,11 +27,14 @@ type CompanyRowProps = {
 
 export function CompanyRow({ item }: CompanyRowProps) {
   const color = getSectorColor(item.sector_name);
-  const hasData = item.has_financial_data !== false;
   const anos = item.anos_disponiveis ?? [];
   const sparkPts = buildSparklinePoints(anos);
   const initials = (item.ticker_b3 ?? item.company_name).slice(0, 2).toUpperCase();
-  const yearsRange = anos.length > 0 ? `${Math.min(...anos)}-${Math.max(...anos)}` : "--";
+  const availability = getCompanyAvailability(item);
+  const yearsRange =
+    anos.length > 0
+      ? `${Math.min(...anos)}-${Math.max(...anos)}`
+      : availability.yearsLabel;
 
   return (
     <Link
@@ -40,7 +44,7 @@ export function CompanyRow({ item }: CompanyRowProps) {
         "[grid-template-columns:42px_minmax(0,1fr)_32px]",
         "sm:[grid-template-columns:42px_minmax(0,2fr)_minmax(0,1fr)_32px]",
         "lg:[grid-template-columns:42px_minmax(0,2.2fr)_minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,0.85fr)_32px]",
-        hasData ? "cursor-pointer hover:bg-muted/40" : "hover:bg-muted/25",
+        "cursor-pointer hover:bg-muted/40",
       )}
     >
       <div
@@ -71,13 +75,23 @@ export function CompanyRow({ item }: CompanyRowProps) {
               {item.ticker_b3}
             </span>
           ) : null}
-          {!hasData ? (
-            <span className="shrink-0 rounded-full border border-primary/20 bg-primary/8 px-2 py-0.5 text-[0.62rem] font-medium uppercase tracking-[0.14em] text-primary/80">
-              On-demand
-            </span>
-          ) : null}
+          <span
+            className={cn(
+              "shrink-0 rounded-full border px-2 py-0.5 text-[0.62rem] font-medium uppercase tracking-[0.14em]",
+              availability.kind === "ready"
+                ? "border-emerald-500/20 bg-emerald-500/8 text-emerald-700 dark:text-emerald-300"
+                : "border-primary/20 bg-primary/8 text-primary/80",
+            )}
+          >
+            {availability.badge}
+          </span>
         </div>
-        <p className="mt-0.5 text-[0.72rem] text-muted-foreground">CVM {item.cd_cvm}</p>
+        <p className="mt-0.5 text-[0.72rem] text-muted-foreground">
+          CVM {item.cd_cvm}
+        </p>
+        <p className="mt-1 hidden text-[0.72rem] text-muted-foreground sm:block">
+          {availability.detail}
+        </p>
       </div>
 
       <p className="hidden truncate text-[0.82rem] text-muted-foreground sm:block">
@@ -103,8 +117,8 @@ export function CompanyRow({ item }: CompanyRowProps) {
       </div>
 
       <div className="hidden text-right lg:block">
-        <span className="font-mono text-[0.78rem] tabular-nums text-muted-foreground">
-          {anos.length > 0 ? `${anos.length} anos` : "--"}
+        <span className="text-[0.78rem] text-muted-foreground">
+          {availability.summary}
         </span>
       </div>
 

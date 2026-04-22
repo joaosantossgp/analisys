@@ -105,11 +105,15 @@ def get_company_suggestions(
     response: Response,
     q: str = Query(default="", description="Texto de busca livre (nome, ticker ou codigo CVM)."),
     limit: int = Query(default=6, ge=1, le=20, description="Numero maximo de sugestoes retornadas."),
+    ready_only: bool = Query(
+        default=False,
+        description="Quando true, retorna apenas companhias com historico anual local pronto.",
+    ),
     service: CVMReadService = Depends(get_read_service),
 ) -> CompanySuggestionsPayload:
     ensure_api_ready(get_settings(request))
     _apply_cache_headers(response, COMPANY_SUGGESTIONS_CACHE_CONTROL)
-    items = service.suggest_companies(q=q, limit=limit)
+    items = service.suggest_companies(q=q, limit=limit, ready_only=ready_only)
     return present_company_suggestions(items)
 
 

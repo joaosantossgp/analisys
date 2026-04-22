@@ -77,6 +77,9 @@ export type RefreshDispatchResponse = {
   job_id: string | null;
   accepted_at: string;
   message: string;
+  status_reason_code: string | null;
+  status_reason_message: string | null;
+  is_retry_allowed: boolean;
 };
 
 export type RefreshStatusItem = {
@@ -106,6 +109,15 @@ export type RefreshStatusItem = {
   elapsed_seconds: number | null;
   estimated_completion_at: string | null;
   estimate_confidence: string | null;
+  tracking_state: string | null;
+  progress_mode: string | null;
+  is_retry_allowed: boolean;
+  status_reason_code: string | null;
+  status_reason_message: string | null;
+  has_readable_current_data: boolean;
+  readable_years_count: number;
+  latest_attempt_outcome: string | null;
+  source_label: string | null;
 };
 
 type RawRefreshStatusItem = Omit<
@@ -116,6 +128,15 @@ type RawRefreshStatusItem = Omit<
   | "elapsed_seconds"
   | "estimated_completion_at"
   | "estimate_confidence"
+  | "tracking_state"
+  | "progress_mode"
+  | "is_retry_allowed"
+  | "status_reason_code"
+  | "status_reason_message"
+  | "has_readable_current_data"
+  | "readable_years_count"
+  | "latest_attempt_outcome"
+  | "source_label"
 > & {
   job_id?: string | null;
   stage?: string | null;
@@ -132,6 +153,15 @@ type RawRefreshStatusItem = Omit<
   elapsed_seconds?: number | null;
   estimated_completion_at?: string | null;
   estimate_confidence?: string | null;
+  tracking_state?: string | null;
+  progress_mode?: string | null;
+  is_retry_allowed?: boolean;
+  status_reason_code?: string | null;
+  status_reason_message?: string | null;
+  has_readable_current_data?: boolean;
+  readable_years_count?: number;
+  latest_attempt_outcome?: string | null;
+  source_label?: string | null;
 };
 
 export type TabularDataRow = Record<string, string | number | boolean | null>;
@@ -400,7 +430,10 @@ function isRefreshDispatchResponse(value: unknown): value is RefreshDispatchResp
     (value.status === "queued" || value.status === "already_current") &&
     isNullableString(value.job_id) &&
     typeof value.accepted_at === "string" &&
-    typeof value.message === "string"
+    typeof value.message === "string" &&
+    isNullableString(value.status_reason_code) &&
+    isNullableString(value.status_reason_message) &&
+    typeof value.is_retry_allowed === "boolean"
   );
 }
 
@@ -427,6 +460,10 @@ function isStatementMatrix(value: unknown): value is StatementMatrix {
 
 function isNullableNumber(value: unknown): value is number | null {
   return value === null || typeof value === "number";
+}
+
+function isOptionalBoolean(value: unknown): value is boolean | undefined {
+  return value === undefined || typeof value === "boolean";
 }
 
 function isOptionalNullableNumber(
@@ -463,7 +500,17 @@ function isRefreshStatusItem(value: unknown): value is RawRefreshStatusItem {
     isOptionalNullableNumber(value.estimated_total_seconds) &&
     isOptionalNullableNumber(value.elapsed_seconds) &&
     isOptionalNullableString(value.estimated_completion_at) &&
-    isOptionalNullableString(value.estimate_confidence)
+    isOptionalNullableString(value.estimate_confidence) &&
+    isOptionalNullableString(value.tracking_state) &&
+    isOptionalNullableString(value.progress_mode) &&
+    isOptionalBoolean(value.is_retry_allowed) &&
+    isOptionalNullableString(value.status_reason_code) &&
+    isOptionalNullableString(value.status_reason_message) &&
+    isOptionalBoolean(value.has_readable_current_data) &&
+    (value.readable_years_count === undefined ||
+      typeof value.readable_years_count === "number") &&
+    isOptionalNullableString(value.latest_attempt_outcome) &&
+    isOptionalNullableString(value.source_label)
   );
 }
 
@@ -491,6 +538,15 @@ function normalizeRefreshStatusItem(
     elapsed_seconds: item.elapsed_seconds ?? null,
     estimated_completion_at: item.estimated_completion_at ?? null,
     estimate_confidence: item.estimate_confidence ?? null,
+    tracking_state: item.tracking_state ?? null,
+    progress_mode: item.progress_mode ?? null,
+    is_retry_allowed: item.is_retry_allowed ?? false,
+    status_reason_code: item.status_reason_code ?? null,
+    status_reason_message: item.status_reason_message ?? null,
+    has_readable_current_data: item.has_readable_current_data ?? false,
+    readable_years_count: item.readable_years_count ?? 0,
+    latest_attempt_outcome: item.latest_attempt_outcome ?? null,
+    source_label: item.source_label ?? null,
   };
 }
 
@@ -865,13 +921,38 @@ export async function fetchCompanyFilters(): Promise<CompanyFiltersResponse> {
 export async function fetchCompanySuggestions(
   q: string,
   limit = 6,
+  options?: { readyOnly?: boolean },
 ): Promise<CompanySuggestionsResponse> {
   return (await apiFetch<CompanySuggestionsResponse>(
-    `/companies/suggestions${buildQuery({ q, limit })}`,
+    `/companies/suggestions${buildQuery({
+      q,
+      limit,
+      ready_only: options?.readyOnly ? "1" : null,
+    })}`,
     {
       request: COMPANY_SUGGESTIONS_API_READ,
       validate: isCompanySuggestionsResponse,
       invalidResponseMessage: "A API retornou sugestoes de empresas invalidas.",
+    },
+  )) as CompanySuggestionsResponse;
+}
+
+export async function fetchCompanySuggestionsRoute(
+  q: string,
+  limit = 6,
+  options?: { readyOnly?: boolean },
+): Promise<CompanySuggestionsResponse> {
+  return (await routeFetch<CompanySuggestionsResponse>(
+    `/api/company-search${buildQuery({
+      q,
+      limit,
+      ready_only: options?.readyOnly ? "1" : null,
+    })}`,
+    undefined,
+    {
+      validate: isCompanySuggestionsResponse,
+      invalidResponseMessage:
+        "A rota interna retornou sugestoes invalidas para a busca de empresas.",
     },
   )) as CompanySuggestionsResponse;
 }

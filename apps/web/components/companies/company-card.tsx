@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import type { CompanyDirectoryItem } from "@/lib/api";
+import { getCompanyAvailability } from "@/lib/company-discovery";
 import { getSectorColor } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
@@ -25,17 +26,19 @@ type CompanyCardProps = {
 
 export function CompanyCard({ item }: CompanyCardProps) {
   const color = getSectorColor(item.sector_name);
-  const hasData = item.has_financial_data !== false;
   const anos = item.anos_disponiveis ?? [];
   const sparkPts = buildSparklinePoints(anos);
   const initials = (item.ticker_b3 ?? item.company_name).slice(0, 2).toUpperCase();
+  const availability = getCompanyAvailability(item);
+  const yearsRange =
+    anos.length > 0 ? `${Math.min(...anos)}-${Math.max(...anos)}` : availability.yearsLabel;
 
   return (
     <Link
       href={`/empresas/${item.cd_cvm}`}
       className={cn(
         "group flex flex-col gap-4 overflow-hidden rounded-[1.25rem] border border-border/60 bg-card p-5 transition-all duration-200",
-        hasData
+        availability.kind === "ready"
           ? "hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-[0_18px_36px_-24px_rgba(16,30,24,0.2)]"
           : "hover:-translate-y-0.5 hover:border-primary/20 hover:bg-muted/30",
       )}
@@ -65,6 +68,16 @@ export function CompanyCard({ item }: CompanyCardProps) {
             </span>
           ) : null}
         </div>
+        <span
+          className={cn(
+            "rounded-full border px-2.5 py-1 text-[0.64rem] font-medium uppercase tracking-[0.14em]",
+            availability.kind === "ready"
+              ? "border-emerald-500/20 bg-emerald-500/8 text-emerald-700 dark:text-emerald-300"
+              : "border-primary/20 bg-primary/8 text-primary/80",
+          )}
+        >
+          {availability.badge}
+        </span>
         <svg
           width="14"
           height="14"
@@ -90,26 +103,30 @@ export function CompanyCard({ item }: CompanyCardProps) {
         {item.sector_name ? (
           <p className="mt-0.5 text-[0.75rem] text-muted-foreground">{item.sector_name}</p>
         ) : null}
-        {!hasData ? (
-          <p className="mt-2 text-[0.72rem] font-medium uppercase tracking-[0.18em] text-primary/80">
-            Disponivel on-demand
-          </p>
-        ) : null}
+        <p className="mt-2 text-[0.78rem] leading-6 text-muted-foreground">
+          {availability.detail}
+        </p>
       </div>
 
       <div className="grid grid-cols-3 divide-x divide-border/60 border-t border-border/60 pt-3">
         {(
           [
-            { label: "Receita", value: "--" },
-            { label: "YoY", value: "--" },
-            { label: "ROE", value: "--" },
+            { label: "Estado", value: availability.summary },
+            { label: "Historico", value: yearsRange },
+            {
+              label: "Entrada",
+              value:
+                availability.kind === "ready"
+                  ? "KPIs + DRE"
+                  : "Pedir on-demand",
+            },
           ] as const
         ).map(({ label, value }) => (
           <div key={label} className="px-2 first:pl-0 last:pr-0">
             <p className="text-[0.62rem] uppercase tracking-[0.12em] text-muted-foreground">
               {label}
             </p>
-            <p className="mt-0.5 font-mono text-[0.82rem] font-medium tabular-nums text-muted-foreground/70">
+            <p className="mt-0.5 text-[0.78rem] font-medium text-foreground/78">
               {value}
             </p>
           </div>

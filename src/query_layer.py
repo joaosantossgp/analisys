@@ -98,6 +98,15 @@ COALESCE(
 )
 """
 
+_HAS_ANNUAL_HISTORY_SQL = """
+EXISTS (
+    SELECT 1
+    FROM financial_reports fr_ready
+    WHERE fr_ready."CD_CVM" = c.cd_cvm
+      AND fr_ready."PERIOD_LABEL" = CAST(fr_ready."REPORT_YEAR" AS TEXT)
+)
+"""
+
 
 def _period_sort_key(label: str) -> tuple[int, int]:
     m = re.match(r"(\d{4})", label)
@@ -180,7 +189,12 @@ class CVMQueryLayer:
             LEFT JOIN financial_reports fr ON fr."CD_CVM" = c.cd_cvm
             WHERE {where_sql}
             GROUP BY c.cd_cvm, c.company_name, c.ticker_b3, c.setor_analitico, c.setor_cvm, c.coverage_rank
-            ORDER BY c.company_name ASC
+            ORDER BY
+                CASE WHEN COUNT(fr."CD_CVM") > 0 THEN 0 ELSE 1 END ASC,
+                CASE WHEN c.coverage_rank IS NULL THEN 1 ELSE 0 END ASC,
+                c.coverage_rank ASC,
+                COUNT(fr."CD_CVM") DESC,
+                c.company_name ASC
             {paging_sql}
             """
         )
@@ -232,13 +246,20 @@ class CVMQueryLayer:
             result.setdefault(str(row["sector_name"]), []).append(int(row["REPORT_YEAR"]))
         return result
 
-    def get_company_suggestions(self, q: str, limit: int) -> pd.DataFrame:
+    def get_company_suggestions(
+        self,
+        q: str,
+        limit: int,
+        *,
+        ready_only: bool = False,
+    ) -> pd.DataFrame:
         """Returns up to `limit` companies ranked by relevance to query `q`.
 
         Ranking: exact ticker > name prefix > ticker prefix > contains match.
         Empty `q` returns the first `limit` companies alphabetically.
         """
         normalized = q.strip().lower()
+        ready_only_sql = f"WHERE {_HAS_ANNUAL_HISTORY_SQL}" if ready_only else ""
         if not normalized:
             sql = text(
                 f"""
@@ -246,11 +267,20 @@ class CVMQueryLayer:
                        COALESCE(c.ticker_b3, '') AS ticker_b3,
                        {_CANONICAL_SECTOR_SQL} AS sector_name
                 FROM companies c
+                {ready_only_sql}
                 ORDER BY c.company_name ASC
                 LIMIT :limit
                 """
             )
             return pd.read_sql(sql, self.engine, params={"limit": int(limit)}).reset_index(drop=True)
+
+        search_filters = """
+                LOWER(c.company_name) LIKE :contains
+                OR LOWER(COALESCE(c.ticker_b3, '')) LIKE :contains
+                OR CAST(c.cd_cvm AS TEXT) LIKE :contains
+        """
+        if ready_only:
+            search_filters = f"({_HAS_ANNUAL_HISTORY_SQL}) AND ({search_filters})"
 
         sql = text(
             f"""
@@ -259,9 +289,7 @@ class CVMQueryLayer:
                    {_CANONICAL_SECTOR_SQL} AS sector_name
             FROM companies c
             WHERE
-                LOWER(c.company_name) LIKE :contains
-                OR LOWER(COALESCE(c.ticker_b3, '')) LIKE :contains
-                OR CAST(c.cd_cvm AS TEXT) LIKE :contains
+                {search_filters}
             ORDER BY
                 CASE
                     WHEN LOWER(COALESCE(c.ticker_b3, '')) = :exact   THEN 0
