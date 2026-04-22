@@ -6,7 +6,10 @@ import {
   fetchCompanies,
   fetchCompanyFilters,
   fetchCompanyFreshness,
+  fetchCompanyKpis,
+  fetchCompanyStatement,
   fetchCompanySuggestions,
+  fetchCompanyYears,
   fetchRequestRefresh,
   fetchSectorDetail,
   fetchRefreshStatus,
@@ -271,6 +274,110 @@ test("fetchRefreshStatus keeps explicit no-store semantics for polling flows", a
     await fetchRefreshStatus(1234);
 
     assert.equal(capturedInit?.cache, "no-store");
+  } finally {
+    restore();
+  }
+});
+
+test("fetchCompanyYears allows an explicit no-store override for company detail refreshes", async () => {
+  let capturedInit: RequestInit | undefined;
+  const restore = withFetchMock((async (_input, init) => {
+    capturedInit = init;
+
+    return new Response(JSON.stringify([2024]), {
+      status: 200,
+      headers: {
+        "content-type": "application/json",
+      },
+    });
+  }) as FetchMock);
+
+  try {
+    const payload = await fetchCompanyYears(4170, {
+      request: { cache: "no-store" },
+    });
+
+    assert.deepEqual(payload, [2024]);
+    assert.equal(capturedInit?.cache, "no-store");
+    assert.equal(capturedInit?.next, undefined);
+  } finally {
+    restore();
+  }
+});
+
+test("fetchCompanyKpis allows an explicit no-store override for company detail refreshes", async () => {
+  let capturedInit: RequestInit | undefined;
+  const restore = withFetchMock((async (_input, init) => {
+    capturedInit = init;
+
+    return new Response(
+      JSON.stringify({
+        cd_cvm: 4170,
+        years: [2024],
+        annual: {
+          columns: [],
+          rows: [],
+        },
+        quarterly: {
+          columns: [],
+          rows: [],
+        },
+      }),
+      {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+        },
+      },
+    );
+  }) as FetchMock);
+
+  try {
+    const payload = await fetchCompanyKpis(4170, [2024], {
+      request: { cache: "no-store" },
+    });
+
+    assert.equal(payload.cd_cvm, 4170);
+    assert.equal(capturedInit?.cache, "no-store");
+    assert.equal(capturedInit?.next, undefined);
+  } finally {
+    restore();
+  }
+});
+
+test("fetchCompanyStatement allows an explicit no-store override for company detail refreshes", async () => {
+  let capturedInit: RequestInit | undefined;
+  const restore = withFetchMock((async (_input, init) => {
+    capturedInit = init;
+
+    return new Response(
+      JSON.stringify({
+        cd_cvm: 4170,
+        statement_type: "DRE",
+        years: [2024],
+        table: {
+          columns: [],
+          rows: [],
+        },
+        exclude_conflicts: false,
+      }),
+      {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+        },
+      },
+    );
+  }) as FetchMock);
+
+  try {
+    const payload = await fetchCompanyStatement(4170, [2024], "DRE", {
+      request: { cache: "no-store" },
+    });
+
+    assert.equal(payload.statement_type, "DRE");
+    assert.equal(capturedInit?.cache, "no-store");
+    assert.equal(capturedInit?.next, undefined);
   } finally {
     restore();
   }

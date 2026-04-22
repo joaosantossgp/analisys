@@ -901,18 +901,22 @@ export async function fetchSectorDetail(
 
 export async function fetchCompanyInfo(
   cdCvm: number,
+  options?: { request?: ApiReadRequestInit },
 ): Promise<CompanyInfo | null> {
   return apiFetch<CompanyInfo>(`/companies/${cdCvm}`, {
     allowNotFound: true,
-    request: COMPANY_INFO_API_READ,
+    request: options?.request ?? COMPANY_INFO_API_READ,
     validate: isCompanyInfo,
     invalidResponseMessage: "A API retornou um detalhe de empresa invalido.",
   });
 }
 
-export async function fetchCompanyYears(cdCvm: number): Promise<number[]> {
+export async function fetchCompanyYears(
+  cdCvm: number,
+  options?: { request?: ApiReadRequestInit },
+): Promise<number[]> {
   return (await apiFetch<number[]>(`/companies/${cdCvm}/years`, {
-    request: COMPANY_YEARS_API_READ,
+    request: options?.request ?? COMPANY_YEARS_API_READ,
     validate: isNumberArray,
     invalidResponseMessage: "A API retornou anos invalidos para a empresa.",
   })) as number[];
@@ -921,13 +925,14 @@ export async function fetchCompanyYears(cdCvm: number): Promise<number[]> {
 export async function fetchCompanyKpis(
   cdCvm: number,
   years: number[],
+  options?: { request?: ApiReadRequestInit },
 ): Promise<KPIBundle> {
   return (await apiFetch<KPIBundle>(
     `/companies/${cdCvm}/kpis${buildQuery({
       years: years.join(","),
     })}`,
     {
-      request: COMPANY_DATA_API_READ,
+      request: options?.request ?? COMPANY_DATA_API_READ,
       validate: isKPIBundle,
       invalidResponseMessage: "A API retornou KPIs invalidos para a empresa.",
     },
@@ -938,6 +943,7 @@ export async function fetchCompanyStatement(
   cdCvm: number,
   years: number[],
   statementType: string,
+  options?: { request?: ApiReadRequestInit },
 ): Promise<StatementMatrix> {
   return (await apiFetch<StatementMatrix>(
     `/companies/${cdCvm}/statements${buildQuery({
@@ -945,7 +951,7 @@ export async function fetchCompanyStatement(
       years: years.join(","),
     })}`,
     {
-      request: COMPANY_DATA_API_READ,
+      request: options?.request ?? COMPANY_DATA_API_READ,
       validate: isStatementMatrix,
       invalidResponseMessage: "A API retornou uma demonstracao invalida para a empresa.",
     },
