@@ -161,23 +161,29 @@ Regras do endpoint:
 ### `POST /companies/{cd_cvm}/request-refresh`
 
 Uso:
-- dispara ingestao on-demand para uma companhia especifica
-- quando o `cd_cvm` ainda nao existe na tabela local `companies`, o backend pode bootstrapar o metadata a partir do catalogo remoto da CVM antes de enfileirar o workflow
+- cria um job na fila interna de refresh on-demand para uma companhia especifica
+- quando o `cd_cvm` ainda nao existe na tabela local `companies`, o backend pode bootstrapar o metadata a partir do catalogo remoto da CVM antes de enfileirar o job
+- se o planejamento concluir que nao existe company-year faltante, o endpoint responde com `already_current` e nao cria job
 
 Resposta exemplo:
 
 ```json
 {
-  "status": "dispatched",
-  "cd_cvm": 19348
+  "status": "queued",
+  "cd_cvm": 19348,
+  "job_id": "9d2e08f7bb8e4ef6a9918d859b5ccf5d",
+  "accepted_at": "2026-04-21T12:00:00.123456+00:00",
+  "message": "Solicitacao enfileirada para processamento interno."
 }
 ```
 
 Regras do endpoint:
-- `202` quando o dispatch foi tentado (`dispatched` ou `dispatch_failed`)
-- `429` quando ja existe uma execucao recente em fila para o mesmo `cd_cvm`
+- `202` quando o job foi aceito (`queued`) ou quando a empresa ja estava atualizada (`already_current`)
+- `429` quando ja existe um job ativo para o mesmo `cd_cvm` (`code = refresh_already_active`)
 - `404` apenas quando o `cd_cvm` nao existe no catalogo consultado
 - `503` quando o catalogo remoto precisa ser consultado mas esta indisponivel
+- `job_id` so vem preenchido quando `status = queued`
+- o clique do usuario nao dispara mais GitHub Actions; a execucao publica usa fila interna com worker dedicado
 
 ### `GET /sectors`
 
@@ -494,6 +500,9 @@ Resposta exemplo:
     "cd_cvm": 4170,
     "company_name": "VALE",
     "source_scope": "on_demand",
+    "job_id": "9d2e08f7bb8e4ef6a9918d859b5ccf5d",
+    "stage": "download_extract",
+    "queue_position": 1,
     "last_attempt_at": "2026-04-21T12:00:00+00:00",
     "last_success_at": null,
     "last_status": "queued",
@@ -501,13 +510,19 @@ Resposta exemplo:
     "last_start_year": 2010,
     "last_end_year": 2024,
     "last_rows_inserted": null,
+    "progress_current": 9,
+    "progress_total": 20,
+    "progress_message": "Download concluido para DFP/2018.",
+    "started_at": "2026-04-21T12:00:05+00:00",
+    "heartbeat_at": "2026-04-21T12:04:00+00:00",
+    "finished_at": null,
     "updated_at": "2026-04-21T12:04:00+00:00",
-    "estimated_progress_pct": 31.4,
-    "estimated_eta_seconds": 840,
-    "estimated_total_seconds": 1260,
-    "elapsed_seconds": 420,
-    "estimated_completion_at": "2026-04-21T12:21:00+00:00",
-    "estimate_confidence": "medium"
+    "estimated_progress_pct": 25.3,
+    "estimated_eta_seconds": 708,
+    "estimated_total_seconds": 948,
+    "elapsed_seconds": 240,
+    "estimated_completion_at": "2026-04-21T12:15:53+00:00",
+    "estimate_confidence": "high"
   }
 ]
 ```
@@ -515,14 +530,20 @@ Resposta exemplo:
 Regras do endpoint:
 - `cd_cvm` continua opcional; quando informado, o payload tende a retornar `[]`
   ou um unico item
+- `last_status` publico deve ser tratado como `queued | running | success | no_data | error`
+- `job_id`, `stage`, `queue_position`, `progress_current`, `progress_total`,
+  `progress_message`, `started_at`, `heartbeat_at` e `finished_at` sao campos
+  aditivos do contrato
 - `estimated_progress_pct`, `estimated_eta_seconds`, `estimated_total_seconds`,
   `elapsed_seconds`, `estimated_completion_at` e `estimate_confidence` sao
   campos aditivos e podem vir `null`
 - os campos de estimativa sao preenchidos apenas para refresh ativo
   (`last_status = queued|running`); para estados finais o contrato pode manter
   esses campos nulos
-- a estimativa usa throughput historico recente da propria base e deve ser
-  tratada como aproximacao de UX, nao como SLA operacional
+- quando `stage/progress_*` estao disponiveis, a estimativa passa a usar o
+  progresso real do job e `estimate_confidence = high`
+- quando ainda nao existe progresso real suficiente, a API pode cair de volta
+  para heuristica baseada em throughput historico recente da propria base
 - `estimate_confidence` usa `low|medium|high`
 
 ### `GET /base-health?start_year=&end_year=&force_refresh=`

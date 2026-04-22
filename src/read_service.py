@@ -28,6 +28,9 @@ from src.contracts import (
     KPIBundle,
     RankedRefreshQueueItem,
     RankedRefreshQueueResult,
+    RefreshDispatchDTO,
+    RefreshPolicy,
+    RefreshRequest,
     RefreshStatusDTO,
     SectorCompanyMetricDTO,
     SectorDetailDTO,
@@ -40,6 +43,13 @@ from src.contracts import (
     SummaryBlockDTO,
     TabularData,
 )
+from src.refresh_jobs import (
+    REFRESH_STAGE_ORDER,
+    REFRESH_STAGE_WEIGHTS,
+    RefreshJobRepository,
+    ensure_refresh_runtime_tables_for_connection,
+)
+from src.refresh_service import HeadlessRefreshService
 from src.statement_summary import build_general_summary_blocks
 from src.db import build_engine
 from src.excel_exporter import ExcelExporter, build_excel_filename
@@ -49,6 +59,10 @@ from src.sector_taxonomy import canonical_sector_name, sector_slugify
 from src.settings import AppSettings, get_settings
 
 EXPORT_STATEMENT_TYPES = ("DRE", "BPA", "BPP", "DFC", "DVA", "DMPL")
+
+
+class RefreshAlreadyActiveError(RuntimeError):
+    """Raised when an internal on-demand refresh is already active."""
 
 
 def _parse_years(raw_years: str | None) -> tuple[int, ...]:
@@ -86,8 +100,10 @@ class CVMReadService:
         self.settings = settings or get_settings()
         self.engine = build_engine(self.settings)
         self.query_layer = CVMQueryLayer(engine=self.engine)
+        self.refresh_job_repository = RefreshJobRepository(self.engine)
         self._company_catalog = None
         self._operational_service = None
+        self._refresh_service = None
 
     @property
     def operational_service(self):
@@ -95,6 +111,12 @@ class CVMReadService:
             from desktop.services import IntelligentSelectorService
             self._operational_service = IntelligentSelectorService(settings=self.settings)
         return self._operational_service
+
+    @property
+    def refresh_service(self) -> HeadlessRefreshService:
+        if self._refresh_service is None:
+            self._refresh_service = HeadlessRefreshService(settings=self.settings)
+        return self._refresh_service
 
     @property
     def company_catalog(self) -> CompanyCatalogService:
@@ -604,8 +626,7 @@ class CVMReadService:
         return HealthSnapshot.from_payload(payload)
 
     def list_refresh_status(self, cd_cvm: int | None = None) -> list[RefreshStatusDTO]:
-        if not inspect(self.engine).has_table("company_refresh_status"):
-            return []
+        self.refresh_job_repository.ensure_schema()
 
         query = text(
             """
@@ -613,6 +634,9 @@ class CVMReadService:
                 cd_cvm,
                 company_name,
                 source_scope,
+                job_id,
+                stage,
+                queue_position,
                 last_attempt_at,
                 last_success_at,
                 last_status,
@@ -620,6 +644,12 @@ class CVMReadService:
                 last_start_year,
                 last_end_year,
                 last_rows_inserted,
+                progress_current,
+                progress_total,
+                progress_message,
+                started_at,
+                heartbeat_at,
+                finished_at,
                 updated_at
             FROM company_refresh_status
             WHERE (:cd_cvm IS NULL OR cd_cvm = :cd_cvm)
@@ -659,6 +689,13 @@ class CVMReadService:
             cd_cvm=int(row["cd_cvm"]),
             company_name=str(row["company_name"] or ""),
             source_scope=row.get("source_scope"),
+            job_id=row.get("job_id"),
+            stage=row.get("stage"),
+            queue_position=(
+                int(row["queue_position"])
+                if row.get("queue_position") is not None
+                else None
+            ),
             last_attempt_at=row.get("last_attempt_at"),
             last_success_at=row.get("last_success_at"),
             last_status=row.get("last_status"),
@@ -678,6 +715,20 @@ class CVMReadService:
                 if row.get("last_rows_inserted") is not None
                 else None
             ),
+            progress_current=(
+                int(row["progress_current"])
+                if row.get("progress_current") is not None
+                else None
+            ),
+            progress_total=(
+                int(row["progress_total"])
+                if row.get("progress_total") is not None
+                else None
+            ),
+            progress_message=row.get("progress_message"),
+            started_at=row.get("started_at"),
+            heartbeat_at=row.get("heartbeat_at"),
+            finished_at=row.get("finished_at"),
             updated_at=row.get("updated_at"),
             estimated_progress_pct=estimate["estimated_progress_pct"],
             estimated_eta_seconds=estimate["estimated_eta_seconds"],
@@ -687,20 +738,76 @@ class CVMReadService:
             estimate_confidence=estimate["estimate_confidence"],
         )
 
-    def request_company_refresh(self, cd_cvm: int) -> str:
-        """Dispatch on-demand ingest for one company.
+    def request_company_refresh(self, cd_cvm: int) -> RefreshDispatchDTO:
+        """Enqueue internal on-demand ingest for one company."""
+        from apps.api.app.dependencies import NotFoundError
 
-        Returns one of: "dispatched", "dispatch_failed", "already_queued".
-        Raises NotFoundError if cd_cvm is unknown.
-        """
         bootstrapped = self._ensure_company_catalog_metadata(cd_cvm)
         start_year, end_year = self._resolve_refresh_range(start_year=2010, end_year=None)
-        return self._dispatch_refresh_request(
-            cd_cvm=cd_cvm,
+        company_info = self.get_company_info(cd_cvm)
+        if company_info is None:
+            raise NotFoundError(f"Company cd_cvm={cd_cvm} not found")
+
+        source_scope = "on_demand_bootstrap" if bootstrapped else "on_demand"
+        request = RefreshRequest(
+            companies=(str(cd_cvm),),
             start_year=start_year,
             end_year=end_year,
-            source_scope="on_demand_bootstrap" if bootstrapped else "on_demand",
-            already_queued_window=timedelta(minutes=self.RANKED_REFRESH_QUEUE_WINDOW_MINUTES),
+            policy=RefreshPolicy(
+                skip_complete_company_years=True,
+                enable_fast_lane=False,
+                force_refresh=False,
+            ),
+        )
+        planned_companies, _, _ = self.refresh_service.build_company_year_plan(request)
+
+        active_job = self.refresh_job_repository.get_active_job_for_company(cd_cvm)
+        if active_job is not None:
+            raise RefreshAlreadyActiveError(
+                f"Refresh already active for cd_cvm={cd_cvm}"
+            )
+
+        if not planned_companies:
+            projection = self.refresh_job_repository.mark_already_current(
+                cd_cvm=cd_cvm,
+                company_name=company_info.company_name,
+                source_scope=source_scope,
+                start_year=start_year,
+                end_year=end_year,
+                message=(
+                    "Empresa ja atualizada para "
+                    f"{start_year}-{end_year}."
+                ),
+            )
+            return RefreshDispatchDTO(
+                status="already_current",
+                cd_cvm=int(cd_cvm),
+                job_id=None,
+                accepted_at=str(projection["accepted_at"]),
+                message=str(projection["message"]),
+            )
+
+        job = self.refresh_job_repository.enqueue_job(
+            cd_cvm=cd_cvm,
+            company_name=company_info.company_name,
+            source_scope=source_scope,
+            start_year=start_year,
+            end_year=end_year,
+        )
+        if job is None:
+            raise RefreshAlreadyActiveError(
+                f"Refresh already active for cd_cvm={cd_cvm}"
+            )
+
+        return RefreshDispatchDTO(
+            status="queued",
+            cd_cvm=int(cd_cvm),
+            job_id=str(job.id),
+            accepted_at=str(job.requested_at),
+            message=str(
+                job.progress_message
+                or "Solicitacao enfileirada para processamento interno."
+            ),
         )
 
     def request_top_ranked_historical_refresh(
@@ -1400,6 +1507,10 @@ class CVMReadService:
                 "estimate_confidence": None,
             }
 
+        real_progress_estimate = self._estimate_refresh_runtime_from_real_progress(row)
+        if real_progress_estimate is not None:
+            return real_progress_estimate
+
         attempted_at = self._parse_timestamp(row.get("last_attempt_at"))
         profile = duration_profile or self._estimate_refresh_duration_profile()
         typical_year_span = max(
@@ -1466,6 +1577,71 @@ class CVMReadService:
             "estimate_confidence": str(profile.get("confidence") or "low"),
         }
 
+    def _estimate_refresh_runtime_from_real_progress(
+        self,
+        row: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        stage = str(row.get("stage") or "").strip().lower()
+        if stage not in REFRESH_STAGE_WEIGHTS:
+            return None
+
+        raw_total = row.get("progress_total")
+        raw_current = row.get("progress_current")
+        total = max(1, int(raw_total or 1))
+        current = max(0, min(total, int(raw_current or 0)))
+
+        completed_before_stage = 0.0
+        for stage_name in REFRESH_STAGE_ORDER:
+            if stage_name == stage:
+                break
+            completed_before_stage += float(REFRESH_STAGE_WEIGHTS[stage_name])
+
+        stage_weight = float(REFRESH_STAGE_WEIGHTS[stage])
+        stage_ratio = min(1.0, max(0.0, float(current) / float(total)))
+        progress_pct = completed_before_stage + (stage_weight * stage_ratio)
+        progress_pct = max(0.0, min(100.0, progress_pct))
+
+        started_at = self._parse_timestamp(row.get("started_at")) or self._parse_timestamp(
+            row.get("last_attempt_at")
+        )
+        now = datetime.now(timezone.utc)
+        elapsed_seconds = (
+            max(0, int(round((now - started_at).total_seconds())))
+            if started_at is not None
+            else None
+        )
+
+        estimated_total_seconds: int | None = None
+        estimated_eta_seconds: int | None = None
+        estimated_completion_at: str | None = None
+        if elapsed_seconds is not None and progress_pct > 0.0:
+            progress_ratio = min(1.0, max(0.0001, progress_pct / 100.0))
+            if progress_ratio >= 1.0:
+                estimated_total_seconds = elapsed_seconds
+                estimated_eta_seconds = 0
+                estimated_completion_at = now.replace(microsecond=0).isoformat()
+            else:
+                estimated_total_seconds = max(
+                    elapsed_seconds,
+                    int(round(float(elapsed_seconds) / progress_ratio)),
+                )
+                estimated_eta_seconds = max(
+                    0,
+                    int(estimated_total_seconds) - int(elapsed_seconds),
+                )
+                estimated_completion_at = (
+                    started_at + timedelta(seconds=int(estimated_total_seconds))
+                ).replace(microsecond=0).isoformat()
+
+        return {
+            "estimated_progress_pct": round(float(progress_pct), 1),
+            "estimated_eta_seconds": estimated_eta_seconds,
+            "estimated_total_seconds": estimated_total_seconds,
+            "elapsed_seconds": elapsed_seconds,
+            "estimated_completion_at": estimated_completion_at,
+            "estimate_confidence": "high",
+        }
+
     def _estimate_refresh_throughput(self) -> dict[str, Any]:
         if not inspect(self.engine).has_table("company_refresh_status"):
             return {"per_hour": None, "sample_size": 0, "confidence": "low"}
@@ -1512,25 +1688,7 @@ class CVMReadService:
         }
 
     def _ensure_refresh_status_table(self, conn) -> None:
-        conn.execute(
-            text(
-                """
-                CREATE TABLE IF NOT EXISTS company_refresh_status (
-                    cd_cvm INTEGER PRIMARY KEY,
-                    company_name TEXT,
-                    source_scope TEXT NOT NULL DEFAULT 'local',
-                    last_attempt_at TEXT,
-                    last_success_at TEXT,
-                    last_status TEXT,
-                    last_error TEXT,
-                    last_start_year INTEGER,
-                    last_end_year INTEGER,
-                    last_rows_inserted INTEGER,
-                    updated_at TEXT
-                )
-                """
-            )
-        )
+        ensure_refresh_runtime_tables_for_connection(conn)
 
     @staticmethod
     def _parse_timestamp(value: Any) -> datetime | None:

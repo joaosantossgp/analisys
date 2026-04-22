@@ -138,6 +138,29 @@ class RefreshResult:
 
 
 @dataclass(frozen=True)
+class RefreshDispatchDTO:
+    status: str
+    cd_cvm: int
+    job_id: str | None
+    accepted_at: str
+    message: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class RefreshProgressUpdate:
+    stage: str
+    current: int
+    total: int
+    message: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
 class CompanySearchResult:
     cd_cvm: int
     company_name: str
@@ -385,15 +408,24 @@ class StatementSummaryDTO:
 class RefreshStatusDTO:
     cd_cvm: int
     company_name: str
-    source_scope: str | None
-    last_attempt_at: str | None
-    last_success_at: str | None
-    last_status: str | None
-    last_error: str | None
-    last_start_year: int | None
-    last_end_year: int | None
-    last_rows_inserted: int | None
-    updated_at: str | None
+    source_scope: str | None = None
+    job_id: str | None = None
+    stage: str | None = None
+    queue_position: int | None = None
+    last_attempt_at: str | None = None
+    last_success_at: str | None = None
+    last_status: str | None = None
+    last_error: str | None = None
+    last_start_year: int | None = None
+    last_end_year: int | None = None
+    last_rows_inserted: int | None = None
+    progress_current: int | None = None
+    progress_total: int | None = None
+    progress_message: str | None = None
+    started_at: str | None = None
+    heartbeat_at: str | None = None
+    finished_at: str | None = None
+    updated_at: str | None = None
     estimated_progress_pct: float | None = None
     estimated_eta_seconds: int | None = None
     estimated_total_seconds: int | None = None

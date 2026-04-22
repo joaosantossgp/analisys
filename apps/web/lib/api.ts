@@ -72,14 +72,20 @@ export type CompanyInfo = {
 };
 
 export type RefreshDispatchResponse = {
-  status: "dispatched" | "dispatch_failed";
+  status: "queued" | "already_current";
   cd_cvm: number;
+  job_id: string | null;
+  accepted_at: string;
+  message: string;
 };
 
 export type RefreshStatusItem = {
   cd_cvm: number;
   company_name: string;
   source_scope: string | null;
+  job_id: string | null;
+  stage: string | null;
+  queue_position: number | null;
   last_attempt_at: string | null;
   last_success_at: string | null;
   last_status: string | null;
@@ -87,6 +93,12 @@ export type RefreshStatusItem = {
   last_start_year: number | null;
   last_end_year: number | null;
   last_rows_inserted: number | null;
+  progress_current: number | null;
+  progress_total: number | null;
+  progress_message: string | null;
+  started_at: string | null;
+  heartbeat_at: string | null;
+  finished_at: string | null;
   updated_at: string | null;
   estimated_progress_pct: number | null;
   estimated_eta_seconds: number | null;
@@ -105,6 +117,15 @@ type RawRefreshStatusItem = Omit<
   | "estimated_completion_at"
   | "estimate_confidence"
 > & {
+  job_id?: string | null;
+  stage?: string | null;
+  queue_position?: number | null;
+  progress_current?: number | null;
+  progress_total?: number | null;
+  progress_message?: string | null;
+  started_at?: string | null;
+  heartbeat_at?: string | null;
+  finished_at?: string | null;
   estimated_progress_pct?: number | null;
   estimated_eta_seconds?: number | null;
   estimated_total_seconds?: number | null;
@@ -376,7 +397,10 @@ function isRefreshDispatchResponse(value: unknown): value is RefreshDispatchResp
   return (
     isRecord(value) &&
     typeof value.cd_cvm === "number" &&
-    (value.status === "dispatched" || value.status === "dispatch_failed")
+    (value.status === "queued" || value.status === "already_current") &&
+    isNullableString(value.job_id) &&
+    typeof value.accepted_at === "string" &&
+    typeof value.message === "string"
   );
 }
 
@@ -417,6 +441,9 @@ function isRefreshStatusItem(value: unknown): value is RawRefreshStatusItem {
     typeof value.cd_cvm === "number" &&
     typeof value.company_name === "string" &&
     isNullableString(value.source_scope) &&
+    isOptionalNullableString(value.job_id) &&
+    isOptionalNullableString(value.stage) &&
+    isOptionalNullableNumber(value.queue_position) &&
     isNullableString(value.last_attempt_at) &&
     isNullableString(value.last_success_at) &&
     isNullableString(value.last_status) &&
@@ -424,6 +451,12 @@ function isRefreshStatusItem(value: unknown): value is RawRefreshStatusItem {
     isNullableNumber(value.last_start_year) &&
     isNullableNumber(value.last_end_year) &&
     isNullableNumber(value.last_rows_inserted) &&
+    isOptionalNullableNumber(value.progress_current) &&
+    isOptionalNullableNumber(value.progress_total) &&
+    isOptionalNullableString(value.progress_message) &&
+    isOptionalNullableString(value.started_at) &&
+    isOptionalNullableString(value.heartbeat_at) &&
+    isOptionalNullableString(value.finished_at) &&
     isNullableString(value.updated_at) &&
     isOptionalNullableNumber(value.estimated_progress_pct) &&
     isOptionalNullableNumber(value.estimated_eta_seconds) &&
@@ -443,6 +476,15 @@ function normalizeRefreshStatusItem(
 ): RefreshStatusItem {
   return {
     ...item,
+    job_id: item.job_id ?? null,
+    stage: item.stage ?? null,
+    queue_position: item.queue_position ?? null,
+    progress_current: item.progress_current ?? null,
+    progress_total: item.progress_total ?? null,
+    progress_message: item.progress_message ?? null,
+    started_at: item.started_at ?? null,
+    heartbeat_at: item.heartbeat_at ?? null,
+    finished_at: item.finished_at ?? null,
     estimated_progress_pct: item.estimated_progress_pct ?? null,
     estimated_eta_seconds: item.estimated_eta_seconds ?? null,
     estimated_total_seconds: item.estimated_total_seconds ?? null,
@@ -618,7 +660,7 @@ async function toApiError(response: Response): Promise<ApiClientError> {
     return new ApiClientError(
       message ?? "Solicitacao ja em andamento.",
       response.status,
-      code ?? "refresh_already_queued",
+      code ?? "refresh_already_active",
     );
   }
 
@@ -921,7 +963,7 @@ export async function fetchRequestRefresh(
     {
       validate: isRefreshDispatchResponse,
       invalidResponseMessage:
-        "A rota interna retornou um payload invalido para o dispatch on-demand.",
+        "A rota interna retornou um payload invalido para o enqueue on-demand.",
     },
   )) as RefreshDispatchResponse;
 }
