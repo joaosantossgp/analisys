@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-21T11:59:35Z",
+  "generated_at": "2026-04-22T13:59:58Z",
   "web": {
     "framework": {
       "name": "Next.js",
@@ -9,67 +9,67 @@
       "/": {
         "rendering_mode": "static",
         "revalidate_seconds": 300,
-        "first_load_uncompressed_js_bytes": 594365,
-        "first_load_chunk_count": 11,
+        "first_load_uncompressed_js_bytes": 663577,
+        "first_load_chunk_count": 13,
         "guardrail": {
           "required_rendering_mode": "static",
           "required_revalidate_seconds": 300,
-          "max_first_load_uncompressed_js_bytes": 644365
+          "max_first_load_uncompressed_js_bytes": 716663
         }
       },
       "/empresas": {
         "rendering_mode": "dynamic",
         "revalidate_seconds": null,
-        "first_load_uncompressed_js_bytes": 742622,
-        "first_load_chunk_count": 13,
+        "first_load_uncompressed_js_bytes": 786155,
+        "first_load_chunk_count": 15,
         "guardrail": {
           "required_rendering_mode": "dynamic",
           "required_revalidate_seconds": null,
-          "max_first_load_uncompressed_js_bytes": 802031
+          "max_first_load_uncompressed_js_bytes": 849047
         }
       },
       "/empresas/[cd_cvm]": {
         "rendering_mode": "dynamic",
         "revalidate_seconds": null,
-        "first_load_uncompressed_js_bytes": 627869,
-        "first_load_chunk_count": 12,
+        "first_load_uncompressed_js_bytes": 716426,
+        "first_load_chunk_count": 15,
         "guardrail": {
           "required_rendering_mode": "dynamic",
           "required_revalidate_seconds": null,
-          "max_first_load_uncompressed_js_bytes": 678098
+          "max_first_load_uncompressed_js_bytes": 773740
         }
       },
       "/comparar": {
         "rendering_mode": "dynamic",
         "revalidate_seconds": null,
-        "first_load_uncompressed_js_bytes": 620241,
-        "first_load_chunk_count": 11,
+        "first_load_uncompressed_js_bytes": 689735,
+        "first_load_chunk_count": 14,
         "guardrail": {
           "required_rendering_mode": "dynamic",
           "required_revalidate_seconds": null,
-          "max_first_load_uncompressed_js_bytes": 670241
+          "max_first_load_uncompressed_js_bytes": 744913
         }
       },
       "/setores": {
         "rendering_mode": "static",
         "revalidate_seconds": 3600,
-        "first_load_uncompressed_js_bytes": 571480,
-        "first_load_chunk_count": 11,
+        "first_load_uncompressed_js_bytes": 640619,
+        "first_load_chunk_count": 13,
         "guardrail": {
           "required_rendering_mode": "static",
           "required_revalidate_seconds": 3600,
-          "max_first_load_uncompressed_js_bytes": 621480
+          "max_first_load_uncompressed_js_bytes": 691868
         }
       },
       "/setores/[slug]": {
         "rendering_mode": "dynamic",
         "revalidate_seconds": null,
-        "first_load_uncompressed_js_bytes": 616355,
-        "first_load_chunk_count": 12,
+        "first_load_uncompressed_js_bytes": 683589,
+        "first_load_chunk_count": 14,
         "guardrail": {
           "required_rendering_mode": "dynamic",
           "required_revalidate_seconds": null,
-          "max_first_load_uncompressed_js_bytes": 666355
+          "max_first_load_uncompressed_js_bytes": 738276
         }
       }
     }
@@ -92,26 +92,26 @@
         "method": "GET",
         "path": "/companies",
         "params": {},
-        "median_ms": 22.04,
-        "p95_ms": 65.67,
-        "min_ms": 20.9,
-        "max_ms": 65.67,
+        "median_ms": 20.27,
+        "p95_ms": 21.64,
+        "min_ms": 20.14,
+        "max_ms": 21.64,
         "guardrail": {
-          "max_median_ms": 38.57,
-          "max_p95_ms": 124.77
+          "max_median_ms": 35.47,
+          "max_p95_ms": 41.12
         }
       },
       "GET /companies/filters": {
         "method": "GET",
         "path": "/companies/filters",
         "params": {},
-        "median_ms": 27.02,
-        "p95_ms": 28.17,
-        "min_ms": 26.55,
-        "max_ms": 28.17,
+        "median_ms": 25.35,
+        "p95_ms": 26.43,
+        "min_ms": 24.73,
+        "max_ms": 26.43,
         "guardrail": {
-          "max_median_ms": 47.28,
-          "max_p95_ms": 53.52
+          "max_median_ms": 44.36,
+          "max_p95_ms": 50.22
         }
       },
       "GET /companies/suggestions?q=emp": {
@@ -120,10 +120,10 @@
         "params": {
           "q": "emp"
         },
-        "median_ms": 3.71,
-        "p95_ms": 4.3,
-        "min_ms": 3.46,
-        "max_ms": 4.3,
+        "median_ms": 3.69,
+        "p95_ms": 4.07,
+        "min_ms": 3.56,
+        "max_ms": 4.07,
         "guardrail": {
           "max_median_ms": 15.0,
           "max_p95_ms": 25.0
@@ -133,10 +133,10 @@
         "method": "GET",
         "path": "/companies/1000",
         "params": {},
-        "median_ms": 3.18,
-        "p95_ms": 3.36,
-        "min_ms": 2.79,
-        "max_ms": 3.36,
+        "median_ms": 3.43,
+        "p95_ms": 3.6,
+        "min_ms": 3.01,
+        "max_ms": 3.6,
         "guardrail": {
           "max_median_ms": 15.0,
           "max_p95_ms": 25.0
@@ -146,10 +146,10 @@
         "method": "GET",
         "path": "/companies/1000/years",
         "params": {},
-        "median_ms": 3.71,
-        "p95_ms": 4.07,
-        "min_ms": 3.31,
-        "max_ms": 4.07,
+        "median_ms": 3.73,
+        "p95_ms": 4.01,
+        "min_ms": 3.26,
+        "max_ms": 4.01,
         "guardrail": {
           "max_median_ms": 15.0,
           "max_p95_ms": 25.0
@@ -162,12 +162,12 @@
           "stmt": "DRE",
           "years": "2023,2024"
         },
-        "median_ms": 9.24,
-        "p95_ms": 9.81,
-        "min_ms": 8.7,
-        "max_ms": 9.81,
+        "median_ms": 9.68,
+        "p95_ms": 10.19,
+        "min_ms": 8.97,
+        "max_ms": 10.19,
         "guardrail": {
-          "max_median_ms": 16.17,
+          "max_median_ms": 16.94,
           "max_p95_ms": 25.0
         }
       },
@@ -177,39 +177,39 @@
         "params": {
           "years": "2023,2024"
         },
-        "median_ms": 22.61,
-        "p95_ms": 23.46,
-        "min_ms": 22.18,
-        "max_ms": 23.46,
+        "median_ms": 22.65,
+        "p95_ms": 23.61,
+        "min_ms": 22.47,
+        "max_ms": 23.61,
         "guardrail": {
-          "max_median_ms": 39.57,
-          "max_p95_ms": 44.57
+          "max_median_ms": 39.64,
+          "max_p95_ms": 44.86
         }
       },
       "GET /sectors": {
         "method": "GET",
         "path": "/sectors",
         "params": {},
-        "median_ms": 125.24,
-        "p95_ms": 166.27,
-        "min_ms": 121.74,
-        "max_ms": 166.27,
+        "median_ms": 121.87,
+        "p95_ms": 162.97,
+        "min_ms": 119.58,
+        "max_ms": 162.97,
         "guardrail": {
-          "max_median_ms": 219.17,
-          "max_p95_ms": 315.91
+          "max_median_ms": 213.27,
+          "max_p95_ms": 309.64
         }
       },
       "GET /sectors/energia": {
         "method": "GET",
         "path": "/sectors/energia",
         "params": {},
-        "median_ms": 68.6,
-        "p95_ms": 72.18,
-        "min_ms": 67.66,
-        "max_ms": 72.18,
+        "median_ms": 67.43,
+        "p95_ms": 68.78,
+        "min_ms": 66.87,
+        "max_ms": 68.78,
         "guardrail": {
-          "max_median_ms": 120.05,
-          "max_p95_ms": 137.14
+          "max_median_ms": 118.0,
+          "max_p95_ms": 130.68
         }
       }
     }
