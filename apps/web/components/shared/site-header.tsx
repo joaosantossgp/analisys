@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { MenuIcon, XIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 
 import ThemeToggle from "@/components/toggle-theme";
@@ -20,11 +20,15 @@ const PRIMARY_NAV = [
 
 export function SiteHeader() {
   const pathname = usePathname();
-  const [mobileOpen, setMobileOpen] = useState(false);
-
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
+  const [mobileMenuState, setMobileMenuState] = useState<{
+    open: boolean;
+    pathname: string;
+  }>({
+    open: false,
+    pathname,
+  });
+  const mobileOpen =
+    mobileMenuState.open && mobileMenuState.pathname === pathname;
 
   return (
     <header className="sticky top-0 z-30 border-b border-border/60 bg-background/88 backdrop-blur-xl">
@@ -78,7 +82,13 @@ export function SiteHeader() {
           <button
             type="button"
             className="inline-flex size-10 items-center justify-center rounded-full border border-border/65 bg-background/78 text-foreground shadow-sm shadow-black/5 md:hidden"
-            onClick={() => setMobileOpen((current) => !current)}
+            onClick={() =>
+              setMobileMenuState((current) =>
+                current.open && current.pathname === pathname
+                  ? { open: false, pathname }
+                  : { open: true, pathname },
+              )
+            }
             aria-expanded={mobileOpen}
             aria-controls="mobile-site-nav"
             aria-label={mobileOpen ? "Fechar menu" : "Abrir menu"}

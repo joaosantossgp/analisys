@@ -27,7 +27,7 @@ import time
 from typing import Optional
 
 import pandas as pd
-from sqlalchemy import Engine, text
+from sqlalchemy import Engine, inspect, text
 
 from src.db import get_engine
 
@@ -449,6 +449,9 @@ class CVMQueryLayer:
             return {}
 
         unique_ids = tuple(sorted({int(cd_cvm) for cd_cvm in cd_cvms}))
+        if not inspect(self.engine).has_table("financial_reports"):
+            return {int(cd_cvm): () for cd_cvm in unique_ids}
+
         placeholders = ", ".join(f":cd{i}" for i in range(len(unique_ids)))
         params = {f"cd{i}": cd_cvm for i, cd_cvm in enumerate(unique_ids)}
         sql = text(

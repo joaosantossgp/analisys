@@ -20,11 +20,12 @@ test("fluxo inicial de descoberta por empresa", async ({ page }) => {
     page.getByRole("heading", { name: /todas as companhias abertas/i }),
   ).toBeVisible({ timeout: 30_000 });
 
-  const petrobrasLink = page.getByRole("link").filter({ hasText: /PETROBRAS/i }).first();
+  const petrobrasLink = page.locator('a[href^="/empresas/"]').filter({ hasText: /PETROBRAS/i }).first();
   await expect(petrobrasLink).toBeVisible({ timeout: 30_000 });
-  await petrobrasLink.click();
-
-  await expect(page).toHaveURL(/\/empresas\/\d+/);
+  await Promise.all([
+    page.waitForURL(/\/empresas\/\d+/, { timeout: 30_000 }),
+    petrobrasLink.click(),
+  ]);
   await expect(page.locator("h1").first()).toContainText(/PETROBRAS/i);
 });
 
