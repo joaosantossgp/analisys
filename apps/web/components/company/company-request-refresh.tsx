@@ -18,6 +18,7 @@ import {
   applyManualStatusFailure,
   applyRefreshPollFailure,
   applyRefreshStatusResult,
+  createAlreadyCurrentRefreshState,
   createDelayedRefreshState,
   createDispatchFailureState,
   createDispatchedRefreshState,
@@ -161,12 +162,8 @@ export function CompanyRequestRefresh({
         return;
       }
 
-      if (payload.status === "dispatch_failed") {
-        setState(
-          createDispatchFailureState(
-            "Nao foi possivel iniciar a atualizacao desta empresa.",
-          ),
-        );
+      if (payload.status === "already_current") {
+        setState(createAlreadyCurrentRefreshState(payload.message));
         return;
       }
 

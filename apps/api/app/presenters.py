@@ -14,6 +14,7 @@ from src.contracts import (
     HealthSnapshot,
     KPIBundle,
     RankedRefreshQueueResult,
+    RefreshDispatchDTO,
     RefreshStatusDTO,
     SectorDetailDTO,
     SectorDirectoryDTO,
@@ -195,6 +196,9 @@ class StatementSummaryPayload(BaseModel):
 class RefreshDispatchPayload(BaseModel):
     status: str
     cd_cvm: int
+    job_id: str | None = None
+    accepted_at: str
+    message: str
 
 
 class RankedRefreshQueueItemPayload(BaseModel):
@@ -225,6 +229,9 @@ class RefreshStatusPayload(BaseModel):
     cd_cvm: int
     company_name: str
     source_scope: str | None = None
+    job_id: str | None = None
+    stage: str | None = None
+    queue_position: int | None = None
     last_attempt_at: str | None = None
     last_success_at: str | None = None
     last_status: str | None = None
@@ -232,6 +239,12 @@ class RefreshStatusPayload(BaseModel):
     last_start_year: int | None = None
     last_end_year: int | None = None
     last_rows_inserted: int | None = None
+    progress_current: int | None = None
+    progress_total: int | None = None
+    progress_message: str | None = None
+    started_at: str | None = None
+    heartbeat_at: str | None = None
+    finished_at: str | None = None
     updated_at: str | None = None
     estimated_progress_pct: float | None = None
     estimated_eta_seconds: int | None = None
@@ -363,6 +376,10 @@ def present_statement_summary(dto: StatementSummaryDTO) -> StatementSummaryPaylo
         for b in dto.blocks
     ]
     return StatementSummaryPayload(cd_cvm=dto.cd_cvm, years=list(dto.years), blocks=blocks)
+
+
+def present_refresh_dispatch(dto: RefreshDispatchDTO) -> RefreshDispatchPayload:
+    return RefreshDispatchPayload(**dto.to_dict())
 
 
 def present_refresh_status(rows: list[RefreshStatusDTO]) -> list[RefreshStatusPayload]:

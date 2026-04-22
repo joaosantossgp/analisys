@@ -7,6 +7,7 @@ export type RefreshPhase =
   | "running"
   | "reconnecting"
   | "delayed"
+  | "no_data"
   | "terminal_error"
   | "success";
 
@@ -44,13 +45,13 @@ export type RefreshViewModel = {
   showRequestAgainButton: boolean;
 };
 
-export const POLL_INTERVAL_MS = 10_000;
+export const POLL_INTERVAL_MS = 5_000;
 export const POLL_TIMEOUT_MS = 15 * 60 * 1_000;
 export const RELOAD_DELAY_MS = 1_200;
 
-const RECONNECT_DELAY_SEQUENCE_MS = [10_000, 20_000, 30_000, 60_000];
+const RECONNECT_DELAY_SEQUENCE_MS = [5_000, 10_000, 20_000, 30_000];
 const ACTIVE_REFRESH_STATUSES = new Set(["queued", "running"]);
-const TERMINAL_REFRESH_STATUSES = new Set(["error", "dispatch_failed"]);
+const TERMINAL_REFRESH_STATUSES = new Set(["error"]);
 const ESTIMATE_TIME_FORMATTER = new Intl.DateTimeFormat("pt-BR", {
   hour: "2-digit",
   minute: "2-digit",
@@ -60,17 +61,55 @@ function normalizeStatus(status: string | null | undefined): string {
   return String(status || "").trim().toLowerCase();
 }
 
-function getQueuedMessage(): { message: string; detail: string } {
+function getStageLabel(item: RefreshStatusItem | null | undefined): string {
+  const stage = normalizeStatus(item?.stage);
+  switch (stage) {
+    case "planning":
+      return "Planejando";
+    case "download_extract":
+      return "Baixando";
+    case "process_data":
+      return "Processando";
+    case "persist_reports":
+      return "Gravando";
+    case "finalizing":
+      return "Finalizando";
+    default:
+      return normalizeStatus(item?.last_status) === "running"
+        ? "Processando"
+        : "Na fila";
+  }
+}
+
+function getQueuedMessage(
+  item: RefreshStatusItem | null | undefined,
+): { message: string; detail: string } {
+  const queuePosition = item?.queue_position ?? null;
+  if (typeof queuePosition === "number" && queuePosition > 0) {
+    return {
+      message: "Solicitacao na fila interna.",
+      detail: `Ha ${queuePosition} job(s) na frente desta empresa no worker interno.`,
+    };
+  }
+
   return {
     message: "Solicitacao enviada. Aguardando processamento...",
-    detail: "Acompanhando a fila atual da ingestao on-demand.",
+    detail:
+      item?.progress_message ??
+      "Aguardando o worker interno iniciar esta solicitacao.",
   };
 }
 
-function getRunningMessage(): { message: string; detail: string } {
+function getRunningMessage(
+  item: RefreshStatusItem | null | undefined,
+): { message: string; detail: string } {
   return {
-    message: "Atualizando demonstracoes financeiras...",
-    detail: "Os dados desta companhia estao sendo processados agora.",
+    message:
+      item?.progress_message ?? "Atualizando demonstracoes financeiras...",
+    detail:
+      item?.stage
+        ? `Etapa atual: ${getStageLabel(item).toLowerCase()}.`
+        : "Os dados desta companhia estao sendo processados agora.",
   };
 }
 
@@ -82,6 +121,8 @@ function getBadgeClassName(phase: RefreshPhase): string {
       return "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300";
     case "delayed":
       return "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300";
+    case "no_data":
+      return "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300";
     case "terminal_error":
       return "border-destructive/25 bg-destructive/10 text-destructive";
     case "success":
@@ -126,7 +167,7 @@ function formatEstimatedTime(dateIso: string | null | undefined): string | null 
 function getConfidenceLabel(confidence: string | null | undefined): string | null {
   switch (normalizeStatus(confidence)) {
     case "high":
-      return "Estimativa baseada em execucoes recentes consistentes.";
+      return "Estimativa baseada no progresso real do job.";
     case "medium":
       return "Estimativa baseada nas ultimas execucoes concluidas.";
     case "low":
@@ -194,7 +235,11 @@ function getEstimateReferenceItem(
 }
 
 function buildRefreshEstimate(state: RefreshMachineState): RefreshEstimate | null {
-  if (state.phase === "idle" || state.phase === "terminal_error") {
+  if (
+    state.phase === "idle" ||
+    state.phase === "terminal_error" ||
+    state.phase === "no_data"
+  ) {
     return null;
   }
 
@@ -330,6 +375,20 @@ export function createDispatchedRefreshState(
   };
 }
 
+export function createAlreadyCurrentRefreshState(
+  message?: string,
+): RefreshMachineState {
+  return {
+    phase: "success",
+    currentItem: null,
+    lastKnownActiveItem: null,
+    failureCount: 0,
+    canRequestAgain: false,
+    notice: message ?? "Esta empresa ja estava atualizada.",
+    terminalMessage: null,
+  };
+}
+
 export function createDispatchFailureState(
   message?: string,
 ): RefreshMachineState {
@@ -355,6 +414,22 @@ export function hydrateRefreshState(
       initialStatus,
       nowMs,
     );
+  }
+
+  if (normalizeStatus(initialStatus?.last_status) === "no_data" && initialStatus) {
+    return {
+      phase: "no_data",
+      startedAt: parseTimestamp(initialStatus.last_attempt_at) ?? nowMs,
+      currentItem: initialStatus,
+      lastKnownActiveItem: null,
+      failureCount: 0,
+      canRequestAgain: true,
+      notice: null,
+      terminalMessage:
+        initialStatus.progress_message ??
+        initialStatus.last_error ??
+        "Nenhuma demonstracao foi encontrada para o intervalo solicitado.",
+    };
   }
 
   return createIdleRefreshState();
@@ -502,6 +577,21 @@ export function applyRefreshStatusResult(
     };
   }
 
+  if (status === "no_data") {
+    return {
+      ...state,
+      phase: "no_data",
+      currentItem: item,
+      failureCount: 0,
+      canRequestAgain: true,
+      notice: null,
+      terminalMessage:
+        item.progress_message ??
+        item.last_error ??
+        "Nenhuma demonstracao foi encontrada para o intervalo solicitado.",
+    };
+  }
+
   if (TERMINAL_REFRESH_STATUSES.has(status)) {
     return {
       ...state,
@@ -553,13 +643,13 @@ export function getRefreshViewModel(
         showRequestAgainButton: false,
       };
     case "queued": {
-      const copy = getQueuedMessage();
+      const copy = getQueuedMessage(state.currentItem);
       return {
         showCard: true,
         title: "Atualizacao em andamento",
         message: copy.message,
         detail: copy.detail,
-        stepLabel: "Na fila",
+        stepLabel: getStageLabel(state.currentItem),
         stepClassName: getBadgeClassName(state.phase),
         isDestructive: false,
         estimate,
@@ -570,13 +660,13 @@ export function getRefreshViewModel(
       };
     }
     case "running": {
-      const copy = getRunningMessage();
+      const copy = getRunningMessage(state.currentItem);
       return {
         showCard: true,
         title: "Atualizacao em andamento",
         message: copy.message,
         detail: copy.detail,
-        stepLabel: "Processando",
+        stepLabel: getStageLabel(state.currentItem),
         stepClassName: getBadgeClassName(state.phase),
         isDestructive: false,
         estimate,
@@ -623,6 +713,24 @@ export function getRefreshViewModel(
         showManualStatusButton: true,
         showRequestAgainButton: state.canRequestAgain,
       };
+    case "no_data":
+      return {
+        showCard: true,
+        title: "Nenhum dado encontrado",
+        message:
+          state.terminalMessage ??
+          "Nenhuma demonstracao foi encontrada para o intervalo solicitado.",
+        detail:
+          "Esse resultado e terminal e informativo. Voce pode solicitar novamente depois, se necessario.",
+        stepLabel: "Sem dados",
+        stepClassName: getBadgeClassName(state.phase),
+        isDestructive: false,
+        estimate,
+        requestButtonLabel: "Solicitar novamente",
+        requestButtonDisabled: false,
+        showManualStatusButton: false,
+        showRequestAgainButton: false,
+      };
     case "terminal_error":
       return {
         showCard: true,
@@ -644,8 +752,11 @@ export function getRefreshViewModel(
       return {
         showCard: true,
         title: "Atualizacao concluida",
-        message: "Dados disponiveis! Recarregando...",
-        detail: "A leitura detalhada desta empresa sera atualizada agora.",
+        message: state.notice ?? "Dados disponiveis! Recarregando...",
+        detail:
+          state.notice === null
+            ? "A leitura detalhada desta empresa sera atualizada agora."
+            : "A pagina sera atualizada para refletir o estado mais recente.",
         stepLabel: "Concluido",
         stepClassName: getBadgeClassName(state.phase),
         isDestructive: false,

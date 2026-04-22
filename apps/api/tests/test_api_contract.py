@@ -441,13 +441,49 @@ def test_sector_detail_keeps_company_row_with_null_metrics_when_accounts_are_par
     ]
 
 
-def test_request_refresh_returns_202_dispatch_failed_without_github_token(client: TestClient):
+def test_request_refresh_returns_202_and_enqueues_internal_job(client: TestClient):
+    from sqlalchemy import text as sa_text
+
     response = client.post("/companies/9512/request-refresh")
 
     assert response.status_code == 202
     payload = response.json()
     assert payload["cd_cvm"] == 9512
-    assert payload["status"] == "dispatch_failed"
+    assert payload["status"] == "queued"
+    assert isinstance(payload["job_id"], str) and payload["job_id"]
+    assert isinstance(payload["accepted_at"], str)
+    assert "enfileirada" in payload["message"].lower()
+
+    engine = client.app.state.read_service.engine
+    with engine.connect() as conn:
+        job_row = conn.execute(
+            sa_text(
+                """
+                SELECT state, stage, source_scope, cd_cvm
+                FROM refresh_jobs
+                WHERE id = :job_id
+                """
+            ),
+            {"job_id": payload["job_id"]},
+        ).mappings().one()
+        projection_row = conn.execute(
+            sa_text(
+                """
+                SELECT last_status, source_scope, job_id, queue_position
+                FROM company_refresh_status
+                WHERE cd_cvm = 9512
+                """
+            )
+        ).mappings().one()
+
+    assert job_row["state"] == "queued"
+    assert job_row["stage"] == "queued"
+    assert job_row["source_scope"] == "on_demand"
+    assert int(job_row["cd_cvm"]) == 9512
+    assert projection_row["last_status"] == "queued"
+    assert projection_row["source_scope"] == "on_demand"
+    assert projection_row["job_id"] == payload["job_id"]
+    assert projection_row["queue_position"] == 0
 
 
 def test_request_refresh_bootstraps_unknown_local_company_from_catalog(
@@ -472,7 +508,8 @@ def test_request_refresh_bootstraps_unknown_local_company_from_catalog(
     assert response.status_code == 202
     payload = response.json()
     assert payload["cd_cvm"] == 19348
-    assert payload["status"] == "dispatch_failed"
+    assert payload["status"] == "queued"
+    assert isinstance(payload["job_id"], str) and payload["job_id"]
 
     engine = client.app.state.read_service.engine
     with engine.connect() as conn:
@@ -488,7 +525,7 @@ def test_request_refresh_bootstraps_unknown_local_company_from_catalog(
         refresh_row = conn.execute(
             sa_text(
                 """
-                SELECT source_scope, last_status
+                SELECT source_scope, last_status, job_id
                 FROM company_refresh_status
                 WHERE cd_cvm = 19348
                 """
@@ -500,7 +537,8 @@ def test_request_refresh_bootstraps_unknown_local_company_from_catalog(
     assert company_row["setor_cvm"] == "Financeiro"
     assert company_row["ticker_b3"] == "ITUB4"
     assert refresh_row["source_scope"] == "on_demand_bootstrap"
-    assert refresh_row["last_status"] == "dispatch_failed"
+    assert refresh_row["last_status"] == "queued"
+    assert refresh_row["job_id"] == payload["job_id"]
 
 
 def test_request_refresh_returns_404_for_unknown_company(client: TestClient):
@@ -509,26 +547,106 @@ def test_request_refresh_returns_404_for_unknown_company(client: TestClient):
     assert response.status_code == 404
 
 
-def test_request_refresh_returns_429_when_already_queued(client: TestClient):
-    from datetime import datetime, timezone
+def test_request_refresh_returns_already_current_without_creating_job(
+    client: TestClient,
+):
     from sqlalchemy import text as sa_text
 
     engine = client.app.state.read_service.engine
-    now_iso = datetime.now(timezone.utc).isoformat()
+    with engine.begin() as conn:
+        annual_rows = []
+        for report_year in range(2010, 2026):
+            for statement_type in ("BPA", "BPP", "DRE", "DFC"):
+                annual_rows.append(
+                    {
+                        "COMPANY_NAME": "VALE",
+                        "CD_CVM": 4170,
+                        "STATEMENT_TYPE": statement_type,
+                        "REPORT_YEAR": report_year,
+                        "PERIOD_LABEL": str(report_year),
+                        "LINE_ID_BASE": f"{statement_type.lower()}-{report_year}",
+                        "CD_CONTA": statement_type,
+                        "DS_CONTA": statement_type,
+                        "STANDARD_NAME": statement_type,
+                        "QA_CONFLICT": 0,
+                        "VL_CONTA": 1.0,
+                    }
+                )
+        conn.execute(
+            sa_text(
+                """
+                INSERT INTO financial_reports (
+                    COMPANY_NAME, CD_CVM, STATEMENT_TYPE, REPORT_YEAR, PERIOD_LABEL,
+                    LINE_ID_BASE, CD_CONTA, DS_CONTA, STANDARD_NAME, QA_CONFLICT, VL_CONTA
+                ) VALUES (
+                    :COMPANY_NAME, :CD_CVM, :STATEMENT_TYPE, :REPORT_YEAR, :PERIOD_LABEL,
+                    :LINE_ID_BASE, :CD_CONTA, :DS_CONTA, :STANDARD_NAME, :QA_CONFLICT, :VL_CONTA
+                )
+                """
+            ),
+            annual_rows,
+        )
+
+    response = client.post("/companies/4170/request-refresh")
+
+    assert response.status_code == 202
+    payload = response.json()
+    assert payload["status"] == "already_current"
+    assert payload["job_id"] is None
+    assert "ja atualizada" in payload["message"].lower()
+
+    with engine.connect() as conn:
+        queued_jobs = conn.execute(
+            sa_text("SELECT COUNT(*) FROM refresh_jobs WHERE cd_cvm = 4170")
+        ).scalar_one()
+        projection_row = conn.execute(
+            sa_text(
+                """
+                SELECT last_status, job_id, progress_message
+                FROM company_refresh_status
+                WHERE cd_cvm = 4170
+                """
+            )
+        ).mappings().one()
+
+    assert int(queued_jobs) == 0
+    assert projection_row["last_status"] == "success"
+    assert projection_row["job_id"] is None
+    assert "ja atualizada" in str(projection_row["progress_message"]).lower()
+
+
+@pytest.mark.parametrize("state", ["queued", "running"])
+def test_request_refresh_returns_429_when_active_job_exists(
+    client: TestClient,
+    state: str,
+):
+    from sqlalchemy import text as sa_text
+
+    engine = client.app.state.read_service.engine
     with engine.begin() as conn:
         conn.execute(
             sa_text(
-                "INSERT INTO company_refresh_status "
-                "(cd_cvm, company_name, source_scope, last_status, last_attempt_at, updated_at) "
-                "VALUES (4170, 'VALE', 'on_demand', 'queued', :now, :now)"
+                """
+                INSERT INTO refresh_jobs (
+                    id, cd_cvm, company_name, source_scope,
+                    start_year, end_year, state, stage, requested_at
+                ) VALUES (
+                    :id, 4170, 'VALE', 'on_demand',
+                    2010, 2025, :state, :stage, '2026-04-21T12:00:00+00:00'
+                )
+                """
             ),
-            {"now": now_iso},
+            {
+                "id": f"active-{state}",
+                "state": state,
+                "stage": "planning" if state == "running" else "queued",
+            },
         )
 
     response = client.post("/companies/4170/request-refresh")
 
     assert response.status_code == 429
-    assert response.json()["detail"]["code"] == "refresh_already_queued"
+    assert response.json()["detail"]["code"] == "refresh_already_active"
 
 
 def test_request_top_ranked_historical_refresh_queues_only_missing_and_excludes_no_data(
@@ -900,16 +1018,15 @@ def test_refresh_status_returns_operational_rows(client: TestClient):
     payload = response.json()
     assert len(payload) == 1
     assert payload[0]["last_status"] == "success"
+    assert payload[0]["job_id"] is None
+    assert payload[0]["stage"] is None
+    assert payload[0]["queue_position"] is None
     assert payload[0]["estimated_progress_pct"] is None
     assert payload[0]["estimated_eta_seconds"] is None
 
 
-def test_refresh_status_returns_estimated_progress_for_active_refresh(client: TestClient):
+def test_refresh_status_exposes_terminal_no_data_state(client: TestClient):
     from sqlalchemy import text as sa_text
-
-    now = datetime.now(timezone.utc).replace(microsecond=0)
-    now_iso = now.isoformat()
-    queued_at = (now - timedelta(minutes=4)).isoformat()
 
     with client.app.state.read_service.engine.begin() as conn:
         conn.execute(
@@ -918,11 +1035,56 @@ def test_refresh_status_returns_estimated_progress_for_active_refresh(client: Te
                 INSERT INTO company_refresh_status (
                     cd_cvm, company_name, source_scope, last_attempt_at, last_success_at,
                     last_status, last_error, last_start_year, last_end_year,
-                    last_rows_inserted, updated_at
+                    last_rows_inserted, updated_at, progress_message, finished_at
+                ) VALUES (
+                    4170, 'VALE', 'on_demand', '2026-04-21T12:00:00+00:00', NULL,
+                    'no_data', NULL, 2010, 2025,
+                    NULL, '2026-04-21T12:01:00+00:00', 'Nenhuma demonstracao encontrada para 2010-2025.',
+                    '2026-04-21T12:01:00+00:00'
+                )
+                ON CONFLICT (cd_cvm) DO UPDATE SET
+                    last_status = excluded.last_status,
+                    progress_message = excluded.progress_message,
+                    finished_at = excluded.finished_at,
+                    updated_at = excluded.updated_at
+                """
+            )
+        )
+
+    response = client.get("/refresh-status", params={"cd_cvm": 4170})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload) == 1
+    assert payload[0]["last_status"] == "no_data"
+    assert payload[0]["progress_message"] == "Nenhuma demonstracao encontrada para 2010-2025."
+    assert payload[0]["finished_at"] == "2026-04-21T12:01:00+00:00"
+    assert payload[0]["estimated_progress_pct"] is None
+
+
+def test_refresh_status_returns_real_progress_fields_for_active_refresh(client: TestClient):
+    from sqlalchemy import text as sa_text
+
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    now_iso = now.isoformat()
+    started_at = (now - timedelta(minutes=4)).isoformat()
+
+    with client.app.state.read_service.engine.begin() as conn:
+        conn.execute(
+            sa_text(
+                """
+                INSERT INTO company_refresh_status (
+                    cd_cvm, company_name, source_scope, last_attempt_at, last_success_at,
+                    last_status, last_error, last_start_year, last_end_year,
+                    last_rows_inserted, updated_at, job_id, stage, queue_position,
+                    progress_current, progress_total, progress_message,
+                    started_at, heartbeat_at, finished_at
                 ) VALUES (
                     :cd_cvm, :company_name, :source_scope, :last_attempt_at, :last_success_at,
                     :last_status, :last_error, :last_start_year, :last_end_year,
-                    :last_rows_inserted, :updated_at
+                    :last_rows_inserted, :updated_at, :job_id, :stage, :queue_position,
+                    :progress_current, :progress_total, :progress_message,
+                    :started_at, :heartbeat_at, :finished_at
                 )
                 ON CONFLICT (cd_cvm) DO UPDATE SET
                     company_name = excluded.company_name,
@@ -934,7 +1096,16 @@ def test_refresh_status_returns_estimated_progress_for_active_refresh(client: Te
                     last_start_year = excluded.last_start_year,
                     last_end_year = excluded.last_end_year,
                     last_rows_inserted = excluded.last_rows_inserted,
-                    updated_at = excluded.updated_at
+                    updated_at = excluded.updated_at,
+                    job_id = excluded.job_id,
+                    stage = excluded.stage,
+                    queue_position = excluded.queue_position,
+                    progress_current = excluded.progress_current,
+                    progress_total = excluded.progress_total,
+                    progress_message = excluded.progress_message,
+                    started_at = excluded.started_at,
+                    heartbeat_at = excluded.heartbeat_at,
+                    finished_at = excluded.finished_at
                 """
             ),
             [
@@ -942,19 +1113,31 @@ def test_refresh_status_returns_estimated_progress_for_active_refresh(client: Te
                     "cd_cvm": 4170,
                     "company_name": "VALE",
                     "source_scope": "on_demand",
-                    "last_attempt_at": queued_at,
+                    "job_id": "job-active-vale",
+                    "stage": "download_extract",
+                    "queue_position": 1,
+                    "last_attempt_at": started_at,
                     "last_success_at": None,
                     "last_status": "queued",
                     "last_error": None,
                     "last_start_year": 2010,
                     "last_end_year": 2024,
                     "last_rows_inserted": None,
+                    "progress_current": 9,
+                    "progress_total": 20,
+                    "progress_message": "Download concluido para DFP/2018.",
+                    "started_at": started_at,
+                    "heartbeat_at": now_iso,
+                    "finished_at": None,
                     "updated_at": now_iso,
                 },
                 {
                     "cd_cvm": 19348,
                     "company_name": "LOCALIZA",
                     "source_scope": "local",
+                    "job_id": None,
+                    "stage": None,
+                    "queue_position": None,
                     "last_attempt_at": (now - timedelta(hours=3)).isoformat(),
                     "last_success_at": (now - timedelta(hours=2, minutes=44)).isoformat(),
                     "last_status": "success",
@@ -962,12 +1145,21 @@ def test_refresh_status_returns_estimated_progress_for_active_refresh(client: Te
                     "last_start_year": 2010,
                     "last_end_year": 2024,
                     "last_rows_inserted": 120,
+                    "progress_current": None,
+                    "progress_total": None,
+                    "progress_message": None,
+                    "started_at": None,
+                    "heartbeat_at": None,
+                    "finished_at": None,
                     "updated_at": (now - timedelta(hours=2, minutes=44)).isoformat(),
                 },
                 {
                     "cd_cvm": 20532,
                     "company_name": "WEG",
                     "source_scope": "local",
+                    "job_id": None,
+                    "stage": None,
+                    "queue_position": None,
                     "last_attempt_at": (now - timedelta(hours=2, minutes=30)).isoformat(),
                     "last_success_at": (now - timedelta(hours=2, minutes=12)).isoformat(),
                     "last_status": "success",
@@ -975,12 +1167,21 @@ def test_refresh_status_returns_estimated_progress_for_active_refresh(client: Te
                     "last_start_year": 2010,
                     "last_end_year": 2024,
                     "last_rows_inserted": 116,
+                    "progress_current": None,
+                    "progress_total": None,
+                    "progress_message": None,
+                    "started_at": None,
+                    "heartbeat_at": None,
+                    "finished_at": None,
                     "updated_at": (now - timedelta(hours=2, minutes=12)).isoformat(),
                 },
                 {
                     "cd_cvm": 90678,
                     "company_name": "ITAU",
                     "source_scope": "local",
+                    "job_id": None,
+                    "stage": None,
+                    "queue_position": None,
                     "last_attempt_at": (now - timedelta(hours=2)).isoformat(),
                     "last_success_at": (now - timedelta(hours=1, minutes=47)).isoformat(),
                     "last_status": "success",
@@ -988,6 +1189,12 @@ def test_refresh_status_returns_estimated_progress_for_active_refresh(client: Te
                     "last_start_year": 2010,
                     "last_end_year": 2024,
                     "last_rows_inserted": 112,
+                    "progress_current": None,
+                    "progress_total": None,
+                    "progress_message": None,
+                    "started_at": None,
+                    "heartbeat_at": None,
+                    "finished_at": None,
                     "updated_at": (now - timedelta(hours=1, minutes=47)).isoformat(),
                 },
             ],
@@ -999,13 +1206,18 @@ def test_refresh_status_returns_estimated_progress_for_active_refresh(client: Te
     payload = response.json()
     assert len(payload) == 1
     assert payload[0]["last_status"] == "queued"
-    assert payload[0]["estimated_progress_pct"] > 10.0
-    assert payload[0]["estimated_progress_pct"] < 96.0
+    assert payload[0]["job_id"] == "job-active-vale"
+    assert payload[0]["stage"] == "download_extract"
+    assert payload[0]["queue_position"] == 1
+    assert payload[0]["progress_current"] == 9
+    assert payload[0]["progress_total"] == 20
+    assert payload[0]["progress_message"] == "Download concluido para DFP/2018."
+    assert payload[0]["estimated_progress_pct"] == pytest.approx(25.3, abs=0.2)
     assert payload[0]["estimated_eta_seconds"] is not None
     assert payload[0]["estimated_total_seconds"] is not None
     assert payload[0]["elapsed_seconds"] >= 240
     assert payload[0]["estimated_completion_at"] is not None
-    assert payload[0]["estimate_confidence"] == "medium"
+    assert payload[0]["estimate_confidence"] == "high"
 
 
 def test_base_health_returns_snapshot(client: TestClient):

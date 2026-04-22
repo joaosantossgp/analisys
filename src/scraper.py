@@ -65,6 +65,7 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Callable
 from sqlalchemy.exc import OperationalError
+from src.contracts import RefreshProgressUpdate
 from src.utils import (
     normalize_account_name, generate_line_id_base, validate_line_ids,
     normalize_account_names, generate_line_id_bases,
@@ -591,8 +592,21 @@ class CVMScraper:
         end_year,
         company_year_overrides: dict[int, list[int]] | None = None,
         progress_callback: Callable[[int, int, str], None] | None = None,
+        stage_callback: Callable[[RefreshProgressUpdate], None] | None = None,
         should_cancel: Callable[[], bool] | None = None,
     ):
+        def _emit_stage(stage: str, current: int, total: int, message: str) -> None:
+            if stage_callback is None:
+                return
+            stage_callback(
+                RefreshProgressUpdate(
+                    stage=stage,
+                    current=int(current),
+                    total=max(1, int(total)),
+                    message=str(message),
+                )
+            )
+
         self.fetch_company_list()
         resolved = self.resolve_company_codes(companies)
 
@@ -609,6 +623,13 @@ class CVMScraper:
             for year in sorted(download_years)
             for doc_type in ('DFP', 'ITR')
         ]
+        completed_downloads = 0
+        _emit_stage(
+            "download_extract",
+            0,
+            len(tasks) or 1,
+            "Baixando e extraindo demonstracoes CVM.",
+        )
         with ThreadPoolExecutor(max_workers=4) as pool:
             futures = {pool.submit(self.download_and_extract, year, dt): (year, dt)
                        for year, dt in tasks}
@@ -619,6 +640,13 @@ class CVMScraper:
                 except Exception as exc:
                     with self._print_lock:
                         print(f"  Unexpected error for {dt_done}/{year_done}: {exc}")
+                completed_downloads += 1
+                _emit_stage(
+                    "download_extract",
+                    completed_downloads,
+                    len(tasks) or 1,
+                    f"Download concluido para {dt_done}/{year_done}.",
+                )
         
         company_items = list(resolved.items())
         total_companies = len(company_items)
@@ -638,6 +666,12 @@ class CVMScraper:
             years_requested = sorted(set(int(y) for y in years_requested))
 
             print(f"Processing {name}...")
+            _emit_stage(
+                "process_data",
+                completed,
+                total_companies or 1,
+                f"Processando demonstracoes de {name}.",
+            )
             payload = {
                 "company_name": str(name),
                 "cvm_code": int(cvm),
@@ -651,6 +685,12 @@ class CVMScraper:
             }
             raw = self.process_data(cvm, years_requested)
             if raw is None:
+                _emit_stage(
+                    "process_data",
+                    completed + 1,
+                    total_companies or 1,
+                    f"Nenhuma demonstracao encontrada para {name}.",
+                )
                 payload["status"] = "no_data"
                 payload["error"] = "No financial rows found for selected years"
                 results[str(int(cvm))] = payload
@@ -658,6 +698,12 @@ class CVMScraper:
                 continue
 
             proc, qas = self.process_all_reports(raw)
+            _emit_stage(
+                "process_data",
+                completed + 1,
+                total_companies or 1,
+                f"Processamento concluido para {name}.",
+            )
             years_min = min(years_requested) if years_requested else int(start_year)
             years_max = max(years_requested) if years_requested else int(end_year)
             payload["years_processed"] = self._extract_years_processed(
@@ -672,6 +718,12 @@ class CVMScraper:
                 continue
 
             attempt = 0
+            _emit_stage(
+                "persist_reports",
+                completed,
+                total_companies or 1,
+                f"Gravando relatórios e persistindo dados de {name}.",
+            )
             while attempt < self.company_db_max_retries:
                 attempt += 1
                 payload["attempts"] = int(attempt)
@@ -680,6 +732,12 @@ class CVMScraper:
                     payload["rows_inserted"] = int(rows_inserted or 0)
                     payload["status"] = "success"
                     payload["error"] = None
+                    _emit_stage(
+                        "persist_reports",
+                        completed + 1,
+                        total_companies or 1,
+                        f"Persistencia concluida para {name}.",
+                    )
                     break
                 except OperationalError as exc:
                     sql_code = getattr(exc, "code", None)

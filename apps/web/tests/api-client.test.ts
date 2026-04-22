@@ -7,6 +7,7 @@ import {
   fetchCompanyFilters,
   fetchCompanyFreshness,
   fetchCompanySuggestions,
+  fetchRequestRefresh,
   fetchSectorDetail,
   fetchRefreshStatus,
   getUserFacingErrorCopy,
@@ -275,6 +276,35 @@ test("fetchRefreshStatus keeps explicit no-store semantics for polling flows", a
   }
 });
 
+test("fetchRequestRefresh accepts the new internal queue payload", async () => {
+  const restore = withFetchMock((async () =>
+    new Response(
+      JSON.stringify({
+        cd_cvm: 4170,
+        status: "queued",
+        job_id: "job-4170",
+        accepted_at: "2026-04-21T12:00:00+00:00",
+        message: "Solicitacao enfileirada para processamento interno.",
+      }),
+      {
+        status: 202,
+        headers: {
+          "content-type": "application/json",
+        },
+      },
+    )) as FetchMock);
+
+  try {
+    const payload = await fetchRequestRefresh(4170);
+
+    assert.equal(payload.status, "queued");
+    assert.equal(payload.job_id, "job-4170");
+    assert.equal(payload.accepted_at, "2026-04-21T12:00:00+00:00");
+  } finally {
+    restore();
+  }
+});
+
 test("fetchRefreshStatus accepts estimated progress fields from the API", async () => {
   const restore = withFetchMock((async () =>
     new Response(
@@ -283,6 +313,9 @@ test("fetchRefreshStatus accepts estimated progress fields from the API", async 
           cd_cvm: 4170,
           company_name: "VALE",
           source_scope: "on_demand",
+          job_id: "job-4170",
+          stage: "download_extract",
+          queue_position: 2,
           last_attempt_at: "2026-04-21T12:00:00+00:00",
           last_success_at: null,
           last_status: "queued",
@@ -290,6 +323,12 @@ test("fetchRefreshStatus accepts estimated progress fields from the API", async 
           last_start_year: 2010,
           last_end_year: 2024,
           last_rows_inserted: null,
+          progress_current: 9,
+          progress_total: 20,
+          progress_message: "Download concluido para DFP/2018.",
+          started_at: "2026-04-21T12:00:00+00:00",
+          heartbeat_at: "2026-04-21T12:04:00+00:00",
+          finished_at: null,
           updated_at: "2026-04-21T12:00:00+00:00",
           estimated_progress_pct: 31.4,
           estimated_eta_seconds: 840,
@@ -310,6 +349,11 @@ test("fetchRefreshStatus accepts estimated progress fields from the API", async 
   try {
     const payload = await fetchRefreshStatus(4170);
 
+    assert.equal(payload[0]?.job_id, "job-4170");
+    assert.equal(payload[0]?.stage, "download_extract");
+    assert.equal(payload[0]?.queue_position, 2);
+    assert.equal(payload[0]?.progress_current, 9);
+    assert.equal(payload[0]?.progress_total, 20);
     assert.equal(payload[0]?.estimated_progress_pct, 31.4);
     assert.equal(payload[0]?.estimated_eta_seconds, 840);
     assert.equal(payload[0]?.estimate_confidence, "medium");
@@ -347,6 +391,11 @@ test("fetchRefreshStatus normalizes missing estimate fields from legacy payloads
   try {
     const payload = await fetchRefreshStatus(4170);
 
+    assert.equal(payload[0]?.job_id, null);
+    assert.equal(payload[0]?.stage, null);
+    assert.equal(payload[0]?.queue_position, null);
+    assert.equal(payload[0]?.progress_current, null);
+    assert.equal(payload[0]?.progress_total, null);
     assert.equal(payload[0]?.estimated_progress_pct, null);
     assert.equal(payload[0]?.estimated_eta_seconds, null);
     assert.equal(payload[0]?.estimated_total_seconds, null);
@@ -387,6 +436,8 @@ test("fetchCompanyFreshness normalizes missing estimate fields from legacy API p
   try {
     const payload = await fetchCompanyFreshness(4170);
 
+    assert.equal(payload?.job_id, null);
+    assert.equal(payload?.stage, null);
     assert.equal(payload?.estimated_progress_pct, null);
     assert.equal(payload?.estimated_eta_seconds, null);
     assert.equal(payload?.estimate_confidence, null);

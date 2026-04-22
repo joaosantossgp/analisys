@@ -52,6 +52,7 @@ def _write_canonical_accounts(settings: AppSettings) -> None:
 def _drop_seed_tables(settings: AppSettings) -> None:
     engine = build_engine(settings)
     with engine.begin() as conn:
+        conn.execute(text("DROP TABLE IF EXISTS refresh_jobs"))
         conn.execute(text("DROP TABLE IF EXISTS company_refresh_status"))
         conn.execute(text("DROP TABLE IF EXISTS financial_reports"))
         conn.execute(text("DROP TABLE IF EXISTS companies"))

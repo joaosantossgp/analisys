@@ -75,8 +75,8 @@ pessoa que trabalhe em qualquer uma das duas areas deve atualizar este arquivo
 | `GET /companies/{cd_cvm}/statements` | `stmt=DRE\|BPA\|BPP\|DFC`, `years=2023,2024` | Aba Demonstracoes |
 | `GET /companies/{cd_cvm}/kpis` | `years=2023,2024` | Aba Visao Geral |
 | `GET /companies/{cd_cvm}/export/excel` | - | Download do workbook Excel completo da empresa, sempre com todos os anos disponiveis |
-| `POST /companies/{cd_cvm}/request-refresh` | - | Dispara bootstrap/refresh on-demand da empresa |
-| `GET /refresh-status` | `cd_cvm=` | Polling do status de refresh e da barra estimada de progresso/ETA |
+| `POST /companies/{cd_cvm}/request-refresh` | - | Enfileira bootstrap/refresh on-demand da empresa no worker interno |
+| `GET /refresh-status` | `cd_cvm=` | Polling do status de refresh, fila real, etapa atual e progresso/ETA |
 
 **Query params publicos da rota**: `?anos=2023,2024&aba=visao-geral\|demonstracoes&stmt=DRE\|BPA\|BPP\|DFC`
 
@@ -91,6 +91,9 @@ Notas de contrato:
   usar fallback de catalogo CVM quando a empresa ainda nao existe na base local
 - `GET /refresh-status` alimenta a experiencia de acompanhamento on-demand
   tanto na pagina sem dados quanto no card de freshness da empresa
+- o on-demand publico nao depende mais de GitHub Actions; o clique do usuario
+  cria um job em `refresh_jobs` e o worker dedicado atualiza a projecao
+  `company_refresh_status`
 
 ---
 

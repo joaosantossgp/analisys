@@ -5,6 +5,7 @@ import type { RefreshStatusItem } from "../lib/api.ts";
 import {
   applyRefreshPollFailure,
   applyRefreshStatusResult,
+  createAlreadyCurrentRefreshState,
   createDelayedRefreshState,
   createDispatchedRefreshState,
   getNextPollingDelayMs,
@@ -23,6 +24,9 @@ function buildRefreshStatusItem(
     cd_cvm: 4170,
     company_name: "VALE",
     source_scope: "on_demand",
+    job_id: null,
+    stage: null,
+    queue_position: null,
     last_attempt_at: "2026-04-21T12:00:00+00:00",
     last_success_at: null,
     last_status: "queued",
@@ -30,6 +34,12 @@ function buildRefreshStatusItem(
     last_start_year: 2010,
     last_end_year: 2024,
     last_rows_inserted: null,
+    progress_current: null,
+    progress_total: null,
+    progress_message: null,
+    started_at: null,
+    heartbeat_at: null,
+    finished_at: null,
     updated_at: "2026-04-21T12:00:00+00:00",
     estimated_progress_pct: null,
     estimated_eta_seconds: null,
@@ -115,6 +125,32 @@ test("low-confidence estimates hide the exact completion clock", () => {
   assert.equal(view.estimate?.etaLabel, "~14 min restantes");
 });
 
+test("high-confidence estimates are labeled as real job progress", () => {
+  const state = hydrateRefreshState(
+    buildRefreshStatusItem({
+      last_status: "running",
+      stage: "download_extract",
+      progress_current: 9,
+      progress_total: 20,
+      estimated_progress_pct: 31.4,
+      estimated_eta_seconds: 840,
+      estimated_total_seconds: 1260,
+      elapsed_seconds: 420,
+      estimated_completion_at: "2026-04-21T12:21:00+00:00",
+      estimate_confidence: "high",
+    }),
+    Date.now(),
+  );
+
+  const view = getRefreshViewModel(state);
+
+  assert.equal(view.stepLabel, "Baixando");
+  assert.equal(
+    view.estimate?.confidenceLabel,
+    "Estimativa baseada no progresso real do job.",
+  );
+});
+
 test("missing estimate fields fall back without breaking the progress UI", () => {
   const state = hydrateRefreshState(
     buildRefreshStatusItem({
@@ -154,11 +190,11 @@ test("transient poll failures preserve the last known progress and enter reconne
 });
 
 test("reconnect delays back off and cap at sixty seconds", () => {
-  assert.equal(getReconnectDelayMs(1), 10_000);
-  assert.equal(getReconnectDelayMs(2), 20_000);
-  assert.equal(getReconnectDelayMs(3), 30_000);
-  assert.equal(getReconnectDelayMs(4), 60_000);
-  assert.equal(getReconnectDelayMs(7), 60_000);
+  assert.equal(getReconnectDelayMs(1), 5_000);
+  assert.equal(getReconnectDelayMs(2), 10_000);
+  assert.equal(getReconnectDelayMs(3), 20_000);
+  assert.equal(getReconnectDelayMs(4), 30_000);
+  assert.equal(getReconnectDelayMs(7), 30_000);
 });
 
 test("successful recovery from reconnecting restores the active phase and normal cadence", () => {
@@ -229,4 +265,32 @@ test("manual refresh from delayed enables request again when no active status is
 
   const view = getRefreshViewModel(checkedState);
   assert.equal(view.showRequestAgainButton, true);
+});
+
+test("no_data is treated as a terminal informative state", () => {
+  const state = hydrateRefreshState(
+    buildRefreshStatusItem({
+      last_status: "no_data",
+      progress_message: "Nenhuma demonstracao encontrada para 2010-2025.",
+    }),
+    Date.now(),
+  );
+
+  assert.equal(state.phase, "no_data");
+
+  const view = getRefreshViewModel(state);
+  assert.equal(view.isDestructive, false);
+  assert.equal(view.message, "Nenhuma demonstracao encontrada para 2010-2025.");
+  assert.equal(view.requestButtonDisabled, false);
+});
+
+test("already_current uses the success state for immediate reload", () => {
+  const state = createAlreadyCurrentRefreshState(
+    "Empresa ja atualizada para 2010-2025.",
+  );
+  const view = getRefreshViewModel(state);
+
+  assert.equal(state.phase, "success");
+  assert.equal(view.message, "Empresa ja atualizada para 2010-2025.");
+  assert.equal(view.requestButtonDisabled, true);
 });

@@ -7,6 +7,8 @@ import pandas as pd
 from sqlalchemy import create_engine, text, Engine
 from sqlalchemy.exc import OperationalError
 
+from src.refresh_jobs import ensure_refresh_runtime_tables_for_connection
+
 logger = logging.getLogger(__name__)
 
 SQLITE_WRITE_MAX_RETRIES = 3
@@ -78,6 +80,7 @@ def init_db_tables(engine: Engine) -> None:
                 updated_at      TEXT NOT NULL
             )
         """))
+        ensure_refresh_runtime_tables_for_connection(conn)
 
     _index_ddl = [
         'CREATE INDEX {c}IF NOT EXISTS idx_fr_cd_cvm ON financial_reports("CD_CVM")',

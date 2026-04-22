@@ -29,12 +29,13 @@ from apps.api.app.presenters import (
     present_company_info,
     present_company_suggestions,
     present_kpis,
+    present_refresh_dispatch,
     present_ranked_refresh_queue,
     present_statement,
     present_statement_summary,
 )
 from src.company_catalog import CompanyCatalogUnavailableError
-from src.read_service import CVMReadService
+from src.read_service import CVMReadService, RefreshAlreadyActiveError
 
 router = APIRouter(tags=["companies"])
 
@@ -154,9 +155,15 @@ def request_company_refresh(
         result = service.request_company_refresh(cd_cvm)
     except CompanyCatalogUnavailableError as exc:
         raise ServiceUnavailableError(str(exc)) from exc
-    if result == "already_queued":
-        raise HTTPException(status_code=429, detail={"code": "refresh_already_queued"})
-    return RefreshDispatchPayload(status=result, cd_cvm=cd_cvm)
+    except RefreshAlreadyActiveError as exc:
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "code": "refresh_already_active",
+                "message": str(exc),
+            },
+        ) from exc
+    return present_refresh_dispatch(result)
 
 
 @router.post(

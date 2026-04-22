@@ -7,9 +7,15 @@ from typing import Any, Callable
 
 from sqlalchemy import bindparam, create_engine, inspect, text
 
-from src.contracts import CompanyRefreshResult, RefreshRequest, RefreshResult
+from src.contracts import (
+    CompanyRefreshResult,
+    RefreshProgressUpdate,
+    RefreshRequest,
+    RefreshResult,
+)
 from src.db import build_engine
 from src.observability import append_jsonl, log_event
+from src.refresh_jobs import ensure_refresh_runtime_tables_for_connection
 from src.scraper import CVMScraper
 from src.settings import AppSettings, get_settings
 
@@ -233,25 +239,7 @@ class HeadlessRefreshService:
         return planned_companies, company_year_overrides, stats
 
     def _ensure_refresh_status_table(self, conn) -> None:
-        conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS company_refresh_status (
-                    cd_cvm INTEGER PRIMARY KEY,
-                    company_name TEXT,
-                    source_scope TEXT NOT NULL DEFAULT 'local',
-                    last_attempt_at TEXT,
-                    last_success_at TEXT,
-                    last_status TEXT,
-                    last_error TEXT,
-                    last_start_year INTEGER,
-                    last_end_year INTEGER,
-                    last_rows_inserted INTEGER,
-                    updated_at TEXT
-                )
-                """))
-        conn.execute(text("""
-                CREATE INDEX IF NOT EXISTS idx_crs_status
-                ON company_refresh_status(last_status)
-                """))
+        ensure_refresh_runtime_tables_for_connection(conn)
 
     @staticmethod
     def _count_rows_for_company_years(
@@ -361,11 +349,14 @@ class HeadlessRefreshService:
                         INSERT INTO company_refresh_status (
                             cd_cvm, company_name, source_scope,
                             last_attempt_at, last_success_at, last_status, last_error,
-                            last_start_year, last_end_year, last_rows_inserted, updated_at
+                            last_start_year, last_end_year, last_rows_inserted, updated_at,
+                            job_id, stage, queue_position, progress_current, progress_total,
+                            progress_message, started_at, heartbeat_at, finished_at
                         ) VALUES (
                             :cd_cvm, :company_name, :source_scope,
                             :last_attempt_at, :last_success_at, :last_status, :last_error,
-                            :last_start_year, :last_end_year, :last_rows_inserted, :updated_at
+                            :last_start_year, :last_end_year, :last_rows_inserted, :updated_at,
+                            NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
                         )
                         ON CONFLICT(cd_cvm) DO UPDATE SET
                             company_name = excluded.company_name,
@@ -381,7 +372,16 @@ class HeadlessRefreshService:
                                 THEN excluded.last_rows_inserted
                                 ELSE company_refresh_status.last_rows_inserted
                             END,
-                            updated_at = excluded.updated_at
+                            updated_at = excluded.updated_at,
+                            job_id = NULL,
+                            stage = NULL,
+                            queue_position = NULL,
+                            progress_current = NULL,
+                            progress_total = NULL,
+                            progress_message = NULL,
+                            started_at = NULL,
+                            heartbeat_at = NULL,
+                            finished_at = excluded.updated_at
                         """),
                     refresh_status_params,
                 )
@@ -408,11 +408,25 @@ class HeadlessRefreshService:
         request: RefreshRequest,
         *,
         progress_callback: Callable[[int, int, str], None] | None = None,
+        stage_callback: Callable[[RefreshProgressUpdate], None] | None = None,
         should_cancel: Callable[[], bool] | None = None,
+        persist_refresh_status: bool = True,
     ) -> RefreshResult:
         planned_companies, company_year_overrides, planning_stats = (
             self.build_company_year_plan(request)
         )
+        if stage_callback is not None:
+            stage_callback(
+                RefreshProgressUpdate(
+                    stage="planning",
+                    current=1,
+                    total=1,
+                    message=(
+                        "Planejamento concluido para "
+                        f"{planning_stats['planned_company_years']} company-years."
+                    ),
+                )
+            )
         log_event(
             self.logger,
             "refresh-plan",
@@ -430,6 +444,15 @@ class HeadlessRefreshService:
         )
 
         if not planned_companies:
+            if stage_callback is not None:
+                stage_callback(
+                    RefreshProgressUpdate(
+                        stage="finalizing",
+                        current=1,
+                        total=1,
+                        message="Nenhum company-year faltante para processar.",
+                    )
+                )
             result = RefreshResult(
                 request=request,
                 companies=(),
@@ -463,13 +486,27 @@ class HeadlessRefreshService:
             end_year=request.end_year,
             company_year_overrides=company_year_overrides,
             progress_callback=progress_callback,
+            stage_callback=stage_callback,
             should_cancel=_should_cancel,
         )
         companies = tuple(
             CompanyRefreshResult.from_payload(raw_payload)
             for raw_payload in payload.values()
         )
-        synced_companies = self.sync_refresh_status(request, companies)
+        if stage_callback is not None:
+            stage_callback(
+                RefreshProgressUpdate(
+                    stage="finalizing",
+                    current=1,
+                    total=1,
+                    message="Finalizando persistencia do refresh.",
+                )
+            )
+        synced_companies = (
+            self.sync_refresh_status(request, companies)
+            if persist_refresh_status
+            else 0
+        )
         result = RefreshResult(
             request=request,
             companies=companies,
