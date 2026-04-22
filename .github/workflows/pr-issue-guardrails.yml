@@ -205,6 +205,24 @@ jobs:
               );
             }
 
+            function formatChoiceList(values) {
+              const items = (values || []).filter(Boolean);
+
+              if (items.length === 0) {
+                return "";
+              }
+
+              if (items.length === 1) {
+                return items[0];
+              }
+
+              if (items.length === 2) {
+                return `${items[0]} ou ${items[1]}`;
+              }
+
+              return `${items.slice(0, -1).join(", ")} ou ${items[items.length - 1]}`;
+            }
+
             const prNumber = context.payload.pull_request.number;
             const { data: policyFile } = await github.rest.repos.getContent({
               ...context.repo,
@@ -354,10 +372,11 @@ jobs:
               return;
             }
 
-            const acceptedLaneValues = ["frontend", "backend", "ops-quality"];
+            const acceptedLaneValues = Object.keys(policy.laneAllowlists || {});
+            const acceptedLaneDescription = formatChoiceList(acceptedLaneValues);
             if (!acceptedLaneValues.includes(laneSection)) {
               core.setFailed(
-                `A issue #${issueNumber} precisa declarar "Lane oficial" como frontend, backend ou ops-quality.`,
+                `A issue #${issueNumber} precisa declarar "Lane oficial" como ${acceptedLaneDescription}.`,
               );
               return;
             }
@@ -409,7 +428,7 @@ jobs:
 
               if (!acceptedLaneValues.includes(requesterLane)) {
                 core.setFailed(
-                  `A issue #${issueNumber} precisa declarar "Lane solicitante" como frontend, backend ou ops-quality.`,
+                  `A issue #${issueNumber} precisa declarar "Lane solicitante" como ${acceptedLaneDescription}.`,
                 );
                 return;
               }
