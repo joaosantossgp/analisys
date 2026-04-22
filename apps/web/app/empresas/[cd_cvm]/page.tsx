@@ -42,6 +42,10 @@ type EmpresaDetailPageProps = {
 
 export const dynamic = "force-dynamic";
 
+const DETAIL_PAGE_MUTABLE_API_READ = {
+  cache: "no-store",
+} as const;
+
 function DetailPageError({
   message,
 }: {
@@ -116,8 +120,8 @@ export default async function EmpresaDetailPage({
 
   try {
     [company, availableYears] = await Promise.all([
-      fetchCompanyInfo(cdCvm),
-      fetchCompanyYears(cdCvm),
+      fetchCompanyInfo(cdCvm, { request: DETAIL_PAGE_MUTABLE_API_READ }),
+      fetchCompanyYears(cdCvm, { request: DETAIL_PAGE_MUTABLE_API_READ }),
     ]);
   } catch (error) {
     if (isApiClientError(error) && error.code === "not_found") {
@@ -147,13 +151,22 @@ export default async function EmpresaDetailPage({
 
   if (currentTab === "visao-geral") {
     try {
-      bundle = await fetchCompanyKpis(cdCvm, selectedYears);
+      bundle = await fetchCompanyKpis(cdCvm, selectedYears, {
+        request: DETAIL_PAGE_MUTABLE_API_READ,
+      });
     } catch (error) {
       contentError = getUserFacingErrorMessage(error);
     }
   } else {
     try {
-      statement = await fetchCompanyStatement(cdCvm, selectedYears, currentStatement);
+      statement = await fetchCompanyStatement(
+        cdCvm,
+        selectedYears,
+        currentStatement,
+        {
+          request: DETAIL_PAGE_MUTABLE_API_READ,
+        },
+      );
     } catch (error) {
       contentError = getUserFacingErrorMessage(error);
     }

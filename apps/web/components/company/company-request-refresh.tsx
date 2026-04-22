@@ -1,6 +1,7 @@
 "use client";
 
 import { LoaderCircleIcon, RotateCcwIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -43,6 +44,7 @@ export function CompanyRequestRefresh({
   cdCvm,
   initialStatus = null,
 }: CompanyRequestRefreshProps) {
+  const router = useRouter();
   const [state, setState] = useState<RefreshMachineState>(() =>
     createIdleRefreshState(),
   );
@@ -114,7 +116,7 @@ export function CompanyRequestRefresh({
     }
 
     reloadTimerRef.current = window.setTimeout(() => {
-      window.location.reload();
+      router.refresh();
     }, RELOAD_DELAY_MS);
 
     return () => {
@@ -123,7 +125,7 @@ export function CompanyRequestRefresh({
         reloadTimerRef.current = null;
       }
     };
-  }, [state.phase]);
+  }, [router, state.phase]);
 
   useEffect(() => {
     if (!isAutoPollingPhase(state.phase)) {
