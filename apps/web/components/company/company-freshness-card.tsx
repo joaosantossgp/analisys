@@ -169,13 +169,18 @@ export async function CompanyFreshnessCard({
 
   const summary = getSummaryCopy(freshness);
   const statusBadge = getStatusBadge(freshness);
-  const lastSuccessAt = freshness?.last_success_at ?? null;
+  const materializedAt =
+    freshness?.read_model_updated_at ?? freshness?.last_success_at ?? null;
   const sourceLabel = freshness?.source_label ?? "Leitura CVM processada";
-  const relativeLabel = lastSuccessAt ? formatRelative(lastSuccessAt) : null;
-  const absoluteLabel = lastSuccessAt ? formatAbsolute(lastSuccessAt) : null;
+  const relativeLabel = materializedAt ? formatRelative(materializedAt) : null;
+  const absoluteLabel = materializedAt ? formatAbsolute(materializedAt) : null;
   const readableYearsLabel =
     freshness?.has_readable_current_data
-      ? `${freshness.readable_years_count} ano${freshness.readable_years_count === 1 ? "" : "s"} anuais locais`
+      ? `${freshness.readable_years_count} ano${freshness.readable_years_count === 1 ? "" : "s"} anuais locais${
+          freshness.latest_readable_year
+            ? `, ultimo ${freshness.latest_readable_year}`
+            : ""
+        }`
       : "Nenhum ano anual local";
 
   return (

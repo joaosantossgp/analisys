@@ -69,6 +69,10 @@ export type CompanyInfo = {
   sector_slug: string;
   company_type: string | null;
   ticker_b3: string | null;
+  read_model_updated_at: string | null;
+  has_readable_current_data: boolean;
+  readable_years_count: number;
+  latest_readable_year: number | null;
 };
 
 export type RefreshDispatchResponse = {
@@ -103,6 +107,7 @@ export type RefreshStatusItem = {
   heartbeat_at: string | null;
   finished_at: string | null;
   updated_at: string | null;
+  read_model_updated_at: string | null;
   estimated_progress_pct: number | null;
   estimated_eta_seconds: number | null;
   estimated_total_seconds: number | null;
@@ -116,12 +121,27 @@ export type RefreshStatusItem = {
   status_reason_message: string | null;
   has_readable_current_data: boolean;
   readable_years_count: number;
+  latest_readable_year: number | null;
   latest_attempt_outcome: string | null;
   source_label: string | null;
 };
 
+type RawCompanyInfo = Omit<
+  CompanyInfo,
+  | "read_model_updated_at"
+  | "has_readable_current_data"
+  | "readable_years_count"
+  | "latest_readable_year"
+> & {
+  read_model_updated_at?: string | null;
+  has_readable_current_data?: boolean;
+  readable_years_count?: number;
+  latest_readable_year?: number | null;
+};
+
 type RawRefreshStatusItem = Omit<
   RefreshStatusItem,
+  | "read_model_updated_at"
   | "estimated_progress_pct"
   | "estimated_eta_seconds"
   | "estimated_total_seconds"
@@ -135,6 +155,7 @@ type RawRefreshStatusItem = Omit<
   | "status_reason_message"
   | "has_readable_current_data"
   | "readable_years_count"
+  | "latest_readable_year"
   | "latest_attempt_outcome"
   | "source_label"
 > & {
@@ -147,6 +168,7 @@ type RawRefreshStatusItem = Omit<
   started_at?: string | null;
   heartbeat_at?: string | null;
   finished_at?: string | null;
+  read_model_updated_at?: string | null;
   estimated_progress_pct?: number | null;
   estimated_eta_seconds?: number | null;
   estimated_total_seconds?: number | null;
@@ -160,6 +182,7 @@ type RawRefreshStatusItem = Omit<
   status_reason_message?: string | null;
   has_readable_current_data?: boolean;
   readable_years_count?: number;
+  latest_readable_year?: number | null;
   latest_attempt_outcome?: string | null;
   source_label?: string | null;
 };
@@ -413,13 +436,18 @@ function isCompanySuggestionsResponse(value: unknown): value is CompanySuggestio
   );
 }
 
-function isCompanyInfo(value: unknown): value is CompanyInfo {
+function isCompanyInfo(value: unknown): value is RawCompanyInfo {
   return (
     isRecord(value) &&
     typeof value.cd_cvm === "number" &&
     typeof value.company_name === "string" &&
     typeof value.sector_name === "string" &&
-    typeof value.sector_slug === "string"
+    typeof value.sector_slug === "string" &&
+    isOptionalNullableString(value.read_model_updated_at) &&
+    isOptionalBoolean(value.has_readable_current_data) &&
+    (value.readable_years_count === undefined ||
+      typeof value.readable_years_count === "number") &&
+    isOptionalNullableNumber(value.latest_readable_year)
   );
 }
 
@@ -495,6 +523,7 @@ function isRefreshStatusItem(value: unknown): value is RawRefreshStatusItem {
     isOptionalNullableString(value.heartbeat_at) &&
     isOptionalNullableString(value.finished_at) &&
     isNullableString(value.updated_at) &&
+    isOptionalNullableString(value.read_model_updated_at) &&
     isOptionalNullableNumber(value.estimated_progress_pct) &&
     isOptionalNullableNumber(value.estimated_eta_seconds) &&
     isOptionalNullableNumber(value.estimated_total_seconds) &&
@@ -509,6 +538,7 @@ function isRefreshStatusItem(value: unknown): value is RawRefreshStatusItem {
     isOptionalBoolean(value.has_readable_current_data) &&
     (value.readable_years_count === undefined ||
       typeof value.readable_years_count === "number") &&
+    isOptionalNullableNumber(value.latest_readable_year) &&
     isOptionalNullableString(value.latest_attempt_outcome) &&
     isOptionalNullableString(value.source_label)
   );
@@ -532,6 +562,7 @@ function normalizeRefreshStatusItem(
     started_at: item.started_at ?? null,
     heartbeat_at: item.heartbeat_at ?? null,
     finished_at: item.finished_at ?? null,
+    read_model_updated_at: item.read_model_updated_at ?? null,
     estimated_progress_pct: item.estimated_progress_pct ?? null,
     estimated_eta_seconds: item.estimated_eta_seconds ?? null,
     estimated_total_seconds: item.estimated_total_seconds ?? null,
@@ -545,8 +576,19 @@ function normalizeRefreshStatusItem(
     status_reason_message: item.status_reason_message ?? null,
     has_readable_current_data: item.has_readable_current_data ?? false,
     readable_years_count: item.readable_years_count ?? 0,
+    latest_readable_year: item.latest_readable_year ?? null,
     latest_attempt_outcome: item.latest_attempt_outcome ?? null,
     source_label: item.source_label ?? null,
+  };
+}
+
+function normalizeCompanyInfo(company: RawCompanyInfo): CompanyInfo {
+  return {
+    ...company,
+    read_model_updated_at: company.read_model_updated_at ?? null,
+    has_readable_current_data: company.has_readable_current_data ?? false,
+    readable_years_count: company.readable_years_count ?? 0,
+    latest_readable_year: company.latest_readable_year ?? null,
   };
 }
 
@@ -984,12 +1026,14 @@ export async function fetchCompanyInfo(
   cdCvm: number,
   options?: { request?: ApiReadRequestInit },
 ): Promise<CompanyInfo | null> {
-  return apiFetch<CompanyInfo>(`/companies/${cdCvm}`, {
+  const company = await apiFetch<RawCompanyInfo>(`/companies/${cdCvm}`, {
     allowNotFound: true,
     request: options?.request ?? COMPANY_INFO_API_READ,
     validate: isCompanyInfo,
     invalidResponseMessage: "A API retornou um detalhe de empresa invalido.",
   });
+
+  return company ? normalizeCompanyInfo(company) : null;
 }
 
 export async function fetchCompanyYears(

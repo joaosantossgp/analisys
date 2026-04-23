@@ -6,6 +6,7 @@ import {
   fetchCompanies,
   fetchCompanyFilters,
   fetchCompanyFreshness,
+  fetchCompanyInfo,
   fetchCompanyKpis,
   fetchCompanySuggestionsRoute,
   fetchCompanyStatement,
@@ -229,6 +230,87 @@ test("fetchCompanySuggestionsRoute forwards ready-only compare lookups", async (
       String(capturedInput),
       /\/api\/company-search\?q=vale&limit=6&ready_only=1$/,
     );
+  } finally {
+    restore();
+  }
+});
+
+test("fetchCompanyInfo accepts readable handoff fields from company detail", async () => {
+  let capturedInit: RequestInit | undefined;
+  const restore = withFetchMock((async (_input, init) => {
+    capturedInit = init;
+
+    return new Response(
+      JSON.stringify({
+        cd_cvm: 9512,
+        company_name: "PETROBRAS",
+        nome_comercial: "Petrobras",
+        cnpj: "33.000.167/0001-01",
+        setor_cvm: "Energia",
+        setor_analitico: "Energia",
+        sector_name: "Energia",
+        sector_slug: "energia",
+        company_type: "comercial",
+        ticker_b3: "PETR4",
+        read_model_updated_at: "2026-04-21T12:05:00+00:00",
+        has_readable_current_data: true,
+        readable_years_count: 2,
+        latest_readable_year: 2024,
+      }),
+      {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+        },
+      },
+    );
+  }) as FetchMock);
+
+  try {
+    const payload = await fetchCompanyInfo(9512, {
+      request: { cache: "no-store" },
+    });
+
+    assert.equal(capturedInit?.cache, "no-store");
+    assert.equal(payload?.has_readable_current_data, true);
+    assert.equal(payload?.readable_years_count, 2);
+    assert.equal(payload?.latest_readable_year, 2024);
+    assert.equal(payload?.read_model_updated_at, "2026-04-21T12:05:00+00:00");
+  } finally {
+    restore();
+  }
+});
+
+test("fetchCompanyInfo normalizes missing readable handoff fields", async () => {
+  const restore = withFetchMock((async () =>
+    new Response(
+      JSON.stringify({
+        cd_cvm: 19348,
+        company_name: "ITAU UNIBANCO HOLDING S.A.",
+        nome_comercial: "Itau Unibanco",
+        cnpj: "60.872.504/0001-23",
+        setor_cvm: "Financeiro",
+        setor_analitico: null,
+        sector_name: "Financeiro",
+        sector_slug: "financeiro",
+        company_type: "comercial",
+        ticker_b3: "ITUB4",
+      }),
+      {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+        },
+      },
+    )) as FetchMock);
+
+  try {
+    const payload = await fetchCompanyInfo(19348);
+
+    assert.equal(payload?.has_readable_current_data, false);
+    assert.equal(payload?.readable_years_count, 0);
+    assert.equal(payload?.latest_readable_year, null);
+    assert.equal(payload?.read_model_updated_at, null);
   } finally {
     restore();
   }
@@ -536,6 +618,7 @@ test("fetchRefreshStatus accepts estimated progress fields from the API", async 
           heartbeat_at: "2026-04-21T12:04:00+00:00",
           finished_at: null,
           updated_at: "2026-04-21T12:00:00+00:00",
+          read_model_updated_at: "2026-04-21T12:05:00+00:00",
           estimated_progress_pct: 31.4,
           estimated_eta_seconds: 840,
           estimated_total_seconds: 1260,
@@ -549,6 +632,7 @@ test("fetchRefreshStatus accepts estimated progress fields from the API", async 
           status_reason_message: "Solicitacao recebida e aguardando processamento interno.",
           has_readable_current_data: false,
           readable_years_count: 0,
+          latest_readable_year: 2024,
           latest_attempt_outcome: "queued",
           source_label: "Solicitacao on-demand",
         },
@@ -576,6 +660,8 @@ test("fetchRefreshStatus accepts estimated progress fields from the API", async 
     assert.equal(payload[0]?.progress_mode, "real_progress");
     assert.equal(payload[0]?.status_reason_code, "refresh_queued");
     assert.equal(payload[0]?.has_readable_current_data, false);
+    assert.equal(payload[0]?.latest_readable_year, 2024);
+    assert.equal(payload[0]?.read_model_updated_at, "2026-04-21T12:05:00+00:00");
     assert.equal(payload[0]?.source_label, "Solicitacao on-demand");
   } finally {
     restore();
@@ -627,6 +713,8 @@ test("fetchRefreshStatus normalizes missing estimate fields from legacy payloads
     assert.equal(payload[0]?.is_retry_allowed, false);
     assert.equal(payload[0]?.has_readable_current_data, false);
     assert.equal(payload[0]?.readable_years_count, 0);
+    assert.equal(payload[0]?.latest_readable_year, null);
+    assert.equal(payload[0]?.read_model_updated_at, null);
   } finally {
     restore();
   }
@@ -669,6 +757,8 @@ test("fetchCompanyFreshness normalizes missing estimate fields from legacy API p
     assert.equal(payload?.tracking_state, null);
     assert.equal(payload?.status_reason_message, null);
     assert.equal(payload?.has_readable_current_data, false);
+    assert.equal(payload?.latest_readable_year, null);
+    assert.equal(payload?.read_model_updated_at, null);
   } finally {
     restore();
   }

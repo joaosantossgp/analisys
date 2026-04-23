@@ -41,6 +41,7 @@ function buildRefreshStatusItem(
     heartbeat_at: null,
     finished_at: null,
     updated_at: "2026-04-21T12:00:00+00:00",
+    read_model_updated_at: null,
     estimated_progress_pct: null,
     estimated_eta_seconds: null,
     estimated_total_seconds: null,
@@ -54,6 +55,7 @@ function buildRefreshStatusItem(
     status_reason_message: null,
     has_readable_current_data: false,
     readable_years_count: 0,
+    latest_readable_year: null,
     latest_attempt_outcome: null,
     source_label: null,
     ...overrides,
@@ -339,6 +341,54 @@ test("stalled tracking state keeps a manual recovery path", () => {
     view.message,
     "A ultima solicitacao nao aparece mais como ativa. Atualize o status ou tente novamente.",
   );
+});
+
+test("technical success without readable data does not trigger success handoff", () => {
+  const state = applyRefreshStatusResult(
+    createDispatchedRefreshState(Date.now()),
+    buildRefreshStatusItem({
+      last_status: "success",
+      tracking_state: "success",
+      status_reason_message:
+        "Atualizacao concluida, aguardando a leitura ficar disponivel.",
+      has_readable_current_data: false,
+      readable_years_count: 0,
+      latest_readable_year: null,
+    }),
+    Date.now(),
+  );
+
+  assert.equal(state.phase, "delayed");
+
+  const view = getRefreshViewModel(state);
+  assert.equal(view.isDestructive, false);
+  assert.equal(view.showManualStatusButton, true);
+  assert.equal(
+    view.message,
+    "Atualizacao concluida, aguardando a leitura ficar disponivel.",
+  );
+});
+
+test("readable terminal success enters success handoff", () => {
+  const state = applyRefreshStatusResult(
+    createDispatchedRefreshState(Date.now()),
+    buildRefreshStatusItem({
+      last_status: "success",
+      tracking_state: "success",
+      status_reason_message: "Dados prontos para leitura nesta pagina.",
+      has_readable_current_data: true,
+      readable_years_count: 2,
+      latest_readable_year: 2024,
+      read_model_updated_at: "2026-04-21T12:05:00+00:00",
+    }),
+    Date.now(),
+  );
+
+  assert.equal(state.phase, "success");
+
+  const view = getRefreshViewModel(state);
+  assert.equal(view.requestButtonDisabled, true);
+  assert.equal(view.message, "Dados prontos para leitura nesta pagina.");
 });
 
 test("already_current uses the success state for immediate reload", () => {

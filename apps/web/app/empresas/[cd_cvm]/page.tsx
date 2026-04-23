@@ -26,6 +26,7 @@ import {
   getUserFacingErrorMessage,
   isApiClientError,
 } from "@/lib/api";
+import { getReadableCompanyYears } from "@/lib/company-detail-handoff";
 import { DETAIL_TABS, STATEMENT_OPTIONS } from "@/lib/constants";
 import {
   coerceDetailTab,
@@ -134,14 +135,16 @@ export default async function EmpresaDetailPage({
     notFound();
   }
 
-  if (availableYears.length === 0) {
+  const readableYears = getReadableCompanyYears(company, availableYears);
+
+  if (readableYears.length === 0) {
     return <CompanyNoDataPage company={company} />;
   }
 
   const currentTab = coerceDetailTab(getFirstParam(resolvedSearchParams.aba));
   const currentStatement = coerceStatement(getFirstParam(resolvedSearchParams.stmt));
   const selectedYears = normalizeSelectedYears(
-    availableYears,
+    readableYears,
     getFirstParam(resolvedSearchParams.anos),
   );
 
@@ -186,7 +189,7 @@ export default async function EmpresaDetailPage({
 
       <CompanyPeriodPreset
         pathname={pathname}
-        availableYears={availableYears}
+        availableYears={readableYears}
         selectedYears={selectedYears}
       />
 
