@@ -75,9 +75,17 @@ const DROPDOWN_ITEMS = {
   ],
 } as const;
 
+type DropdownItem = {
+  icon: typeof BarChart3Icon;
+  label: string;
+  description: string;
+  href: string | null;
+  soon: boolean;
+};
+
 type DropdownMenuProps = {
   label: string;
-  items: (typeof DROPDOWN_ITEMS)["analise"];
+  items: readonly DropdownItem[];
 };
 
 function NavDropdown({ label, items }: DropdownMenuProps) {

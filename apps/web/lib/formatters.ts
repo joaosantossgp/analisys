@@ -27,6 +27,19 @@ export function formatStatementValue(value: number | null | undefined): string {
   }).format(value);
 }
 
+export function formatCompactCurrency(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return "-";
+  }
+
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(value);
+}
+
 export function formatKpiValue(
   value: number | null | undefined,
   formatType: string,
@@ -37,6 +50,10 @@ export function formatKpiValue(
 
   if (formatType === "pct") {
     return `${(value * 100).toFixed(1)}%`;
+  }
+
+  if (formatType === "brl") {
+    return formatCompactCurrency(value);
   }
 
   return `${value.toFixed(2)}x`;
@@ -53,6 +70,10 @@ export function formatKpiDelta(
   const sign = value >= 0 ? "+" : "";
   if (formatType === "pct") {
     return `${sign}${(value * 100).toFixed(1)} pp`;
+  }
+
+  if (formatType === "brl") {
+    return `${sign}${(value * 100).toFixed(1)}%`;
   }
 
   return `${sign}${value.toFixed(2)}x`;

@@ -5,6 +5,7 @@ import { InfoChip } from "@/components/shared/design-system-recipes";
 import { ExcelDownloadButton } from "@/components/shared/excel-download-button";
 import { Button, buttonVariants } from "@/components/ui/button";
 import type { CompanyInfo } from "@/lib/api";
+import { buildCompanyHeroModel } from "@/lib/company-dashboard";
 import { getSectorColor } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
@@ -13,32 +14,9 @@ type CompanyHeaderProps = {
   selectedYears: number[];
 };
 
-function getInitials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word[0]!.toUpperCase())
-    .join("");
-}
-
 export function CompanyHeader({ company, selectedYears }: CompanyHeaderProps) {
   const sectorColor = getSectorColor(company.sector_name);
-  const initials = getInitials(company.company_name);
-
-  const compareParams = new URLSearchParams({ ids: String(company.cd_cvm) });
-  if (selectedYears.length > 0) {
-    compareParams.set("anos", selectedYears.join(","));
-  }
-  const compareHref = `/comparar?${compareParams.toString()}`;
-
-  const latestSelectedYear = selectedYears[selectedYears.length - 1] ?? null;
-  const sectorHref =
-    company.sector_slug && latestSelectedYear
-      ? `/setores/${company.sector_slug}?ano=${latestSelectedYear}`
-      : company.sector_slug
-        ? `/setores/${company.sector_slug}`
-        : null;
+  const hero = buildCompanyHeroModel(company, selectedYears);
 
   return (
     <div className="space-y-4">
@@ -78,7 +56,7 @@ export function CompanyHeader({ company, selectedYears }: CompanyHeaderProps) {
                 className="font-heading text-[1.6rem] font-bold leading-none"
                 style={{ color: sectorColor }}
               >
-                {initials}
+                {hero.initials}
               </span>
             </div>
 
@@ -110,9 +88,9 @@ export function CompanyHeader({ company, selectedYears }: CompanyHeaderProps) {
               }}
               className="rounded-full px-4"
             />
-            {sectorHref ? (
+            {hero.sectorHref ? (
               <Link
-                href={sectorHref}
+                href={hero.sectorHref}
                 className={cn(
                   buttonVariants({ variant: "outline", size: "sm" }),
                   "rounded-full px-4",
@@ -126,7 +104,7 @@ export function CompanyHeader({ company, selectedYears }: CompanyHeaderProps) {
               </Button>
             )}
             <Link
-              href={compareHref}
+              href={hero.compareHref}
               className={cn(
                 buttonVariants({ variant: "outline", size: "sm" }),
                 "rounded-full px-4",
