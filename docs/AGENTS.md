@@ -8,7 +8,7 @@
 
 ---
 
-## Estado Atual (2026-04-18)
+## Estado Atual (2026-04-23)
 
 ### Dashboard
 - **3 abas renderizadas** em `dashboard/app.py`: `Visao Geral`, `Demonstracoes`, `Download`
@@ -41,7 +41,8 @@
 
 ### Testes
 - `pytest tests/ -q` — V1; `pytest apps/api/tests -q` — V2 API
-- `apps/web`: `npm run lint`, `npm run typecheck`, `npm run build`, `npm run test:e2e`
+- `apps/web`: `npm run lint`, `npm run typecheck`, `npm run build`, `npm run test:unit`, `npm run test:e2e`
+- CI `test-web` tambem gateia `tests/smoke.spec.ts` com seed SQLite isolado para on-demand
 
 ### URLs Publicas
 - **API (Railway):** `https://analisys-production.up.railway.app`
@@ -85,11 +86,10 @@
 - `scripts/register_jules_pr.ps1` deixa de fazer parte do fluxo oficial
 - Configuracao de governanca do Jules versionada em `.github/guardrails/path-policy.json`
 
-### Sessao 38 - 2026-04-12 (governanca retroativa para PRs do Jules)
-- Workflow dedicado criado para detectar PRs do Jules e orientar regularizacao da governanca
-- `PR Issue Guardrails` aceita `PR-first` somente quando autoria for do Jules e issue retroativa estiver vinculada
-- Tasks retroativas usam `Workspace da task = jules://github/pr/<numero>` e label `automation:jules`
-- `scripts/register_jules_pr.ps1` criado para criar task retroativa e atualizar a PR
+### Sessao 49 - 2026-04-23 (on-demand regression gates e checklist de evidencia)
+- CI `test-web` passa a rodar `npm run test:unit` e `tests/smoke.spec.ts`
+- `scripts/seed_web_smoke_db.py` cria seed SQLite isolado para o smoke web
+- Checklist duravel de evidencia on-demand vive em `docs/governance/on-demand-release-evidence.md`
 
 ---
 
