@@ -91,12 +91,6 @@ Notas de contrato:
   usar fallback de catalogo CVM quando a empresa ainda nao existe na base local
 - `GET /refresh-status` alimenta a experiencia de acompanhamento on-demand
   tanto na pagina sem dados quanto no card de freshness da empresa
-- `GET /companies/{cd_cvm}` e `GET /refresh-status` expõem o mesmo resumo
-  aditivo de read model (`read_model_updated_at`, anos legiveis e ultimo ano
-  legivel) para o handoff pos-refresh
-- o terminal `success` do on-demand interno indica que houve mudanca legivel
-  no detalhe da companhia; sucesso tecnico sem novo ano anual visivel deve
-  aparecer como `no_data`
 
 ---
 
