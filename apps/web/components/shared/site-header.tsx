@@ -1,7 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { MenuIcon, XIcon } from "lucide-react";
+import {
+  BarChart3Icon,
+  Building2Icon,
+  ChevronDownIcon,
+  GitCompareArrowsIcon,
+  LayersIcon,
+  LineChartIcon,
+  MenuIcon,
+  TrendingUpIcon,
+  XIcon,
+} from "lucide-react";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 
@@ -14,9 +24,135 @@ const PRIMARY_NAV = [
   { label: "Empresas", href: "/empresas" },
   { label: "Comparar", href: "/comparar" },
   { label: "Setores", href: "/setores" },
-  { label: "KPIs", href: null },
-  { label: "Macro", href: null },
 ] as const;
+
+const DROPDOWN_ITEMS = {
+  analise: [
+    {
+      icon: BarChart3Icon,
+      label: "KPIs",
+      description: "60+ indicadores calculados",
+      href: null,
+      soon: true,
+    },
+    {
+      icon: TrendingUpIcon,
+      label: "Macro",
+      description: "Indicadores macroeconomicos",
+      href: null,
+      soon: true,
+    },
+    {
+      icon: LineChartIcon,
+      label: "Screener",
+      description: "Filtre empresas por criterios",
+      href: null,
+      soon: true,
+    },
+  ],
+  recursos: [
+    {
+      icon: LayersIcon,
+      label: "Metodologia",
+      description: "Como os dados sao processados",
+      href: null,
+      soon: true,
+    },
+    {
+      icon: Building2Icon,
+      label: "Fontes",
+      description: "Origem e rastreabilidade",
+      href: null,
+      soon: true,
+    },
+    {
+      icon: GitCompareArrowsIcon,
+      label: "Design System",
+      description: "Componentes e padroes",
+      href: "/design-system",
+      soon: false,
+    },
+  ],
+} as const;
+
+type DropdownMenuProps = {
+  label: string;
+  items: (typeof DROPDOWN_ITEMS)["analise"];
+};
+
+function NavDropdown({ label, items }: DropdownMenuProps) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div
+      className="relative"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <button
+        type="button"
+        className={cn(
+          buttonVariants({ variant: "ghost", size: "sm" }),
+          "rounded-full px-4 text-[0.84rem] text-foreground/78 hover:text-foreground gap-1"
+        )}
+        aria-expanded={open}
+      >
+        {label}
+        <ChevronDownIcon
+          className={cn(
+            "size-3.5 transition-transform duration-200",
+            open && "rotate-180"
+          )}
+        />
+      </button>
+
+      {open && (
+        <div className="absolute left-1/2 top-full z-50 w-[280px] -translate-x-1/2 pt-2">
+          <div className="rounded-[1rem] border border-border/60 bg-card/98 p-2 shadow-[0_20px_50px_-20px_rgba(16,30,24,0.3)] backdrop-blur-xl">
+            {items.map((item) => {
+              const content = (
+                <div className="flex items-start gap-3 rounded-[0.75rem] px-3 py-2.5 transition-colors hover:bg-accent/60">
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-primary/10 text-primary">
+                    <item.icon className="size-4" strokeWidth={1.75} />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[0.88rem] font-medium text-foreground">
+                        {item.label}
+                      </span>
+                      {item.soon && (
+                        <span className="rounded-full bg-muted px-1.5 py-0.5 text-[0.58rem] font-medium uppercase tracking-[0.1em] text-muted-foreground">
+                          Em breve
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-0.5 text-[0.75rem] text-muted-foreground">
+                      {item.description}
+                    </p>
+                  </div>
+                </div>
+              );
+
+              if (item.href) {
+                return (
+                  <Link key={item.label} href={item.href}>
+                    {content}
+                  </Link>
+                );
+              }
+
+              return (
+                <div key={item.label} className="cursor-default opacity-70">
+                  {content}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function SiteHeader() {
   const pathname = usePathname();
@@ -45,33 +181,22 @@ export function SiteHeader() {
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-1 md:flex">
-          {PRIMARY_NAV.map((item) =>
-            item.href ? (
-              <Link
-                key={item.label}
-                href={item.href}
-                className={cn(
-                  buttonVariants({ variant: "ghost", size: "sm" }),
-                  "rounded-full px-4 text-[0.84rem] text-foreground/78 hover:text-foreground",
-                  pathname === item.href && "bg-muted text-foreground",
-                )}
-              >
-                {item.label}
-              </Link>
-            ) : (
-              <span
-                key={item.label}
-                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-[0.84rem] text-muted-foreground/78"
-              >
-                {item.label}
-                <span className="h-1.5 w-1.5 rounded-full bg-border/90" />
-                <span className="text-[0.64rem] font-medium uppercase tracking-[0.2em] text-muted-foreground/62">
-                  Em breve
-                </span>
-              </span>
-            ),
-          )}
+        <nav className="hidden items-center gap-0.5 md:flex">
+          {PRIMARY_NAV.map((item) => (
+            <Link
+              key={item.label}
+              href={item.href}
+              className={cn(
+                buttonVariants({ variant: "ghost", size: "sm" }),
+                "rounded-full px-4 text-[0.84rem] text-foreground/78 hover:text-foreground",
+                pathname === item.href && "bg-muted text-foreground",
+              )}
+            >
+              {item.label}
+            </Link>
+          ))}
+          <NavDropdown label="Analise" items={DROPDOWN_ITEMS.analise} />
+          <NavDropdown label="Recursos" items={DROPDOWN_ITEMS.recursos} />
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-3">
@@ -104,31 +229,88 @@ export function SiteHeader() {
           className="border-t border-border/60 bg-background/96 px-4 py-4 shadow-[0_20px_40px_-28px_rgba(16,30,24,0.28)] md:hidden"
         >
           <nav className="flex flex-col gap-2">
-            {PRIMARY_NAV.map((item) =>
-              item.href ? (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  className={cn(
-                    buttonVariants({ variant: "ghost", size: "sm" }),
-                    "justify-start rounded-2xl px-4 py-3 text-[0.95rem] text-foreground/80",
-                    pathname === item.href && "bg-muted text-foreground",
-                  )}
-                >
-                  {item.label}
-                </Link>
-              ) : (
-                <div
-                  key={item.label}
-                  className="flex items-center justify-between rounded-2xl border border-border/60 px-4 py-3 text-[0.95rem] text-muted-foreground"
-                >
-                  <span>{item.label}</span>
-                  <span className="text-[0.68rem] font-medium uppercase tracking-[0.2em]">
-                    Em breve
-                  </span>
-                </div>
-              ),
-            )}
+            {PRIMARY_NAV.map((item) => (
+              <Link
+                key={item.label}
+                href={item.href}
+                className={cn(
+                  buttonVariants({ variant: "ghost", size: "sm" }),
+                  "justify-start rounded-2xl px-4 py-3 text-[0.95rem] text-foreground/80",
+                  pathname === item.href && "bg-muted text-foreground",
+                )}
+              >
+                {item.label}
+              </Link>
+            ))}
+
+            {/* Mobile Dropdown Sections */}
+            <div className="mt-2 border-t border-border/60 pt-4">
+              <p className="mb-2 px-4 text-[0.68rem] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                Analise
+              </p>
+              {DROPDOWN_ITEMS.analise.map((item) =>
+                item.href ? (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    className={cn(
+                      buttonVariants({ variant: "ghost", size: "sm" }),
+                      "w-full justify-start gap-3 rounded-2xl px-4 py-3 text-[0.95rem] text-foreground/80",
+                    )}
+                  >
+                    <item.icon className="size-4 text-primary" />
+                    {item.label}
+                  </Link>
+                ) : (
+                  <div
+                    key={item.label}
+                    className="flex items-center justify-between rounded-2xl px-4 py-3 text-[0.95rem] text-muted-foreground"
+                  >
+                    <div className="flex items-center gap-3">
+                      <item.icon className="size-4" />
+                      <span>{item.label}</span>
+                    </div>
+                    <span className="text-[0.68rem] font-medium uppercase tracking-[0.15em]">
+                      Em breve
+                    </span>
+                  </div>
+                ),
+              )}
+            </div>
+
+            <div className="mt-2 border-t border-border/60 pt-4">
+              <p className="mb-2 px-4 text-[0.68rem] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                Recursos
+              </p>
+              {DROPDOWN_ITEMS.recursos.map((item) =>
+                item.href ? (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    className={cn(
+                      buttonVariants({ variant: "ghost", size: "sm" }),
+                      "w-full justify-start gap-3 rounded-2xl px-4 py-3 text-[0.95rem] text-foreground/80",
+                    )}
+                  >
+                    <item.icon className="size-4 text-primary" />
+                    {item.label}
+                  </Link>
+                ) : (
+                  <div
+                    key={item.label}
+                    className="flex items-center justify-between rounded-2xl px-4 py-3 text-[0.95rem] text-muted-foreground"
+                  >
+                    <div className="flex items-center gap-3">
+                      <item.icon className="size-4" />
+                      <span>{item.label}</span>
+                    </div>
+                    <span className="text-[0.68rem] font-medium uppercase tracking-[0.15em]">
+                      Em breve
+                    </span>
+                  </div>
+                ),
+              )}
+            </div>
           </nav>
         </div>
       ) : null}
