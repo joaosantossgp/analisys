@@ -4,24 +4,34 @@ import {
   BarChart3Icon,
   FileTextIcon,
   GitCompareArrowsIcon,
+  type LucideIcon,
   LayersIcon,
   SearchIcon,
   TrendingUpIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const FEATURES = [
+type FeatureCard = {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  gridClass: string;
+  accent: string;
+  featured?: boolean;
+};
+
+const FEATURES: FeatureCard[] = [
   {
     icon: SearchIcon,
     title: "Busca inteligente",
-    description: "Encontre qualquer empresa por nome, ticker ou codigo CVM em milissegundos.",
+    description: "Busque por nome, ticker ou codigo CVM e caia direto na leitura pronta ou no caminho on-demand.",
     gridClass: "sm:col-span-2 lg:col-span-1",
     accent: "primary",
   },
   {
     icon: FileTextIcon,
-    title: "DRE e Balanco",
-    description: "Demonstrativos completos com 10+ anos de historico direto da CVM.",
+    title: "DRE, BPA, BPP e DFC",
+    description: "Demonstracoes anuais e tabelas navegaveis organizadas a partir dos arquivos publicos da CVM.",
     gridClass: "lg:col-span-2",
     accent: "chart-1",
   },
@@ -43,18 +53,18 @@ const FEATURES = [
   {
     icon: LayersIcon,
     title: "Setores organizados",
-    description: "Navegue por setores da economia e descubra oportunidades.",
+    description: "Navegue por hubs setoriais reais e conecte empresa, contexto e comparacao no mesmo fluxo.",
     gridClass: "",
     accent: "chart-4",
   },
   {
     icon: TrendingUpIcon,
-    title: "Dados atualizados",
-    description: "Informacoes sincronizadas com os arquivos publicos da CVM.",
+    title: "On-demand quando falta historico",
+    description: "Quando a empresa ainda nao tem leitura local, o produto acompanha a solicitacao e explica o resultado sem esconder o estado real.",
     gridClass: "",
     accent: "chart-5",
   },
-] as const;
+];
 
 function getAccentVar(accent: string) {
   return `var(--${accent})`;
@@ -69,7 +79,7 @@ export function BentoFeatures() {
           Tudo que voce precisa para analisar
         </h2>
         <p className="mx-auto mt-3 max-w-xl text-[0.95rem] leading-relaxed text-muted-foreground">
-          Uma plataforma completa para descoberta e analise de empresas listadas na bolsa brasileira.
+          Estrutura publica orientada a descoberta, leitura detalhada e comparacao das companhias abertas brasileiras.
         </p>
       </div>
 

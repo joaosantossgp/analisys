@@ -122,7 +122,15 @@ export default async function EmpresaDetailPage({
   try {
     [company, availableYears] = await Promise.all([
       fetchCompanyInfo(cdCvm, { request: DETAIL_PAGE_MUTABLE_API_READ }),
-      fetchCompanyYears(cdCvm, { request: DETAIL_PAGE_MUTABLE_API_READ }),
+      fetchCompanyYears(cdCvm, { request: DETAIL_PAGE_MUTABLE_API_READ }).catch(
+        (error) => {
+          if (isApiClientError(error) && error.code === "not_found") {
+            return [];
+          }
+
+          throw error;
+        },
+      ),
     ]);
   } catch (error) {
     if (isApiClientError(error) && error.code === "not_found") {
@@ -202,7 +210,12 @@ export default async function EmpresaDetailPage({
 
       {currentTab === "visao-geral" ? (
         bundle ? (
-          <CompanyOverview bundle={bundle} cdCvm={cdCvm} />
+          <CompanyOverview
+            company={company}
+            bundle={bundle}
+            cdCvm={cdCvm}
+            selectedYears={selectedYears}
+          />
         ) : (
           <Alert className="rounded-[1.75rem] border border-destructive/25 bg-destructive/6 px-5 py-5 text-left">
             <AlertTitle>Visao geral indisponivel</AlertTitle>
