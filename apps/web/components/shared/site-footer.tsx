@@ -25,6 +25,7 @@ const SITEMAP = [
       { label: "Glossario", href: null },
       { label: "Fontes", href: null },
       { label: "Design System", href: "/design-system" },
+      { label: "Portfolio", href: "/portfolio" },
     ],
   },
   {

@@ -10,6 +10,7 @@ import {
   LineChartIcon,
   MenuIcon,
   TrendingUpIcon,
+  UserIcon,
   XIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -70,6 +71,13 @@ const DROPDOWN_ITEMS = {
       label: "Design System",
       description: "Componentes e padroes",
       href: "/design-system",
+      soon: false,
+    },
+    {
+      icon: UserIcon,
+      label: "Portfolio",
+      description: "Projetos e experiencia",
+      href: "/portfolio",
       soon: false,
     },
   ],
