@@ -3,14 +3,14 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
-  Github,
-  Linkedin,
+  Code2Icon,
+  ContactIcon,
   Mail,
   ArrowRight,
   ExternalLink,
 } from "lucide-react";
 
-// ─── DATA ─────────────────────────────────────────────────────────────────────
+// Data
 
 const PROJECTS = [
   {
@@ -276,7 +276,7 @@ function Hero() {
             href="#"
             className="inline-flex items-center gap-2 rounded-[0.7rem] border border-border/80 px-[1.15rem] py-[0.55rem] text-sm font-medium text-foreground transition-all hover:border-primary/40 hover:text-primary"
           >
-            <Linkedin className="size-3.5" /> LinkedIn
+            <ContactIcon className="size-3.5" /> LinkedIn
           </a>
         </div>
 
@@ -394,7 +394,7 @@ function Projects() {
                   href={project.github}
                   className="inline-flex items-center gap-1.5 rounded-[0.6rem] border border-border/70 px-3 py-1.5 text-[0.72rem] font-medium text-muted-foreground transition-all hover:border-primary/35 hover:bg-primary/5 hover:text-primary"
                 >
-                  <Github className="size-3.5" /> GitHub
+                  <Code2Icon className="size-3.5" /> GitHub
                 </a>
                 {project.demo && (
                   <a
@@ -661,7 +661,7 @@ function Contact() {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 rounded-[0.7rem] border border-border/70 px-[1.1rem] py-[0.55rem] text-sm font-medium text-muted-foreground transition-all hover:border-primary/35 hover:bg-primary/5 hover:text-primary"
             >
-              <Linkedin className="size-3.5" /> LinkedIn
+              <ContactIcon className="size-3.5" /> LinkedIn
             </Link>
             <Link
               href="https://github.com"
@@ -669,7 +669,7 @@ function Contact() {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 rounded-[0.7rem] border border-border/70 px-[1.1rem] py-[0.55rem] text-sm font-medium text-muted-foreground transition-all hover:border-primary/35 hover:bg-primary/5 hover:text-primary"
             >
-              <Github className="size-3.5" /> GitHub
+              <Code2Icon className="size-3.5" /> GitHub
             </Link>
             <Link
               href="mailto:your@email.com"

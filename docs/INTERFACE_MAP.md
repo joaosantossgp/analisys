@@ -227,6 +227,11 @@ Defaults:
 **Status**: showcase interno de tokens e componentes. Nao aparece na navegacao
 de produto. Nao consome endpoints de API.
 
+### `/portfolio` - portfolio publico
+
+**Status**: pagina institucional live, acessivel pelo menu Recursos e pelo footer.
+Nao consome endpoints de API.
+
 ---
 
 ## Tabela inversa - endpoint x rotas que o usam
