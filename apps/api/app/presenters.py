@@ -78,6 +78,8 @@ class CompanyInfoPayload(BaseModel):
     has_readable_current_data: bool = False
     readable_years_count: int = 0
     latest_readable_year: int | None = None
+    read_availability_code: str | None = None
+    read_availability_message: str | None = None
 
 
 class CompanyDirectoryPaginationPayload(BaseModel):
@@ -269,6 +271,14 @@ class RefreshStatusPayload(BaseModel):
     readable_years_count: int = 0
     latest_readable_year: int | None = None
     latest_attempt_outcome: str | None = None
+    latest_attempt_reason_code: str | None = None
+    latest_attempt_reason_message: str | None = None
+    latest_attempt_retryable: bool = False
+    read_availability_code: str | None = None
+    read_availability_message: str | None = None
+    freshness_summary_code: str | None = None
+    freshness_summary_message: str | None = None
+    freshness_summary_severity: str | None = None
     source_label: str | None = None
 
 
