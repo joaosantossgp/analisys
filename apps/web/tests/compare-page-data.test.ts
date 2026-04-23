@@ -24,6 +24,8 @@ function buildCompany(
     has_readable_current_data: true,
     readable_years_count: 2,
     latest_readable_year: 2024,
+    read_availability_code: "readable_history_available",
+    read_availability_message: "Leitura anual disponivel ate 2024.",
   };
 }
 

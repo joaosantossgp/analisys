@@ -24,6 +24,8 @@ function buildCompanyInfo(overrides: Partial<CompanyInfo> = {}): CompanyInfo {
     has_readable_current_data: false,
     readable_years_count: 0,
     latest_readable_year: null,
+    read_availability_code: null,
+    read_availability_message: null,
     ...overrides,
   };
 }
@@ -68,6 +70,14 @@ function buildRefreshStatusItem(
     readable_years_count: 2,
     latest_readable_year: 2024,
     latest_attempt_outcome: "success",
+    latest_attempt_reason_code: "refresh_completed",
+    latest_attempt_reason_message: "Dados prontos para leitura nesta pagina.",
+    latest_attempt_retryable: false,
+    read_availability_code: "readable_history_available",
+    read_availability_message: "Leitura anual disponivel ate 2024.",
+    freshness_summary_code: "refresh_completed_readable",
+    freshness_summary_message: "Dados prontos para leitura nesta pagina.",
+    freshness_summary_severity: "success",
     source_label: "Base local materializada",
     ...overrides,
   };

@@ -73,6 +73,8 @@ export type CompanyInfo = {
   has_readable_current_data: boolean;
   readable_years_count: number;
   latest_readable_year: number | null;
+  read_availability_code: string | null;
+  read_availability_message: string | null;
 };
 
 export type RefreshDispatchResponse = {
@@ -123,6 +125,14 @@ export type RefreshStatusItem = {
   readable_years_count: number;
   latest_readable_year: number | null;
   latest_attempt_outcome: string | null;
+  latest_attempt_reason_code: string | null;
+  latest_attempt_reason_message: string | null;
+  latest_attempt_retryable: boolean;
+  read_availability_code: string | null;
+  read_availability_message: string | null;
+  freshness_summary_code: string | null;
+  freshness_summary_message: string | null;
+  freshness_summary_severity: string | null;
   source_label: string | null;
 };
 
@@ -132,11 +142,15 @@ type RawCompanyInfo = Omit<
   | "has_readable_current_data"
   | "readable_years_count"
   | "latest_readable_year"
+  | "read_availability_code"
+  | "read_availability_message"
 > & {
   read_model_updated_at?: string | null;
   has_readable_current_data?: boolean;
   readable_years_count?: number;
   latest_readable_year?: number | null;
+  read_availability_code?: string | null;
+  read_availability_message?: string | null;
 };
 
 type RawRefreshStatusItem = Omit<
@@ -157,6 +171,14 @@ type RawRefreshStatusItem = Omit<
   | "readable_years_count"
   | "latest_readable_year"
   | "latest_attempt_outcome"
+  | "latest_attempt_reason_code"
+  | "latest_attempt_reason_message"
+  | "latest_attempt_retryable"
+  | "read_availability_code"
+  | "read_availability_message"
+  | "freshness_summary_code"
+  | "freshness_summary_message"
+  | "freshness_summary_severity"
   | "source_label"
 > & {
   job_id?: string | null;
@@ -184,6 +206,14 @@ type RawRefreshStatusItem = Omit<
   readable_years_count?: number;
   latest_readable_year?: number | null;
   latest_attempt_outcome?: string | null;
+  latest_attempt_reason_code?: string | null;
+  latest_attempt_reason_message?: string | null;
+  latest_attempt_retryable?: boolean;
+  read_availability_code?: string | null;
+  read_availability_message?: string | null;
+  freshness_summary_code?: string | null;
+  freshness_summary_message?: string | null;
+  freshness_summary_severity?: string | null;
   source_label?: string | null;
 };
 
@@ -447,7 +477,9 @@ function isCompanyInfo(value: unknown): value is RawCompanyInfo {
     isOptionalBoolean(value.has_readable_current_data) &&
     (value.readable_years_count === undefined ||
       typeof value.readable_years_count === "number") &&
-    isOptionalNullableNumber(value.latest_readable_year)
+    isOptionalNullableNumber(value.latest_readable_year) &&
+    isOptionalNullableString(value.read_availability_code) &&
+    isOptionalNullableString(value.read_availability_message)
   );
 }
 
@@ -540,6 +572,14 @@ function isRefreshStatusItem(value: unknown): value is RawRefreshStatusItem {
       typeof value.readable_years_count === "number") &&
     isOptionalNullableNumber(value.latest_readable_year) &&
     isOptionalNullableString(value.latest_attempt_outcome) &&
+    isOptionalNullableString(value.latest_attempt_reason_code) &&
+    isOptionalNullableString(value.latest_attempt_reason_message) &&
+    isOptionalBoolean(value.latest_attempt_retryable) &&
+    isOptionalNullableString(value.read_availability_code) &&
+    isOptionalNullableString(value.read_availability_message) &&
+    isOptionalNullableString(value.freshness_summary_code) &&
+    isOptionalNullableString(value.freshness_summary_message) &&
+    isOptionalNullableString(value.freshness_summary_severity) &&
     isOptionalNullableString(value.source_label)
   );
 }
@@ -578,6 +618,14 @@ function normalizeRefreshStatusItem(
     readable_years_count: item.readable_years_count ?? 0,
     latest_readable_year: item.latest_readable_year ?? null,
     latest_attempt_outcome: item.latest_attempt_outcome ?? null,
+    latest_attempt_reason_code: item.latest_attempt_reason_code ?? null,
+    latest_attempt_reason_message: item.latest_attempt_reason_message ?? null,
+    latest_attempt_retryable: item.latest_attempt_retryable ?? false,
+    read_availability_code: item.read_availability_code ?? null,
+    read_availability_message: item.read_availability_message ?? null,
+    freshness_summary_code: item.freshness_summary_code ?? null,
+    freshness_summary_message: item.freshness_summary_message ?? null,
+    freshness_summary_severity: item.freshness_summary_severity ?? null,
     source_label: item.source_label ?? null,
   };
 }
@@ -589,6 +637,8 @@ function normalizeCompanyInfo(company: RawCompanyInfo): CompanyInfo {
     has_readable_current_data: company.has_readable_current_data ?? false,
     readable_years_count: company.readable_years_count ?? 0,
     latest_readable_year: company.latest_readable_year ?? null,
+    read_availability_code: company.read_availability_code ?? null,
+    read_availability_message: company.read_availability_message ?? null,
   };
 }
 

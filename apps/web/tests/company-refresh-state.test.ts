@@ -10,6 +10,7 @@ import {
   createDispatchedRefreshState,
   getNextPollingDelayMs,
   getReconnectDelayMs,
+  getCompanyFreshnessCopy,
   getRefreshViewModel,
   hasRefreshTimedOut,
   hydrateRefreshState,
@@ -57,6 +58,14 @@ function buildRefreshStatusItem(
     readable_years_count: 0,
     latest_readable_year: null,
     latest_attempt_outcome: null,
+    latest_attempt_reason_code: null,
+    latest_attempt_reason_message: null,
+    latest_attempt_retryable: false,
+    read_availability_code: null,
+    read_availability_message: null,
+    freshness_summary_code: null,
+    freshness_summary_message: null,
+    freshness_summary_severity: null,
     source_label: null,
     ...overrides,
   };
@@ -253,9 +262,9 @@ test("delayed state appears after the timeout threshold without turning destruct
   assert.equal(view.showManualStatusButton, true);
   assert.equal(
     view.message,
-    "Esta solicitacao perdeu previsibilidade e precisa de uma nova checagem.",
+    "Esta atualizacao esta demorando mais que o normal.",
   );
-  assert.equal(view.stepLabel, "Travado");
+  assert.equal(view.stepLabel, "Demorado");
 });
 
 test("manual refresh from delayed enables request again when no active status is found", () => {
@@ -297,6 +306,102 @@ test("no_data is treated as a terminal informative state", () => {
   assert.equal(view.isDestructive, false);
   assert.equal(view.message, "Nenhuma demonstracao encontrada para 2010-2025.");
   assert.equal(view.requestButtonDisabled, false);
+});
+
+test("mixed no-data freshness copy preserves the readable current data", () => {
+  const copy = getCompanyFreshnessCopy(
+    buildRefreshStatusItem({
+      last_status: "no_data",
+      tracking_state: "no_data",
+      has_readable_current_data: true,
+      readable_years_count: 8,
+      latest_readable_year: 2024,
+      latest_attempt_outcome: "no_data",
+      latest_attempt_reason_code: "no_new_financial_history",
+      latest_attempt_reason_message:
+        "A ultima tentativa nao encontrou novos demonstrativos.",
+      freshness_summary_code: "mixed_no_new_data_readable",
+      freshness_summary_message:
+        "A ultima tentativa nao encontrou novos demonstrativos; a leitura atual continua disponivel.",
+      freshness_summary_severity: "info",
+      is_retry_allowed: true,
+      latest_attempt_retryable: true,
+    }),
+  );
+
+  assert.equal(copy.badgeLabel, "Sem novos dados");
+  assert.equal(copy.title, "Leitura atual preservada");
+  assert.equal(
+    copy.description,
+    "A ultima tentativa nao encontrou novos demonstrativos; a leitura atual continua disponivel.",
+  );
+  assert.equal(copy.latestResultLabel, "Sem novos demonstrativos");
+});
+
+test("mixed retryable error stays non-destructive when readable data exists", () => {
+  const item = buildRefreshStatusItem({
+    last_status: "error",
+    tracking_state: "error",
+    last_error: "HTTP 500 ao consultar CVM",
+    has_readable_current_data: true,
+    readable_years_count: 8,
+    latest_readable_year: 2024,
+    latest_attempt_outcome: "error",
+    latest_attempt_reason_code: "refresh_failed_retryable",
+    latest_attempt_reason_message:
+      "Nao foi possivel concluir a atualizacao desta empresa agora.",
+    latest_attempt_retryable: true,
+    freshness_summary_code: "mixed_retryable_error_readable",
+    freshness_summary_message:
+      "A leitura atual continua disponivel, mas a ultima atualizacao falhou e pode ser tentada novamente.",
+    freshness_summary_severity: "warning",
+    is_retry_allowed: true,
+  });
+  const state = applyRefreshStatusResult(
+    createDispatchedRefreshState(Date.now()),
+    item,
+    Date.now(),
+  );
+
+  assert.equal(state.phase, "mixed_outcome");
+
+  const view = getRefreshViewModel(state);
+  assert.equal(view.isDestructive, false);
+  assert.equal(view.requestButtonDisabled, false);
+  assert.equal(view.stepLabel, "Retry possivel");
+  assert.equal(
+    view.message,
+    "A leitura atual continua disponivel, mas a ultima atualizacao falhou e pode ser tentada novamente.",
+  );
+
+  const copy = getCompanyFreshnessCopy(item);
+  assert.equal(copy.badgeLabel, "Leitura preservada");
+  assert.equal(copy.title, "Leitura atual preservada");
+});
+
+test("no annual history copy sets a clear terminal expectation", () => {
+  const copy = getCompanyFreshnessCopy(
+    buildRefreshStatusItem({
+      last_status: "no_data",
+      tracking_state: "no_data",
+      status_reason_code: "no_financial_history_found",
+      latest_attempt_outcome: "no_data",
+      latest_attempt_reason_code: "no_annual_history",
+      latest_attempt_reason_message:
+        "Nenhuma serie anual legivel foi encontrada para esta companhia.",
+      freshness_summary_code: "no_annual_history",
+      freshness_summary_message:
+        "Nenhuma serie anual legivel foi encontrada para esta companhia.",
+      freshness_summary_severity: "info",
+      is_retry_allowed: true,
+      latest_attempt_retryable: true,
+    }),
+  );
+
+  assert.equal(copy.badgeLabel, "Sem serie anual");
+  assert.equal(copy.title, "Sem historico anual legivel");
+  assert.equal(copy.latestResultLabel, "Sem serie anual");
+  assert.match(copy.retryHint ?? "", /CVM/);
 });
 
 test("initial terminal no_data stays neutral when readable data already exists", () => {
@@ -400,4 +505,34 @@ test("already_current uses the success state for immediate reload", () => {
   assert.equal(state.phase, "success");
   assert.equal(view.message, "Empresa ja atualizada para 2010-2025.");
   assert.equal(view.requestButtonDisabled, true);
+});
+
+test("already_current freshness copy avoids implying a new download", () => {
+  const copy = getCompanyFreshnessCopy(
+    buildRefreshStatusItem({
+      last_status: "success",
+      tracking_state: "success",
+      has_readable_current_data: true,
+      readable_years_count: 8,
+      latest_readable_year: 2024,
+      status_reason_code: "already_current",
+      status_reason_message:
+        "Esta empresa ja estava atualizada para a janela padrao.",
+      latest_attempt_outcome: "success",
+      latest_attempt_reason_code: "already_current",
+      latest_attempt_reason_message:
+        "Esta empresa ja estava atualizada para a janela padrao.",
+      freshness_summary_code: "already_current",
+      freshness_summary_message:
+        "A leitura local ja estava atualizada para a janela padrao.",
+      freshness_summary_severity: "success",
+    }),
+  );
+
+  assert.equal(copy.badgeLabel, "Ja atualizada");
+  assert.equal(copy.title, "Leitura ja atualizada");
+  assert.equal(
+    copy.description,
+    "A leitura local ja estava atualizada para a janela padrao.",
+  );
 });

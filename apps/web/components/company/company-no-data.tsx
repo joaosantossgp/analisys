@@ -10,7 +10,12 @@ import {
 import { CompanyRequestRefreshLazy } from "@/components/company/company-request-refresh-lazy";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
-import { fetchCompanyFreshness, type CompanyInfo } from "@/lib/api";
+import {
+  fetchCompanyFreshness,
+  type CompanyInfo,
+  type RefreshStatusItem,
+} from "@/lib/api";
+import { getCompanyFreshnessCopy } from "@/lib/company-refresh-state";
 import { cn } from "@/lib/utils";
 
 type CompanyNoDataPageProps = {
@@ -50,7 +55,7 @@ function ExpectationCard({ title, description }: ExpectationCardProps) {
 export async function CompanyNoDataPage({ company }: CompanyNoDataPageProps) {
   const sectorLabel =
     company.sector_name || company.setor_analitico || company.setor_cvm || "Setor nao informado";
-  let initialFreshness = null;
+  let initialFreshness: RefreshStatusItem | null = null;
 
   try {
     initialFreshness = await fetchCompanyFreshness(company.cd_cvm);
@@ -58,8 +63,10 @@ export async function CompanyNoDataPage({ company }: CompanyNoDataPageProps) {
     initialFreshness = null;
   }
 
-  const lastOutcomeMessage =
-    initialFreshness?.status_reason_message ?? null;
+  const freshnessCopy = initialFreshness
+    ? getCompanyFreshnessCopy(initialFreshness)
+    : null;
+  const lastOutcomeMessage = freshnessCopy?.latestResultDescription ?? null;
 
   return (
     <PageShell density="relaxed" className="max-w-5xl">
@@ -112,6 +119,7 @@ export async function CompanyNoDataPage({ company }: CompanyNoDataPageProps) {
             <AlertTitle>O que destrava esta pagina</AlertTitle>
             <AlertDescription>
               A solicitacao on-demand busca uma serie anual utilizavel na CVM e, quando encontra material suficiente, libera esta mesma aba para leitura. Se a CVM nao tiver historico anual processavel, o resultado aparece aqui de forma clara em vez de falhar em silencio.
+              {freshnessCopy?.retryHint ? ` ${freshnessCopy.retryHint}` : ""}
             </AlertDescription>
           </Alert>
 

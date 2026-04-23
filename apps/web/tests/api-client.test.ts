@@ -256,6 +256,8 @@ test("fetchCompanyInfo accepts readable handoff fields from company detail", asy
         has_readable_current_data: true,
         readable_years_count: 2,
         latest_readable_year: 2024,
+        read_availability_code: "readable_history_available",
+        read_availability_message: "Leitura anual disponivel ate 2024.",
       }),
       {
         status: 200,
@@ -276,6 +278,8 @@ test("fetchCompanyInfo accepts readable handoff fields from company detail", asy
     assert.equal(payload?.readable_years_count, 2);
     assert.equal(payload?.latest_readable_year, 2024);
     assert.equal(payload?.read_model_updated_at, "2026-04-21T12:05:00+00:00");
+    assert.equal(payload?.read_availability_code, "readable_history_available");
+    assert.equal(payload?.read_availability_message, "Leitura anual disponivel ate 2024.");
   } finally {
     restore();
   }
@@ -311,6 +315,8 @@ test("fetchCompanyInfo normalizes missing readable handoff fields", async () => 
     assert.equal(payload?.readable_years_count, 0);
     assert.equal(payload?.latest_readable_year, null);
     assert.equal(payload?.read_model_updated_at, null);
+    assert.equal(payload?.read_availability_code, null);
+    assert.equal(payload?.read_availability_message, null);
   } finally {
     restore();
   }
@@ -634,6 +640,16 @@ test("fetchRefreshStatus accepts estimated progress fields from the API", async 
           readable_years_count: 0,
           latest_readable_year: 2024,
           latest_attempt_outcome: "queued",
+          latest_attempt_reason_code: "refresh_queued",
+          latest_attempt_reason_message:
+            "Solicitacao recebida e aguardando processamento interno.",
+          latest_attempt_retryable: false,
+          read_availability_code: "readable_history_available",
+          read_availability_message: "Leitura anual disponivel ate 2024.",
+          freshness_summary_code: "refresh_queued",
+          freshness_summary_message:
+            "Solicitacao recebida e aguardando processamento interno.",
+          freshness_summary_severity: "info",
           source_label: "Solicitacao on-demand",
         },
       ]),
@@ -661,6 +677,15 @@ test("fetchRefreshStatus accepts estimated progress fields from the API", async 
     assert.equal(payload[0]?.status_reason_code, "refresh_queued");
     assert.equal(payload[0]?.has_readable_current_data, false);
     assert.equal(payload[0]?.latest_readable_year, 2024);
+    assert.equal(payload[0]?.latest_attempt_reason_code, "refresh_queued");
+    assert.equal(
+      payload[0]?.latest_attempt_reason_message,
+      "Solicitacao recebida e aguardando processamento interno.",
+    );
+    assert.equal(payload[0]?.latest_attempt_retryable, false);
+    assert.equal(payload[0]?.read_availability_code, "readable_history_available");
+    assert.equal(payload[0]?.freshness_summary_code, "refresh_queued");
+    assert.equal(payload[0]?.freshness_summary_severity, "info");
     assert.equal(payload[0]?.read_model_updated_at, "2026-04-21T12:05:00+00:00");
     assert.equal(payload[0]?.source_label, "Solicitacao on-demand");
   } finally {
@@ -715,6 +740,14 @@ test("fetchRefreshStatus normalizes missing estimate fields from legacy payloads
     assert.equal(payload[0]?.readable_years_count, 0);
     assert.equal(payload[0]?.latest_readable_year, null);
     assert.equal(payload[0]?.read_model_updated_at, null);
+    assert.equal(payload[0]?.latest_attempt_reason_code, null);
+    assert.equal(payload[0]?.latest_attempt_reason_message, null);
+    assert.equal(payload[0]?.latest_attempt_retryable, false);
+    assert.equal(payload[0]?.read_availability_code, null);
+    assert.equal(payload[0]?.read_availability_message, null);
+    assert.equal(payload[0]?.freshness_summary_code, null);
+    assert.equal(payload[0]?.freshness_summary_message, null);
+    assert.equal(payload[0]?.freshness_summary_severity, null);
   } finally {
     restore();
   }
@@ -759,6 +792,14 @@ test("fetchCompanyFreshness normalizes missing estimate fields from legacy API p
     assert.equal(payload?.has_readable_current_data, false);
     assert.equal(payload?.latest_readable_year, null);
     assert.equal(payload?.read_model_updated_at, null);
+    assert.equal(payload?.latest_attempt_reason_code, null);
+    assert.equal(payload?.latest_attempt_reason_message, null);
+    assert.equal(payload?.latest_attempt_retryable, false);
+    assert.equal(payload?.read_availability_code, null);
+    assert.equal(payload?.read_availability_message, null);
+    assert.equal(payload?.freshness_summary_code, null);
+    assert.equal(payload?.freshness_summary_message, null);
+    assert.equal(payload?.freshness_summary_severity, null);
   } finally {
     restore();
   }
