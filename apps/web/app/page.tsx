@@ -7,8 +7,9 @@ import { StatsStrip } from "@/components/home/stats-strip";
 import { PageShell } from "@/components/shared/design-system-recipes";
 import { fetchCompanies, fetchEmDestaqueCompanies, fetchPopularesCompanies } from "@/lib/api";
 
-// Match the fastest endpoint (em-destaque revalidates every 120 s)
-export const revalidate = 120;
+// Keep at 300 to match the perf baseline; em-destaque fetch has its own
+// next: { revalidate: 120 } cache at the fetch level
+export const revalidate = 300;
 
 export default async function HomePage() {
   const [popularesResult, destaqueResult, statsResult] = await Promise.allSettled([
