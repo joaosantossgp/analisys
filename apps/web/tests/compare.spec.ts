@@ -118,6 +118,6 @@ test("busca do compare mostra feedback quando nenhuma empresa pronta e encontrad
   expect(response.url()).not.toContain(":8000/companies/suggestions");
 
   await expect(
-    page.getByText(/nenhuma companhia pronta para comparar apareceu com esse termo/i),
+    page.getByText(/nenhuma companhia pronta e comparavel apareceu com esse termo/i),
   ).toBeVisible();
 });

@@ -24,6 +24,21 @@ type CompanyCardProps = {
   item: CompanyDirectoryItem;
 };
 
+function getAvailabilityBadgeClassName(
+  kind: ReturnType<typeof getCompanyAvailability>["kind"],
+): string {
+  switch (kind) {
+    case "ready":
+      return "border-emerald-500/20 bg-emerald-500/8 text-emerald-700 dark:text-emerald-300";
+    case "requestable":
+      return "border-primary/20 bg-primary/8 text-primary/80";
+    case "low_signal":
+      return "border-amber-500/24 bg-amber-500/10 text-amber-700 dark:text-amber-300";
+    case "stalled":
+      return "border-destructive/25 bg-destructive/8 text-destructive";
+  }
+}
+
 export function CompanyCard({ item }: CompanyCardProps) {
   const color = getSectorColor(item.sector_name);
   const anos = item.anos_disponiveis ?? [];
@@ -71,9 +86,7 @@ export function CompanyCard({ item }: CompanyCardProps) {
         <span
           className={cn(
             "rounded-full border px-2.5 py-1 text-[0.64rem] font-medium uppercase tracking-[0.14em]",
-            availability.kind === "ready"
-              ? "border-emerald-500/20 bg-emerald-500/8 text-emerald-700 dark:text-emerald-300"
-              : "border-primary/20 bg-primary/8 text-primary/80",
+            getAvailabilityBadgeClassName(availability.kind),
           )}
         >
           {availability.badge}
@@ -115,10 +128,7 @@ export function CompanyCard({ item }: CompanyCardProps) {
             { label: "Historico", value: yearsRange },
             {
               label: "Entrada",
-              value:
-                availability.kind === "ready"
-                  ? "KPIs + DRE"
-                  : "Pedir on-demand",
+              value: availability.actionLabel,
             },
           ] as const
         ).map(({ label, value }) => (
