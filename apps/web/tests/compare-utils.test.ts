@@ -26,6 +26,10 @@ function buildCompany(
     sector_slug: "energia",
     company_type: "comercial",
     ticker_b3: ticker,
+    read_model_updated_at: null,
+    has_readable_current_data: true,
+    readable_years_count: 1,
+    latest_readable_year: 2024,
   };
 }
 

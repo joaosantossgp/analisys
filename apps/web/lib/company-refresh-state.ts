@@ -1,4 +1,5 @@
 import type { RefreshStatusItem } from "@/lib/api";
+import { isReadableRefreshSuccess } from "./company-detail-handoff.ts";
 
 export type RefreshPhase =
   | "idle"
@@ -503,6 +504,25 @@ export function hydrateRefreshState(
     };
   }
 
+  if (trackingState === "success") {
+    if (isReadableRefreshSuccess(initialStatus)) {
+      return createIdleRefreshState();
+    }
+
+    return {
+      phase: "delayed",
+      startedAt: parseTimestamp(initialStatus.last_attempt_at) ?? nowMs,
+      currentItem: initialStatus,
+      lastKnownActiveItem: null,
+      failureCount: 0,
+      canRequestAgain: initialStatus.is_retry_allowed ?? false,
+      notice:
+        initialStatus.status_reason_message ??
+        "Atualizacao concluida, aguardando a leitura ficar disponivel.",
+      terminalMessage: null,
+    };
+  }
+
   if (hasReadableData(initialStatus)) {
     return createIdleRefreshState();
   }
@@ -677,6 +697,20 @@ export function applyRefreshStatusResult(
   const trackingState = getTrackingState(item);
 
   if (trackingState === "success") {
+    if (!isReadableRefreshSuccess(item)) {
+      return {
+        ...state,
+        phase: "delayed",
+        currentItem: item,
+        failureCount: 0,
+        canRequestAgain: item.is_retry_allowed ?? false,
+        notice:
+          item.status_reason_message ??
+          "Atualizacao concluida, aguardando a leitura ficar disponivel.",
+        terminalMessage: null,
+      };
+    }
+
     return {
       ...state,
       phase: "success",

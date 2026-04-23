@@ -15,6 +15,7 @@ import {
   getUserFacingErrorMessage,
   isApiClientError,
 } from "@/lib/api";
+import { getReadableRefreshSuccessKey } from "@/lib/company-detail-handoff";
 import {
   applyManualStatusFailure,
   applyRefreshPollFailure,
@@ -54,6 +55,12 @@ export function CompanyRequestRefresh({
   const isMountedRef = useRef(true);
   const reloadTimerRef = useRef<number | null>(null);
   const view = getRefreshViewModel(state);
+  const successHandoffKey =
+    state.phase === "success"
+      ? state.currentItem
+        ? getReadableRefreshSuccessKey(state.currentItem)
+        : "already-current"
+      : null;
 
   const pollRefreshStatus = useCallback(
     async (source: "auto" | "manual") => {
@@ -111,9 +118,11 @@ export function CompanyRequestRefresh({
   }, [initialStatus]);
 
   useEffect(() => {
-    if (state.phase !== "success") {
+    if (!successHandoffKey) {
       return;
     }
+
+    router.refresh();
 
     reloadTimerRef.current = window.setTimeout(() => {
       router.refresh();
@@ -125,7 +134,7 @@ export function CompanyRequestRefresh({
         reloadTimerRef.current = null;
       }
     };
-  }, [router, state.phase]);
+  }, [router, successHandoffKey]);
 
   useEffect(() => {
     if (!isAutoPollingPhase(state.phase)) {
