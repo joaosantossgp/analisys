@@ -82,11 +82,18 @@ jobs:
 
   test-web:
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: sqlite:///${{ github.workspace }}/.tmp/web-smoke/cvm_financials.db
     defaults:
       run:
         working-directory: apps/web
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
 
       - uses: actions/setup-node@v4
         with:
@@ -97,14 +104,31 @@ jobs:
       - name: Install web dependencies
         run: npm ci
 
+      - name: Install API smoke dependencies
+        run: |
+          python -m pip install -r ../../requirements.txt
+          python -m pip install -r ../api/requirements-dev.txt
+
+      - name: Seed web smoke database
+        run: python ../../scripts/seed_web_smoke_db.py
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
       - name: Run web lint
         run: npm run lint
 
       - name: Run web typecheck
         run: npm run typecheck
 
+      - name: Run web unit tests
+        run: npm run test:unit
+
       - name: Run web build
         run: npm run build
+
+      - name: Run on-demand Playwright smoke
+        run: npm run test:e2e -- tests/smoke.spec.ts
 
   # The API deploys from Railway's native GitHub autodeploy on pushes to main.
   deploy-web:
