@@ -1,13 +1,13 @@
+import Link from "next/link";
+
 import { CompanySearchHero } from "@/components/home/company-search-hero";
-import { CtaSection } from "@/components/home/cta-section";
 import { DiscoverySectionLazy } from "@/components/home/discovery-section-lazy";
-import { FeaturesSection } from "@/components/home/features-section";
-import { HeroSection } from "@/components/home/hero-section";
 import { HomeTrustStrip } from "@/components/home/home-trust-strip";
-import { WorkflowSection } from "@/components/home/workflow-section";
+import { buttonVariants } from "@/components/ui/button";
 import { PageShell } from "@/components/shared/design-system-recipes";
 import { fetchCompanies } from "@/lib/api";
 import { prioritizeDiscoveryCompanies } from "@/lib/company-discovery";
+import { cn } from "@/lib/utils";
 
 export const revalidate = 300;
 
@@ -23,27 +23,45 @@ export default async function HomePage() {
   );
 
   return (
-    <PageShell density="relaxed" className="flex flex-col items-center gap-20 pb-24">
-      {/* Hero with Brand Statement */}
-      <HeroSection />
-
-      {/* Search Bar */}
+    <PageShell density="relaxed" className="flex flex-col items-center gap-14 pb-20">
       <CompanySearchHero />
 
-      {/* Trust Indicators */}
       <HomeTrustStrip totalCompanies={totalCompanies} />
 
-      {/* Features Grid */}
-      <FeaturesSection />
-
-      {/* How It Works + Benefits */}
-      <WorkflowSection />
-
-      {/* Discovery Section */}
       <DiscoverySectionLazy topCompanies={topCompanies} />
 
-      {/* Final CTA */}
-      <CtaSection />
+      {/* Compare CTA */}
+      <div
+        className="w-full max-w-5xl rounded-[1.75rem] border border-border/60 px-8 py-10 sm:px-12"
+        style={{
+          background:
+            "linear-gradient(135deg, color-mix(in oklch, var(--primary) 8%, var(--card)), var(--card))",
+        }}
+      >
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="max-w-[520px]">
+            <p className="text-[0.72rem] font-medium uppercase tracking-[0.26em] text-muted-foreground mb-2">
+              Analise side-by-side
+            </p>
+            <h3 className="font-heading text-[1.75rem] font-medium tracking-[-0.035em] text-foreground leading-tight">
+              Compare ate 4 empresas.{" "}
+              <span className="text-muted-foreground">Veja onde divergem.</span>
+            </h3>
+            <p className="mt-3 text-[0.95rem] leading-[1.55] text-muted-foreground">
+              KPIs lado a lado, diferencas em destaque, periodos sincronizados.
+            </p>
+          </div>
+          <Link
+            href="/comparar"
+            className={cn(
+              buttonVariants({ size: "lg" }),
+              "shrink-0 rounded-full px-6",
+            )}
+          >
+            Comparar empresas
+          </Link>
+        </div>
+      </div>
     </PageShell>
   );
 }
