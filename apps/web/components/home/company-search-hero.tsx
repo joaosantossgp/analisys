@@ -211,6 +211,9 @@ export function CompanySearchHero() {
                     <p className="text-[0.8rem] text-muted-foreground mt-0.5">
                       {sectorName ?? "Setor nao informado"}
                     </p>
+                    <p className="text-[0.72rem] text-muted-foreground mt-1">
+                      Abra a pagina; se faltar historico local, solicite dados on-demand.
+                    </p>
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-[0.72rem] uppercase tracking-[0.15em] text-muted-foreground">

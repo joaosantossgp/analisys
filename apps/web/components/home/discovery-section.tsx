@@ -21,6 +21,21 @@ type DiscoverySectionProps = {
   topCompanies: CompanyDirectoryItem[];
 };
 
+function getAvailabilityBadgeClassName(
+  kind: ReturnType<typeof getCompanyAvailability>["kind"],
+): string {
+  switch (kind) {
+    case "ready":
+      return "border-emerald-500/20 bg-emerald-500/8 text-emerald-700 dark:text-emerald-300";
+    case "requestable":
+      return "border-primary/20 bg-primary/8 text-primary/80";
+    case "low_signal":
+      return "border-amber-500/24 bg-amber-500/10 text-amber-700 dark:text-amber-300";
+    case "stalled":
+      return "border-destructive/25 bg-destructive/8 text-destructive";
+  }
+}
+
 function buildSparkPoints(anos: number[], W = 70, H = 32): string {
   if (!anos || anos.length < 2) return "";
   const sorted = [...anos].sort((a, b) => a - b);
@@ -65,9 +80,7 @@ function CompanyCard({ co }: { co: CompanyDirectoryItem }) {
             <span
               className={cn(
                 "rounded-full border px-2 py-0.5 text-[0.62rem] font-medium uppercase tracking-[0.14em]",
-                availability.kind === "ready"
-                  ? "border-emerald-500/20 bg-emerald-500/8 text-emerald-700 dark:text-emerald-300"
-                  : "border-primary/20 bg-primary/8 text-primary/80",
+                getAvailabilityBadgeClassName(availability.kind),
               )}
             >
               {availability.badge}
@@ -118,7 +131,7 @@ function CompanyCard({ co }: { co: CompanyDirectoryItem }) {
           </p>
         </div>
         <div className="flex items-center gap-1 text-[0.8rem] font-medium text-muted-foreground transition-colors group-hover:text-primary">
-          <span>{availability.summary}</span>
+          <span>{availability.actionLabel}</span>
           <ArrowRightIcon className="size-3.5" />
         </div>
       </div>
@@ -131,7 +144,7 @@ function DestaquCard({ co, rank }: { co: CompanyDirectoryItem; rank: number }) {
   const anos = co.anos_disponiveis ?? [];
   const sparkPts = buildSparkPoints(anos, 54, 22);
   const availability = getCompanyAvailability(co);
-  const isTop = rank < 3;
+  const sparkColor = availability.kind === "ready" ? "var(--chart-1)" : color;
 
   return (
     <button
@@ -160,7 +173,7 @@ function DestaquCard({ co, rank }: { co: CompanyDirectoryItem; rank: number }) {
           <polyline
             points={sparkPts}
             fill="none"
-            stroke={isTop ? "var(--chart-1)" : "var(--destructive)"}
+            stroke={sparkColor}
             strokeWidth="1.5"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -168,8 +181,10 @@ function DestaquCard({ co, rank }: { co: CompanyDirectoryItem; rank: number }) {
         </svg>
       ) : null}
       <span
-        className="shrink-0 text-[0.78rem] font-medium"
-        style={{ color: isTop ? "var(--chart-1)" : "var(--destructive)" }}
+        className={cn(
+          "shrink-0 rounded-full border px-2 py-0.5 text-[0.62rem] font-medium uppercase tracking-[0.14em]",
+          getAvailabilityBadgeClassName(availability.kind),
+        )}
       >
         {availability.badge}
       </span>
@@ -180,8 +195,12 @@ function DestaquCard({ co, rank }: { co: CompanyDirectoryItem; rank: number }) {
 export function DiscoverySection({ topCompanies }: DiscoverySectionProps) {
   const [activeTab, setActiveTab] = useState<Tab>("populares");
 
-  const topHalf = topCompanies.slice(0, Math.ceil(topCompanies.length / 2));
-  const bottomHalf = topCompanies.slice(Math.ceil(topCompanies.length / 2));
+  const readyCompanies = topCompanies
+    .filter((company) => getCompanyAvailability(company).kind === "ready")
+    .slice(0, 4);
+  const attentionCompanies = topCompanies
+    .filter((company) => getCompanyAvailability(company).kind !== "ready")
+    .slice(0, 4);
 
   return (
     <section className="w-full max-w-5xl mx-auto space-y-6 text-left">
@@ -194,8 +213,8 @@ export function DiscoverySection({ topCompanies }: DiscoverySectionProps) {
             Por onde comecar
           </h2>
           <p className="mt-2 max-w-2xl text-sm leading-7 text-muted-foreground">
-            A home prioriza companhias com leitura pronta e deixa claro quando a
-            pagina ainda depende de uma carga on-demand.
+            A home separa empresas prontas, solicitaveis e sinais fracos antes
+            do clique, para voce saber se vai analisar agora ou pedir uma carga.
           </p>
         </div>
         <div className="inline-flex items-center gap-0.5 rounded-full border border-border bg-muted p-1">
@@ -230,23 +249,31 @@ export function DiscoverySection({ topCompanies }: DiscoverySectionProps) {
           <div className="rounded-[1.25rem] border border-border/60 bg-card p-5">
             <div className="mb-3 flex items-center gap-2">
               <TrendingUpIcon className="size-4 text-[color:var(--chart-1)]" />
-              <span className="text-[0.95rem] font-semibold">Leitura pronta agora</span>
+              <span className="text-[0.95rem] font-semibold">Prontas para analisar</span>
             </div>
             <div className="flex flex-col gap-0.5">
-              {topHalf.map((co, i) => (
+              {readyCompanies.length > 0 ? readyCompanies.map((co, i) => (
                 <DestaquCard key={co.cd_cvm} co={co} rank={i + 1} />
-              ))}
+              )) : (
+                <p className="px-3 py-2 text-sm leading-6 text-muted-foreground">
+                  Nenhuma sugestao forte apareceu neste recorte inicial.
+                </p>
+              )}
             </div>
           </div>
           <div className="rounded-[1.25rem] border border-border/60 bg-muted/30 p-5">
             <div className="mb-3 flex items-center gap-2">
               <TrendingDownIcon className="size-4 text-destructive" />
-              <span className="text-[0.95rem] font-semibold">Outras entradas</span>
+              <span className="text-[0.95rem] font-semibold">On-demand e sinais fracos</span>
             </div>
             <div className="flex flex-col gap-0.5">
-              {bottomHalf.map((co, i) => (
+              {attentionCompanies.length > 0 ? attentionCompanies.map((co, i) => (
                 <DestaquCard key={co.cd_cvm} co={co} rank={i + 1} />
-              ))}
+              )) : (
+                <p className="px-3 py-2 text-sm leading-6 text-muted-foreground">
+                  O recorte atual esta concentrado em empresas prontas.
+                </p>
+              )}
             </div>
           </div>
         </div>

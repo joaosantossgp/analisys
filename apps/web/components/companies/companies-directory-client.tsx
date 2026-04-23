@@ -25,6 +25,29 @@ type CompaniesDirectoryPageContentProps = Pick<
   data: CompaniesPageData;
 };
 
+const DISCOVERY_LEGEND = [
+  {
+    label: "Pronta agora",
+    description: "Leitura anual suficiente para KPIs, demonstracoes e Excel.",
+    className: "border-emerald-500/20 bg-emerald-500/8 text-emerald-700 dark:text-emerald-300",
+  },
+  {
+    label: "Solicitar dados",
+    description: "Sem historico local; abra a pagina para pedir on-demand.",
+    className: "border-primary/20 bg-primary/8 text-primary/80",
+  },
+  {
+    label: "Baixo sinal",
+    description: "Tem dados locais, mas cobertura curta para comparacao forte.",
+    className: "border-amber-500/24 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+  },
+  {
+    label: "Estagnada",
+    description: "Historico local existe, mas parece defasado.",
+    className: "border-destructive/25 bg-destructive/8 text-destructive",
+  },
+] as const;
+
 export function CompaniesDirectoryPageContent({
   page: currentPage,
   pageSize,
@@ -107,15 +130,15 @@ export function CompaniesDirectoryPageContent({
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="mb-1 text-[0.72rem] font-medium uppercase tracking-[0.26em] text-muted-foreground">
-            Diretorio · CVM
+            Diretorio / CVM
           </p>
           <h1 className="font-heading text-[clamp(1.75rem,4vw,2.5rem)] font-medium leading-tight tracking-[-0.04em] text-foreground">
             Todas as companhias abertas
           </h1>
           <p className="mt-1.5 text-[0.9rem] text-muted-foreground">
             {formatCompactInteger(directory.pagination.total_items)} empresas
-            {currentSearch ? ` · "${currentSearch}"` : ""}
-            {currentSector ? ` · ${currentSector}` : ""}
+            {currentSearch ? ` / "${currentSearch}"` : ""}
+            {currentSector ? ` / ${currentSector}` : ""}
           </p>
         </div>
 
@@ -172,6 +195,27 @@ export function CompaniesDirectoryPageContent({
         </Alert>
       ) : null}
 
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        {DISCOVERY_LEGEND.map((item) => (
+          <div
+            key={item.label}
+            className="rounded-[1.1rem] border border-border/60 bg-background/80 px-4 py-3"
+          >
+            <span
+              className={cn(
+                "inline-flex rounded-full border px-2 py-0.5 text-[0.62rem] font-medium uppercase tracking-[0.14em]",
+                item.className,
+              )}
+            >
+              {item.label}
+            </span>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">
+              {item.description}
+            </p>
+          </div>
+        ))}
+      </div>
+
       <CompanyDirectoryFilters
         key={`${currentSearch}|${currentSector ?? "all"}|${filtersError ? "filters-down" : "filters-up"}`}
         currentSearch={currentSearch}
@@ -187,6 +231,7 @@ export function CompaniesDirectoryPageContent({
           hasActiveFilters={Boolean(currentSearch || currentSector)}
           clearHref={clearHref}
           fallbackSuggestions={data.fallbackSuggestions?.items ?? []}
+          fallbackSuggestionsError={data.fallbackSuggestionsError}
           searchTerm={currentSearch}
           showCatalogFallback={!currentSector}
         />

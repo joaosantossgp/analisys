@@ -222,7 +222,7 @@ export function CompareSelector({
             Selecao da comparacao
           </p>
           <p className="text-sm leading-7 text-muted-foreground">
-            Escolha entre 2 e {maxCompanies} empresas para comparar os indicadores no mesmo periodo.
+            Escolha entre 2 e {maxCompanies} empresas prontas para comparar indicadores no mesmo periodo.
           </p>
         </div>
         <InfoChip tone="muted">
@@ -244,7 +244,7 @@ export function CompareSelector({
             />
           </div>
           <p className="text-xs text-muted-foreground">
-            Digite ao menos 2 caracteres para receber sugestoes e adicionar empresas.
+            Digite ao menos 2 caracteres. A busca do comparador mostra apenas companhias com historico anual local.
           </p>
         </div>
 
@@ -286,7 +286,7 @@ export function CompareSelector({
         suggestions.length === 0 &&
         !suggestionError ? (
           <p className="text-sm text-muted-foreground">
-            Nenhuma companhia pronta para comparar apareceu com esse termo. A comparacao mostra apenas empresas com historico anual local.
+            Nenhuma companhia pronta e comparavel apareceu com esse termo. Abra o diretorio para solicitar dados on-demand antes de comparar.
           </p>
         ) : null}
 
@@ -305,7 +305,10 @@ export function CompareSelector({
                   )}
                   onClick={() => addCompany(company)}
                 >
-                  {company.company_name}
+                  <span className="max-w-[14rem] truncate">{company.company_name}</span>
+                  <span className="rounded-full border border-emerald-500/20 bg-emerald-500/8 px-1.5 py-0.5 text-[0.58rem] uppercase tracking-[0.14em] text-emerald-700 dark:text-emerald-300">
+                    Pronta
+                  </span>
                 </button>
               ))}
             </div>
@@ -322,6 +325,12 @@ export function CompareSelector({
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
               Esta comparacao so lista companhias com historico anual local suficiente. Quando o slice atual nao tiver empresas prontas, use a busca para conferir uma companhia especifica ou abra o diretorio.
             </p>
+            <Link
+              href="/empresas"
+              className="mt-3 inline-flex text-sm font-medium text-primary hover:underline"
+            >
+              Ver empresas solicitaveis no diretorio
+            </Link>
           </div>
         ) : null}
       </div>

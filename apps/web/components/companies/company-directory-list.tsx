@@ -15,6 +15,7 @@ type CompanyDirectoryListProps = {
   hasActiveFilters: boolean;
   clearHref: string;
   fallbackSuggestions?: CompanySuggestionItem[];
+  fallbackSuggestionsError?: string | null;
   searchTerm?: string;
   showCatalogFallback?: boolean;
 };
@@ -25,6 +26,7 @@ export function CompanyDirectoryList({
   hasActiveFilters,
   clearHref,
   fallbackSuggestions = [],
+  fallbackSuggestionsError = null,
   searchTerm = "",
   showCatalogFallback = false,
 }: CompanyDirectoryListProps) {
@@ -44,9 +46,15 @@ export function CompanyDirectoryList({
         </p>
         <p className="max-w-sm text-sm leading-7 text-muted-foreground">
           {hasCatalogFallback
-            ? "O diretorio local ainda nao tem dados processados para essa busca, mas o catalogo CVM abaixo permite abrir a pagina e solicitar o bootstrap on-demand."
+            ? "O diretorio local ainda nao tem dados processados para essa busca, mas o catalogo CVM abaixo permite abrir a pagina e solicitar dados on-demand."
             : "Ajuste o termo de busca ou remova o filtro setorial para ampliar o diretorio disponivel."}
         </p>
+
+        {fallbackSuggestionsError ? (
+          <div className="max-w-lg rounded-[1rem] border border-border/70 bg-background/85 px-4 py-3 text-left text-sm leading-6 text-muted-foreground">
+            O catalogo CVM tambem oscilou agora: {fallbackSuggestionsError}
+          </div>
+        ) : null}
 
         {hasCatalogFallback ? (
           <div className="grid w-full max-w-2xl gap-3 text-left">
@@ -58,9 +66,17 @@ export function CompanyDirectoryList({
               >
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="min-w-0 space-y-1">
-                    <p className="truncate font-medium text-foreground">{item.company_name}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate font-medium text-foreground">{item.company_name}</p>
+                      <span className="rounded-full border border-primary/20 bg-primary/8 px-2 py-0.5 text-[0.62rem] font-medium uppercase tracking-[0.14em] text-primary/80">
+                        Solicitar dados
+                      </span>
+                    </div>
                     <p className="text-sm text-muted-foreground">
                       {getSectorNameFromSlug(item.sector_slug) ?? "Setor nao informado"}
+                    </p>
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      Sem historico local neste filtro. A pagina da empresa libera o pedido on-demand.
                     </p>
                   </div>
                   <div className="text-right">
@@ -70,6 +86,7 @@ export function CompanyDirectoryList({
                       </p>
                     ) : null}
                     <p className="font-mono text-sm text-foreground">CVM {item.cd_cvm}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Abrir e solicitar</p>
                   </div>
                 </div>
               </Link>

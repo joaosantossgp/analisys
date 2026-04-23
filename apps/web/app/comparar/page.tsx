@@ -117,7 +117,7 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
         eyebrow="PG-04 - Comparar"
         title="Comparacao de empresas"
         titleAs="h1"
-        description="Monte uma comparacao lado a lado com empresas da base e use a primeira selecao como referencia de deltas."
+        description="Monte uma comparacao lado a lado apenas com empresas prontas. Se uma companhia ainda for solicitavel ou tiver sinal fraco, abra o diretorio primeiro."
         meta={
           <InfoChip tone="muted">
             {compareData.comparedCompanies.length >= 2
