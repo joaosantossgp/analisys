@@ -117,6 +117,43 @@ def get_company_suggestions(
     return present_company_suggestions(items)
 
 
+COMPANY_POPULARES_CACHE_CONTROL = "public, max-age=3600, stale-while-revalidate=86400"
+COMPANY_DESTAQUE_CACHE_CONTROL = "public, max-age=120, stale-while-revalidate=600"
+
+
+@router.get(
+    "/companies/populares",
+    response_model=CompanyDirectoryPagePayload,
+    summary="Retorna as 10 maiores empresas da B3 por market cap (ranking estatico).",
+)
+def list_populares_companies(
+    response: Response,
+    request: Request,
+    service: CVMReadService = Depends(get_read_service),
+) -> CompanyDirectoryPagePayload:
+    ensure_api_ready(get_settings(request))
+    _apply_cache_headers(response, COMPANY_POPULARES_CACHE_CONTROL)
+    page_dto = service.get_populares_companies()
+    return present_company_directory_page(page_dto)
+
+
+@router.get(
+    "/companies/em-destaque",
+    response_model=CompanyDirectoryPagePayload,
+    summary="Retorna as empresas mais visitadas globalmente.",
+)
+def list_em_destaque_companies(
+    response: Response,
+    request: Request,
+    limit: int = Query(default=10, ge=1, le=20, description="Numero maximo de empresas retornadas."),
+    service: CVMReadService = Depends(get_read_service),
+) -> CompanyDirectoryPagePayload:
+    ensure_api_ready(get_settings(request))
+    _apply_cache_headers(response, COMPANY_DESTAQUE_CACHE_CONTROL)
+    page_dto = service.get_em_destaque_companies(limit=limit)
+    return present_company_directory_page(page_dto)
+
+
 @router.get(
     "/companies/export/excel-batch",
     summary="Retorna um arquivo ZIP com um workbook Excel por empresa selecionada.",
