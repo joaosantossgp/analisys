@@ -225,6 +225,7 @@ def _seed_database(settings: AppSettings) -> None:
                     last_start_year INTEGER,
                     last_end_year INTEGER,
                     last_rows_inserted INTEGER,
+                    read_model_updated_at TEXT,
                     updated_at TEXT
                 )
                 """
@@ -266,11 +267,11 @@ def _seed_database(settings: AppSettings) -> None:
                 INSERT INTO company_refresh_status (
                     cd_cvm, company_name, source_scope, last_attempt_at, last_success_at,
                     last_status, last_error, last_start_year, last_end_year,
-                    last_rows_inserted, updated_at
+                    last_rows_inserted, read_model_updated_at, updated_at
                 ) VALUES (
                     :cd_cvm, :company_name, :source_scope, :last_attempt_at, :last_success_at,
                     :last_status, :last_error, :last_start_year, :last_end_year,
-                    :last_rows_inserted, :updated_at
+                    :last_rows_inserted, :read_model_updated_at, :updated_at
                 )
                 """
             ),
@@ -286,6 +287,7 @@ def _seed_database(settings: AppSettings) -> None:
                     "last_start_year": 2023,
                     "last_end_year": 2024,
                     "last_rows_inserted": 30,
+                    "read_model_updated_at": "2026-04-08T08:55:00",
                     "updated_at": "2026-04-08T08:55:00",
                 }
             ],

@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import zipfile
 from collections import defaultdict
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from statistics import median
 from typing import Any
@@ -143,14 +144,18 @@ class CVMReadService:
     def get_company_info(self, cd_cvm: int) -> CompanyInfoDTO | None:
         payload = self.query_layer.get_company_info(cd_cvm)
         if payload:
-            return self._build_company_info_dto(payload, default_cd_cvm=cd_cvm)
+            return self._with_company_read_model_state(
+                self._build_company_info_dto(payload, default_cd_cvm=cd_cvm)
+            )
 
         catalog_entry = self.company_catalog.lookup_company(cd_cvm)
         if catalog_entry is None:
             return None
-        return self._build_company_info_dto(
-            self._company_catalog_payload(catalog_entry),
-            default_cd_cvm=cd_cvm,
+        return self._with_company_read_model_state(
+            self._build_company_info_dto(
+                self._company_catalog_payload(catalog_entry),
+                default_cd_cvm=cd_cvm,
+            )
         )
 
     def get_company_info_dict(self, cd_cvm: int) -> dict[str, Any]:
@@ -199,6 +204,23 @@ class CVMReadService:
             sector_slug=sector_slugify(sector_name),
             company_type=company_type,
             ticker_b3=payload.get("ticker_b3"),
+        )
+
+    def _with_company_read_model_state(self, dto: CompanyInfoDTO) -> CompanyInfoDTO:
+        state = self._load_company_read_model_state_map([dto.cd_cvm]).get(
+            int(dto.cd_cvm),
+            {},
+        )
+        return replace(
+            dto,
+            read_model_updated_at=state.get("read_model_updated_at"),
+            has_readable_current_data=bool(state.get("has_readable_current_data")),
+            readable_years_count=int(state.get("readable_years_count") or 0),
+            latest_readable_year=(
+                int(state["latest_readable_year"])
+                if state.get("latest_readable_year") is not None
+                else None
+            ),
         )
 
     def _ensure_company_catalog_metadata(self, cd_cvm: int) -> bool:
@@ -666,6 +688,7 @@ class CVMReadService:
                 started_at,
                 heartbeat_at,
                 finished_at,
+                read_model_updated_at,
                 updated_at
             FROM company_refresh_status
             WHERE (:cd_cvm IS NULL OR cd_cvm = :cd_cvm)
@@ -681,6 +704,10 @@ class CVMReadService:
             if cd_cvms
             else {}
         )
+        read_model_state_map = self._load_company_read_model_state_map(
+            cd_cvms,
+            precomputed_years_map=readable_years_map,
+        )
         duration_profile = (
             self._estimate_refresh_duration_profile()
             if any(
@@ -695,12 +722,93 @@ class CVMReadService:
                 row,
                 duration_profile=duration_profile,
                 active_job=active_jobs.get(int(row["cd_cvm"])),
-                readable_years_count=len(
-                    readable_years_map.get(int(row["cd_cvm"]), ())
+                read_model_state=read_model_state_map.get(
+                    int(row["cd_cvm"]),
+                    {},
                 ),
             )
             for row in rows
         ]
+
+    def _load_company_read_model_state_map(
+        self,
+        cd_cvms: list[int] | tuple[int, ...],
+        *,
+        precomputed_years_map: dict[int, Any] | None = None,
+    ) -> dict[int, dict[str, Any]]:
+        unique_ids = sorted({int(cd_cvm) for cd_cvm in cd_cvms})
+        if not unique_ids:
+            return {}
+
+        years_map = (
+            precomputed_years_map
+            if precomputed_years_map is not None
+            else self.query_layer.get_company_years_map(unique_ids)
+        )
+        projection_updated_at: dict[int, str] = {}
+        company_updated_at: dict[int, str] = {}
+
+        with self.engine.connect() as conn:
+            if inspect(conn).has_table("company_refresh_status"):
+                status_columns = {
+                    str(column.get("name") or "").lower()
+                    for column in inspect(conn).get_columns("company_refresh_status")
+                }
+                if "read_model_updated_at" in status_columns:
+                    rows = conn.execute(
+                        text(
+                            """
+                            SELECT cd_cvm, read_model_updated_at
+                            FROM company_refresh_status
+                            WHERE cd_cvm IN :cd_cvms
+                            """
+                        ).bindparams(bindparam("cd_cvms", expanding=True)),
+                        {"cd_cvms": unique_ids},
+                    ).mappings().all()
+                    projection_updated_at = {
+                        int(row["cd_cvm"]): str(row["read_model_updated_at"])
+                        for row in rows
+                        if row.get("read_model_updated_at") is not None
+                    }
+            if inspect(conn).has_table("companies"):
+                company_rows = conn.execute(
+                    text(
+                        """
+                        SELECT cd_cvm, updated_at
+                        FROM companies
+                        WHERE cd_cvm IN :cd_cvms
+                        """
+                    ).bindparams(bindparam("cd_cvms", expanding=True)),
+                    {"cd_cvms": unique_ids},
+                ).mappings().all()
+                company_updated_at = {
+                    int(row["cd_cvm"]): str(row["updated_at"])
+                    for row in company_rows
+                    if row.get("updated_at") is not None
+                }
+
+        state_map: dict[int, dict[str, Any]] = {}
+        for cd_cvm in unique_ids:
+            readable_years = tuple(
+                sorted(int(year) for year in years_map.get(int(cd_cvm), ()))
+            )
+            has_readable_data = bool(readable_years)
+            state_map[int(cd_cvm)] = {
+                "has_readable_current_data": has_readable_data,
+                "readable_years_count": len(readable_years),
+                "latest_readable_year": (
+                    int(readable_years[-1]) if readable_years else None
+                ),
+                "read_model_updated_at": (
+                    projection_updated_at.get(int(cd_cvm))
+                    or (
+                        company_updated_at.get(int(cd_cvm))
+                        if has_readable_data
+                        else None
+                    )
+                ),
+            }
+        return state_map
 
     def _build_refresh_status_dto(
         self,
@@ -708,9 +816,15 @@ class CVMReadService:
         *,
         duration_profile: dict[str, Any] | None,
         active_job: dict[str, Any] | None,
-        readable_years_count: int,
+        read_model_state: dict[str, Any],
     ) -> RefreshStatusDTO:
-        has_readable_current_data = int(readable_years_count or 0) > 0
+        readable_years_count = int(
+            read_model_state.get("readable_years_count") or 0
+        )
+        has_readable_current_data = bool(
+            read_model_state.get("has_readable_current_data")
+        )
+        latest_readable_year = read_model_state.get("latest_readable_year")
         latest_attempt_outcome = self._normalize_refresh_status(row.get("last_status")) or None
         tracking_state = self._resolve_refresh_tracking_state(
             row,
@@ -775,6 +889,11 @@ class CVMReadService:
             heartbeat_at=row.get("heartbeat_at"),
             finished_at=row.get("finished_at"),
             updated_at=row.get("updated_at"),
+            read_model_updated_at=(
+                str(read_model_state["read_model_updated_at"])
+                if read_model_state.get("read_model_updated_at") is not None
+                else row.get("read_model_updated_at")
+            ),
             estimated_progress_pct=estimate["estimated_progress_pct"],
             estimated_eta_seconds=estimate["estimated_eta_seconds"],
             estimated_total_seconds=estimate["estimated_total_seconds"],
@@ -791,6 +910,11 @@ class CVMReadService:
             status_reason_message=status_reason_message,
             has_readable_current_data=has_readable_current_data,
             readable_years_count=int(readable_years_count or 0),
+            latest_readable_year=(
+                int(latest_readable_year)
+                if latest_readable_year is not None
+                else None
+            ),
             latest_attempt_outcome=latest_attempt_outcome,
             source_label=self._build_refresh_source_label(
                 row.get("source_scope"),

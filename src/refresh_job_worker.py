@@ -213,14 +213,15 @@ class RefreshJobWorker:
                     start_year=job.start_year,
                     end_year=job.end_year,
                 )
+            final_state, completion_message = self._resolve_public_success_state(
+                job,
+                rows_inserted=rows_inserted,
+            )
             self.repository.complete_job(
                 job_id=job.id,
-                final_state=JOB_STATE_SUCCESS,
-                message=(
-                    "Refresh concluido com sucesso para "
-                    f"{job.start_year}-{job.end_year}."
-                ),
-                last_rows_inserted=rows_inserted,
+                final_state=final_state,
+                message=completion_message,
+                last_rows_inserted=rows_inserted if final_state == JOB_STATE_SUCCESS else None,
             )
             return
 
@@ -255,6 +256,35 @@ class RefreshJobWorker:
                 skip_complete_company_years=True,
                 enable_fast_lane=False,
                 force_refresh=False,
+            ),
+        )
+
+    def _resolve_public_success_state(
+        self,
+        job: RefreshJobRecord,
+        *,
+        rows_inserted: int,
+    ) -> tuple[str, str]:
+        snapshot = self.repository.load_read_model_snapshot(cd_cvm=job.cd_cvm)
+        baseline_fingerprint = str(job.baseline_read_model_fingerprint or "").strip()
+        read_model_changed = (
+            snapshot.fingerprint != baseline_fingerprint
+            if baseline_fingerprint
+            else snapshot.readable_years_count > 0 and int(rows_inserted) > 0
+        )
+        if read_model_changed:
+            return (
+                JOB_STATE_SUCCESS,
+                (
+                    "Refresh concluido com leitura pronta para "
+                    f"{job.start_year}-{job.end_year}."
+                ),
+            )
+        return (
+            JOB_STATE_NO_DATA,
+            (
+                "Nenhuma nova leitura anual ficou disponivel para "
+                f"{job.start_year}-{job.end_year}."
             ),
         )
 

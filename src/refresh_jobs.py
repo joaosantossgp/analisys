@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import inspect, text
+from sqlalchemy import bindparam, inspect, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
 
@@ -67,6 +69,9 @@ class RefreshJobRecord:
     progress_current: int | None
     progress_total: int | None
     progress_message: str | None
+    baseline_read_model_fingerprint: str | None
+    baseline_readable_years_count: int | None
+    baseline_latest_readable_year: int | None
 
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> "RefreshJobRecord":
@@ -117,7 +122,31 @@ class RefreshJobRecord:
                 if row.get("progress_message") is not None
                 else None
             ),
+            baseline_read_model_fingerprint=(
+                str(row["baseline_read_model_fingerprint"])
+                if row.get("baseline_read_model_fingerprint") is not None
+                else None
+            ),
+            baseline_readable_years_count=(
+                int(row["baseline_readable_years_count"])
+                if row.get("baseline_readable_years_count") is not None
+                else None
+            ),
+            baseline_latest_readable_year=(
+                int(row["baseline_latest_readable_year"])
+                if row.get("baseline_latest_readable_year") is not None
+                else None
+            ),
         )
+
+
+@dataclass(frozen=True)
+class CompanyReadModelSnapshot:
+    cd_cvm: int
+    readable_years: tuple[int, ...]
+    readable_years_count: int
+    latest_readable_year: int | None
+    fingerprint: str
 
 
 def build_postgres_claim_next_job_sql() -> str:
@@ -193,7 +222,8 @@ def _ensure_refresh_status_schema(conn) -> None:
                 progress_message TEXT,
                 started_at TEXT,
                 heartbeat_at TEXT,
-                finished_at TEXT
+                finished_at TEXT,
+                read_model_updated_at TEXT
             )
             """
         )
@@ -210,6 +240,7 @@ def _ensure_refresh_status_schema(conn) -> None:
         "started_at": "TEXT",
         "heartbeat_at": "TEXT",
         "finished_at": "TEXT",
+        "read_model_updated_at": "TEXT",
     }
     for name, ddl in missing_columns.items():
         if name not in columns:
@@ -255,7 +286,10 @@ def _ensure_refresh_jobs_schema(conn) -> None:
                 error_message TEXT,
                 progress_current INTEGER,
                 progress_total INTEGER,
-                progress_message TEXT
+                progress_message TEXT,
+                baseline_read_model_fingerprint TEXT,
+                baseline_readable_years_count INTEGER,
+                baseline_latest_readable_year INTEGER
             )
             """
         )
@@ -275,6 +309,9 @@ def _ensure_refresh_jobs_schema(conn) -> None:
         "progress_current": "INTEGER",
         "progress_total": "INTEGER",
         "progress_message": "TEXT",
+        "baseline_read_model_fingerprint": "TEXT",
+        "baseline_readable_years_count": "INTEGER",
+        "baseline_latest_readable_year": "INTEGER",
     }
     for name, ddl in missing_columns.items():
         if name not in columns:
@@ -327,6 +364,11 @@ class RefreshJobRepository:
             ).mappings().fetchone()
         return RefreshJobRecord.from_row(dict(row)) if row else None
 
+    def load_read_model_snapshot(self, *, cd_cvm: int) -> CompanyReadModelSnapshot:
+        with self.engine.begin() as conn:
+            ensure_refresh_runtime_tables_for_connection(conn)
+            return self._load_read_model_snapshot(conn, cd_cvm=cd_cvm)
+
     def enqueue_job(
         self,
         *,
@@ -343,6 +385,7 @@ class RefreshJobRepository:
             active_row = self._get_active_job_row(conn, cd_cvm=cd_cvm)
             if active_row is not None:
                 return None
+            baseline_snapshot = self._load_read_model_snapshot(conn, cd_cvm=cd_cvm)
 
             try:
                 conn.execute(
@@ -360,7 +403,10 @@ class RefreshJobRepository:
                             requested_at,
                             progress_current,
                             progress_total,
-                            progress_message
+                            progress_message,
+                            baseline_read_model_fingerprint,
+                            baseline_readable_years_count,
+                            baseline_latest_readable_year
                         ) VALUES (
                             :id,
                             :cd_cvm,
@@ -373,7 +419,10 @@ class RefreshJobRepository:
                             :requested_at,
                             :progress_current,
                             :progress_total,
-                            :progress_message
+                            :progress_message,
+                            :baseline_read_model_fingerprint,
+                            :baseline_readable_years_count,
+                            :baseline_latest_readable_year
                         )
                         """
                     ),
@@ -390,6 +439,9 @@ class RefreshJobRepository:
                         "progress_current": 0,
                         "progress_total": 1,
                         "progress_message": "Solicitacao enfileirada para processamento interno.",
+                        "baseline_read_model_fingerprint": baseline_snapshot.fingerprint,
+                        "baseline_readable_years_count": baseline_snapshot.readable_years_count,
+                        "baseline_latest_readable_year": baseline_snapshot.latest_readable_year,
                     },
                 )
             except IntegrityError:
@@ -406,6 +458,7 @@ class RefreshJobRepository:
                 last_error=None,
                 last_success_at=None,
                 last_rows_inserted=None,
+                read_model_updated_at=None,
             )
             self._sync_queue_positions(conn)
             return job
@@ -424,6 +477,11 @@ class RefreshJobRepository:
         with self.engine.begin() as conn:
             ensure_refresh_runtime_tables_for_connection(conn)
             existing_row = self._get_projection_row(conn, cd_cvm=cd_cvm)
+            read_model_updated_at = self._resolve_read_model_updated_at(
+                conn,
+                cd_cvm=cd_cvm,
+                existing_row=existing_row,
+            )
             last_success_at = (
                 existing_row.get("last_success_at")
                 if existing_row is not None and existing_row.get("last_success_at")
@@ -457,6 +515,7 @@ class RefreshJobRepository:
                     "started_at": None,
                     "heartbeat_at": None,
                     "finished_at": now_iso,
+                    "read_model_updated_at": read_model_updated_at,
                     "updated_at": now_iso,
                 },
             )
@@ -542,6 +601,7 @@ class RefreshJobRepository:
                 last_error=None,
                 last_success_at=None,
                 last_rows_inserted=None,
+                read_model_updated_at=None,
             )
             self._sync_queue_positions(conn)
             return job
@@ -575,6 +635,7 @@ class RefreshJobRepository:
                 last_error=None,
                 last_success_at=None,
                 last_rows_inserted=None,
+                read_model_updated_at=None,
             )
 
     def update_progress(
@@ -624,6 +685,7 @@ class RefreshJobRepository:
                 last_error=None,
                 last_success_at=None,
                 last_rows_inserted=None,
+                read_model_updated_at=None,
             )
             return job
 
@@ -635,6 +697,7 @@ class RefreshJobRepository:
         message: str,
         error_message: str | None = None,
         last_rows_inserted: int | None = None,
+        read_model_updated_at: str | None = None,
     ) -> RefreshJobRecord | None:
         now_iso = utc_now_iso()
         with self.engine.begin() as conn:
@@ -694,6 +757,11 @@ class RefreshJobRepository:
                         and existing_projection.get("last_rows_inserted") is not None
                         else None
                     )
+                ),
+                read_model_updated_at=(
+                    str(read_model_updated_at)
+                    if read_model_updated_at is not None
+                    else (now_iso if final_state == JOB_STATE_SUCCESS else None)
                 ),
             )
             self._sync_queue_positions(conn)
@@ -760,6 +828,7 @@ class RefreshJobRepository:
                             last_error=terminal_message,
                             last_success_at=None,
                             last_rows_inserted=None,
+                            read_model_updated_at=None,
                         )
                     continue
 
@@ -799,6 +868,7 @@ class RefreshJobRepository:
                         last_error=None,
                         last_success_at=None,
                         last_rows_inserted=None,
+                        read_model_updated_at=None,
                     )
 
             self._sync_queue_positions(conn)
@@ -876,10 +946,16 @@ class RefreshJobRepository:
         last_error: str | None,
         last_success_at: str | None,
         last_rows_inserted: int | None,
+        read_model_updated_at: str | None,
     ) -> None:
         existing = self._get_projection_row(conn, cd_cvm=job.cd_cvm)
         existing_company_name = existing.get("company_name") if existing is not None else None
         existing_last_success_at = existing.get("last_success_at") if existing is not None else None
+        existing_read_model_updated_at = (
+            existing.get("read_model_updated_at")
+            if existing is not None
+            else None
+        )
         existing_last_rows_inserted = (
             int(existing["last_rows_inserted"])
             if existing is not None and existing.get("last_rows_inserted") is not None
@@ -920,6 +996,11 @@ class RefreshJobRepository:
                 "started_at": job.started_at,
                 "heartbeat_at": job.heartbeat_at,
                 "finished_at": job.finished_at,
+                "read_model_updated_at": (
+                    str(read_model_updated_at)
+                    if read_model_updated_at is not None
+                    else existing_read_model_updated_at
+                ),
                 "updated_at": utc_now_iso(),
             },
         )
@@ -949,7 +1030,8 @@ class RefreshJobRepository:
                     progress_message,
                     started_at,
                     heartbeat_at,
-                    finished_at
+                    finished_at,
+                    read_model_updated_at
                 ) VALUES (
                     :cd_cvm,
                     :company_name,
@@ -970,7 +1052,8 @@ class RefreshJobRepository:
                     :progress_message,
                     :started_at,
                     :heartbeat_at,
-                    :finished_at
+                    :finished_at,
+                    :read_model_updated_at
                 )
                 ON CONFLICT(cd_cvm) DO UPDATE SET
                     company_name = excluded.company_name,
@@ -991,11 +1074,152 @@ class RefreshJobRepository:
                     progress_message = excluded.progress_message,
                     started_at = excluded.started_at,
                     heartbeat_at = excluded.heartbeat_at,
-                    finished_at = excluded.finished_at
+                    finished_at = excluded.finished_at,
+                    read_model_updated_at = COALESCE(excluded.read_model_updated_at, company_refresh_status.read_model_updated_at)
                 """
             ),
             payload,
         )
+
+    def _load_read_model_snapshot(
+        self,
+        conn,
+        *,
+        cd_cvm: int,
+    ) -> CompanyReadModelSnapshot:
+        financial_report_columns = _get_table_columns(conn, "financial_reports")
+        if not financial_report_columns:
+            return CompanyReadModelSnapshot(
+                cd_cvm=int(cd_cvm),
+                readable_years=(),
+                readable_years_count=0,
+                latest_readable_year=None,
+                fingerprint="empty",
+            )
+        readable_year_rows = conn.execute(
+            text(
+                """
+                SELECT DISTINCT "REPORT_YEAR" AS report_year
+                FROM financial_reports
+                WHERE "CD_CVM" = :cd_cvm
+                  AND "PERIOD_LABEL" = CAST("REPORT_YEAR" AS TEXT)
+                ORDER BY "REPORT_YEAR" ASC
+                """
+            ),
+            {"cd_cvm": int(cd_cvm)},
+        ).mappings().all()
+        readable_years = tuple(
+            int(row["report_year"])
+            for row in readable_year_rows
+            if row.get("report_year") is not None
+        )
+        if not readable_years:
+            return CompanyReadModelSnapshot(
+                cd_cvm=int(cd_cvm),
+                readable_years=(),
+                readable_years_count=0,
+                latest_readable_year=None,
+                fingerprint="empty",
+            )
+
+        data_rows = conn.execute(
+            text(
+                """
+                SELECT
+                    "REPORT_YEAR" AS report_year,
+                    "STATEMENT_TYPE" AS statement_type,
+                    "PERIOD_LABEL" AS period_label,
+                    "LINE_ID_BASE" AS line_id_base,
+                    "CD_CONTA" AS cd_conta,
+                    "DS_CONTA" AS ds_conta,
+                    "STANDARD_NAME" AS standard_name,
+                    "QA_CONFLICT" AS qa_conflict,
+                    "VL_CONTA" AS vl_conta
+                FROM financial_reports
+                WHERE "CD_CVM" = :cd_cvm
+                  AND "REPORT_YEAR" IN :report_years
+                ORDER BY
+                    "REPORT_YEAR" ASC,
+                    "STATEMENT_TYPE" ASC,
+                    "PERIOD_LABEL" ASC,
+                    "LINE_ID_BASE" ASC
+                """
+            ).bindparams(bindparam("report_years", expanding=True)),
+            {
+                "cd_cvm": int(cd_cvm),
+                "report_years": list(readable_years),
+            },
+        ).mappings().all()
+
+        hasher = hashlib.sha256()
+        hasher.update(f"cd_cvm:{int(cd_cvm)}".encode("utf-8"))
+        for report_year in readable_years:
+            hasher.update(f"|year:{int(report_year)}".encode("utf-8"))
+        for row in data_rows:
+            normalized_row = {
+                "report_year": int(row["report_year"]),
+                "statement_type": row.get("statement_type"),
+                "period_label": row.get("period_label"),
+                "line_id_base": row.get("line_id_base"),
+                "cd_conta": row.get("cd_conta"),
+                "ds_conta": row.get("ds_conta"),
+                "standard_name": row.get("standard_name"),
+                "qa_conflict": row.get("qa_conflict"),
+                "vl_conta": row.get("vl_conta"),
+            }
+            hasher.update(
+                json.dumps(
+                    normalized_row,
+                    ensure_ascii=True,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    default=str,
+                ).encode("utf-8")
+            )
+            hasher.update(b"\n")
+        return CompanyReadModelSnapshot(
+            cd_cvm=int(cd_cvm),
+            readable_years=readable_years,
+            readable_years_count=len(readable_years),
+            latest_readable_year=readable_years[-1],
+            fingerprint=hasher.hexdigest(),
+        )
+
+    def _resolve_read_model_updated_at(
+        self,
+        conn,
+        *,
+        cd_cvm: int,
+        existing_row: dict[str, Any] | None,
+    ) -> str | None:
+        existing_value = (
+            str(existing_row["read_model_updated_at"])
+            if existing_row is not None
+            and existing_row.get("read_model_updated_at") is not None
+            else None
+        )
+        if existing_value:
+            return existing_value
+
+        snapshot = self._load_read_model_snapshot(conn, cd_cvm=cd_cvm)
+        if snapshot.readable_years_count <= 0:
+            return None
+
+        company_columns = _get_table_columns(conn, "companies")
+        if not company_columns or "updated_at" not in company_columns:
+            return None
+
+        company_updated_at = conn.execute(
+            text(
+                """
+                SELECT updated_at
+                FROM companies
+                WHERE cd_cvm = :cd_cvm
+                """
+            ),
+            {"cd_cvm": int(cd_cvm)},
+        ).scalar()
+        return str(company_updated_at) if company_updated_at is not None else None
 
     @staticmethod
     def _sync_queue_positions(conn) -> None:

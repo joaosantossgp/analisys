@@ -195,6 +195,10 @@ class CompanyInfoDTO:
     sector_slug: str
     company_type: str | None
     ticker_b3: str | None
+    read_model_updated_at: str | None = None
+    has_readable_current_data: bool = False
+    readable_years_count: int = 0
+    latest_readable_year: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -429,6 +433,7 @@ class RefreshStatusDTO:
     heartbeat_at: str | None = None
     finished_at: str | None = None
     updated_at: str | None = None
+    read_model_updated_at: str | None = None
     estimated_progress_pct: float | None = None
     estimated_eta_seconds: int | None = None
     estimated_total_seconds: int | None = None
@@ -442,6 +447,7 @@ class RefreshStatusDTO:
     status_reason_message: str | None = None
     has_readable_current_data: bool = False
     readable_years_count: int = 0
+    latest_readable_year: int | None = None
     latest_attempt_outcome: str | None = None
     source_label: str | None = None
 

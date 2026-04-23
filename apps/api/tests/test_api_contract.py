@@ -787,6 +787,10 @@ def test_company_detail_returns_metadata(client: TestClient):
     assert payload["ticker_b3"] == "PETR4"
     assert payload["sector_name"] == "Energia"
     assert payload["sector_slug"] == "energia"
+    assert payload["has_readable_current_data"] is True
+    assert payload["readable_years_count"] == 2
+    assert payload["latest_readable_year"] == 2024
+    assert payload["read_model_updated_at"] == "2026-04-08T08:55:00"
 
 
 def test_company_detail_uses_catalog_fallback_for_unknown_local_company(
@@ -813,6 +817,10 @@ def test_company_detail_uses_catalog_fallback_for_unknown_local_company(
     assert payload["sector_name"] == "Financeiro"
     assert payload["sector_slug"] == "financeiro"
     assert payload["ticker_b3"] == "ITUB4"
+    assert payload["has_readable_current_data"] is False
+    assert payload["readable_years_count"] == 0
+    assert payload["latest_readable_year"] is None
+    assert payload["read_model_updated_at"] is None
 
 
 def test_company_detail_uses_sector_fallback_when_analytical_sector_is_missing(client: TestClient):
@@ -1063,6 +1071,8 @@ def test_refresh_status_returns_operational_rows(client: TestClient):
     assert payload[0]["status_reason_message"] == "Dados prontos para leitura nesta pagina."
     assert payload[0]["has_readable_current_data"] is True
     assert payload[0]["readable_years_count"] == 2
+    assert payload[0]["latest_readable_year"] == 2024
+    assert payload[0]["read_model_updated_at"] == "2026-04-08T08:55:00"
     assert payload[0]["latest_attempt_outcome"] == "success"
     assert payload[0]["source_label"] == "Base local materializada"
 
