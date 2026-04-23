@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   AreaChartIcon,
   BarChart3Icon,
@@ -46,26 +46,22 @@ export function CompanyAnalysisPanel({ model }: CompanyAnalysisPanelProps) {
     model.defaultSelectedIndicators,
   );
   const [search, setSearch] = useState("");
-
-  useEffect(() => {
+  const effectiveSelectedIndicators = useMemo(() => {
     const validIds = new Set(model.indicatorOptions.map((indicator) => indicator.id));
-    const nextSelection = selectedIndicators.filter((indicator) =>
+    const filteredSelection = selectedIndicators.filter((indicator) =>
       validIds.has(indicator.id),
     );
 
-    if (nextSelection.length > 0) {
-      if (nextSelection.length !== selectedIndicators.length) {
-        setSelectedIndicators(nextSelection);
-      }
-      return;
+    if (filteredSelection.length > 0) {
+      return filteredSelection;
     }
 
-    setSelectedIndicators(model.defaultSelectedIndicators);
+    return model.defaultSelectedIndicators;
   }, [model.defaultSelectedIndicators, model.indicatorOptions, selectedIndicators]);
 
   const selectedIds = useMemo(
-    () => new Set(selectedIndicators.map((indicator) => indicator.id)),
-    [selectedIndicators],
+    () => new Set(effectiveSelectedIndicators.map((indicator) => indicator.id)),
+    [effectiveSelectedIndicators],
   );
 
   const filteredRows = useMemo(() => {
@@ -111,7 +107,7 @@ export function CompanyAnalysisPanel({ model }: CompanyAnalysisPanelProps) {
         <div className="flex flex-wrap items-center gap-2">
           <IndicatorSelector
             indicators={model.indicatorOptions}
-            selected={selectedIndicators}
+            selected={effectiveSelectedIndicators}
             onSelectionChange={setSelectedIndicators}
             maxSelections={5}
             className="min-w-[220px]"
@@ -122,9 +118,9 @@ export function CompanyAnalysisPanel({ model }: CompanyAnalysisPanelProps) {
         </div>
       </div>
 
-      {selectedIndicators.length > 0 ? (
+      {effectiveSelectedIndicators.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2">
-          {selectedIndicators.map((indicator) => {
+          {effectiveSelectedIndicators.map((indicator) => {
             const option = model.indicatorOptions.find((item) => item.id === indicator.id);
             if (!option) {
               return null;
@@ -146,7 +142,7 @@ export function CompanyAnalysisPanel({ model }: CompanyAnalysisPanelProps) {
 
       <CompanyAnalysisChart
         chartSeries={model.chartSeries}
-        selectedIndicators={selectedIndicators}
+        selectedIndicators={effectiveSelectedIndicators}
       />
 
       <div className="space-y-4 rounded-[1.35rem] border border-border/60 bg-muted/16 p-4">

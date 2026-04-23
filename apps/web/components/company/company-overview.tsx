@@ -1,4 +1,4 @@
-import { CompanyAnalysisPanel } from "@/components/company/company-analysis-panel";
+import { CompanyAnalysisPanelLazy } from "@/components/company/company-analysis-panel-lazy";
 import { CompanyContextCard } from "@/components/company/company-context-card";
 import { CompanyFreshnessCard } from "@/components/company/company-freshness-card";
 import { CompanyKpiRow } from "@/components/company/company-kpi-row";
@@ -26,7 +26,7 @@ export function CompanyOverview({
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
       <div className="flex flex-col gap-6 lg:col-span-8">
         <CompanyKpiRow cards={model.summaryCards} />
-        <CompanyAnalysisPanel model={model} />
+        <CompanyAnalysisPanelLazy model={model} />
       </div>
 
       <div className="flex flex-col gap-4 lg:col-span-4">
