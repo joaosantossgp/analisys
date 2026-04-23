@@ -328,6 +328,7 @@ class HeadlessRefreshService:
                         "last_start_year": int(request.start_year),
                         "last_end_year": int(request.end_year),
                         "last_rows_inserted": int(rows_in_range),
+                        "read_model_updated_at": now_iso if status == "success" else None,
                         "updated_at": now_iso,
                     }
                 )
@@ -349,13 +350,15 @@ class HeadlessRefreshService:
                         INSERT INTO company_refresh_status (
                             cd_cvm, company_name, source_scope,
                             last_attempt_at, last_success_at, last_status, last_error,
-                            last_start_year, last_end_year, last_rows_inserted, updated_at,
+                            last_start_year, last_end_year, last_rows_inserted,
+                            read_model_updated_at, updated_at,
                             job_id, stage, queue_position, progress_current, progress_total,
                             progress_message, started_at, heartbeat_at, finished_at
                         ) VALUES (
                             :cd_cvm, :company_name, :source_scope,
                             :last_attempt_at, :last_success_at, :last_status, :last_error,
-                            :last_start_year, :last_end_year, :last_rows_inserted, :updated_at,
+                            :last_start_year, :last_end_year, :last_rows_inserted,
+                            :read_model_updated_at, :updated_at,
                             NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
                         )
                         ON CONFLICT(cd_cvm) DO UPDATE SET
@@ -371,6 +374,11 @@ class HeadlessRefreshService:
                                 WHEN excluded.last_status = 'success'
                                 THEN excluded.last_rows_inserted
                                 ELSE company_refresh_status.last_rows_inserted
+                            END,
+                            read_model_updated_at = CASE
+                                WHEN excluded.last_status = 'success'
+                                THEN COALESCE(excluded.read_model_updated_at, company_refresh_status.read_model_updated_at)
+                                ELSE company_refresh_status.read_model_updated_at
                             END,
                             updated_at = excluded.updated_at,
                             job_id = NULL,

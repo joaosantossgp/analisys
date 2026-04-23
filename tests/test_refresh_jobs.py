@@ -11,6 +11,7 @@ from src.contracts import (
     RefreshRequest,
     RefreshResult,
 )
+from src.database import init_db_tables
 from src.db import build_engine
 from src.refresh_job_worker import RefreshJobWorker, RefreshWorkerConfig
 from src.refresh_jobs import (
@@ -60,6 +61,76 @@ def _read_job(repository: RefreshJobRepository, job_id: str) -> dict:
             {"id": str(job_id)},
         ).mappings().one()
     return dict(row)
+
+
+def _insert_financial_report_row(
+    repository: RefreshJobRepository,
+    *,
+    cd_cvm: int = 4170,
+    company_name: str = "VALE",
+    year: int,
+    period_label: str,
+    line_id_base: str,
+    value: float,
+) -> None:
+    init_db_tables(repository.engine)
+    with repository.engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                INSERT INTO companies (
+                    cd_cvm, company_name, company_type, is_active, updated_at
+                ) VALUES (
+                    :cd_cvm, :company_name, 'comercial', 1, '2026-04-22T10:00:00+00:00'
+                )
+                ON CONFLICT(cd_cvm) DO UPDATE SET
+                    company_name = excluded.company_name,
+                    updated_at = excluded.updated_at
+                """
+            ),
+            {"cd_cvm": int(cd_cvm), "company_name": str(company_name)},
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO financial_reports (
+                    "COMPANY_NAME",
+                    "CD_CVM",
+                    "COMPANY_TYPE",
+                    "STATEMENT_TYPE",
+                    "REPORT_YEAR",
+                    "PERIOD_LABEL",
+                    "LINE_ID_BASE",
+                    "CD_CONTA",
+                    "DS_CONTA",
+                    "STANDARD_NAME",
+                    "QA_CONFLICT",
+                    "VL_CONTA"
+                ) VALUES (
+                    :company_name,
+                    :cd_cvm,
+                    'comercial',
+                    'DRE',
+                    :year,
+                    :period_label,
+                    :line_id_base,
+                    '3.01',
+                    'Receita',
+                    'Receita',
+                    0,
+                    :value
+                )
+                """
+            ),
+            {
+                "company_name": str(company_name),
+                "cd_cvm": int(cd_cvm),
+                "year": int(year),
+                "period_label": str(period_label),
+                "line_id_base": str(line_id_base),
+                "value": float(value),
+            },
+        )
 
 
 def test_build_postgres_claim_next_job_sql_uses_skip_locked():
@@ -202,8 +273,9 @@ def test_refresh_job_repository_recovers_stale_jobs_and_enforces_attempt_limit(t
 
 
 class _StubRefreshService:
-    def __init__(self, result: RefreshResult):
+    def __init__(self, result: RefreshResult, on_execute=None):
         self.result = result
+        self.on_execute = on_execute
         self.persist_flags: list[bool] = []
 
     def execute(
@@ -215,6 +287,8 @@ class _StubRefreshService:
         **_: object,
     ) -> RefreshResult:
         self.persist_flags.append(bool(persist_refresh_status))
+        if self.on_execute is not None:
+            self.on_execute()
         if stage_callback is not None:
             stage_callback(
                 RefreshProgressUpdate(
@@ -251,6 +325,16 @@ def test_refresh_job_worker_persists_terminal_states(
     )
     assert queued is not None
 
+    on_execute = None
+    if status == "success":
+        on_execute = lambda: _insert_financial_report_row(
+            repository,
+            year=2025,
+            period_label="2025",
+            line_id_base="visible-2025",
+            value=123.0,
+        )
+
     result = RefreshResult(
         request=RefreshRequest(companies=("4170",), start_year=2010, end_year=2025),
         companies=(
@@ -270,7 +354,7 @@ def test_refresh_job_worker_persists_terminal_states(
         synced_companies=0,
         cancelled=False,
     )
-    refresh_service = _StubRefreshService(result)
+    refresh_service = _StubRefreshService(result, on_execute=on_execute)
     worker = RefreshJobWorker(
         settings=settings,
         repository=repository,
@@ -302,3 +386,69 @@ def test_refresh_job_worker_persists_terminal_states(
         assert projection["last_error"] is None
     else:
         assert expected_last_error in str(projection["last_error"])
+
+
+def test_refresh_job_worker_maps_technical_success_without_readable_change_to_no_data(tmp_path):
+    settings, repository = _make_repository(tmp_path)
+    queued = repository.enqueue_job(
+        cd_cvm=4170,
+        company_name="VALE",
+        source_scope="on_demand",
+        start_year=2010,
+        end_year=2025,
+    )
+    assert queued is not None
+
+    result = RefreshResult(
+        request=RefreshRequest(companies=("4170",), start_year=2010, end_year=2025),
+        companies=(
+            CompanyRefreshResult(
+                company_name="VALE",
+                cvm_code=4170,
+                requested_years=(2025,),
+                years_processed=(2025,),
+                rows_inserted=1,
+                status="success",
+                attempts=1,
+                error=None,
+                traceback=None,
+            ),
+        ),
+        planning_stats={"planned_company_years": 1},
+        synced_companies=0,
+        cancelled=False,
+    )
+    refresh_service = _StubRefreshService(
+        result,
+        on_execute=lambda: _insert_financial_report_row(
+            repository,
+            year=2025,
+            period_label="1Q25",
+            line_id_base="quarter-only-2025",
+            value=123.0,
+        ),
+    )
+    worker = RefreshJobWorker(
+        settings=settings,
+        repository=repository,
+        refresh_service=refresh_service,
+        config=RefreshWorkerConfig(
+            worker_id="worker-test",
+            poll_interval_seconds=0.1,
+            heartbeat_interval_seconds=5.0,
+            lease_seconds=60,
+            max_attempts=3,
+        ),
+    )
+
+    ran = worker.run_once()
+
+    assert ran is True
+    projection = _read_projection(repository, 4170)
+    job_row = _read_job(repository, queued.id)
+
+    assert projection["last_status"] == JOB_STATE_NO_DATA
+    assert job_row["state"] == JOB_STATE_NO_DATA
+    assert "nenhuma nova leitura anual" in str(projection["progress_message"]).lower()
+    assert projection["last_success_at"] is None
+    assert projection["read_model_updated_at"] is None

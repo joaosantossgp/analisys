@@ -283,12 +283,19 @@ Resposta exemplo:
   "sector_name": "Energia",
   "sector_slug": "energia",
   "company_type": "comercial",
-  "ticker_b3": "PETR4"
+  "ticker_b3": "PETR4",
+  "read_model_updated_at": "2026-04-08T08:55:00",
+  "has_readable_current_data": true,
+  "readable_years_count": 2,
+  "latest_readable_year": 2024
 }
 ```
 
 Regras do endpoint:
 - quando a empresa nao existe na tabela local `companies`, o backend pode usar o catalogo remoto da CVM como fallback de metadata
+- `read_model_updated_at`, `has_readable_current_data`, `readable_years_count`
+  e `latest_readable_year` sao campos aditivos que resumem a leitura anual
+  local disponivel para o detalhe da companhia
 - headers de cache:
   - `Cache-Control: public, max-age=3600`
   - `Vary: Origin`
@@ -517,12 +524,16 @@ Resposta exemplo:
     "heartbeat_at": "2026-04-21T12:04:00+00:00",
     "finished_at": null,
     "updated_at": "2026-04-21T12:04:00+00:00",
+    "read_model_updated_at": "2026-04-21T11:55:00+00:00",
     "estimated_progress_pct": 25.3,
     "estimated_eta_seconds": 708,
     "estimated_total_seconds": 948,
     "elapsed_seconds": 240,
     "estimated_completion_at": "2026-04-21T12:15:53+00:00",
-    "estimate_confidence": "high"
+    "estimate_confidence": "high",
+    "has_readable_current_data": true,
+    "readable_years_count": 1,
+    "latest_readable_year": 2024
   }
 ]
 ```
@@ -534,6 +545,12 @@ Regras do endpoint:
 - `job_id`, `stage`, `queue_position`, `progress_current`, `progress_total`,
   `progress_message`, `started_at`, `heartbeat_at` e `finished_at` sao campos
   aditivos do contrato
+- `read_model_updated_at`, `has_readable_current_data`,
+  `readable_years_count` e `latest_readable_year` resumem o mesmo read model
+  usado pelo detalhe da companhia e pela freshness card
+- no on-demand interno, `success` terminal so deve ser publicado quando o worker
+  detecta mudanca legivel no read model da companhia; sucesso tecnico sem nova
+  leitura anual visivel e projetado como `no_data`
 - `estimated_progress_pct`, `estimated_eta_seconds`, `estimated_total_seconds`,
   `elapsed_seconds`, `estimated_completion_at` e `estimate_confidence` sao
   campos aditivos e podem vir `null`
