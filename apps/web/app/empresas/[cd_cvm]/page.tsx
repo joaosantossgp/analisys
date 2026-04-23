@@ -122,7 +122,15 @@ export default async function EmpresaDetailPage({
   try {
     [company, availableYears] = await Promise.all([
       fetchCompanyInfo(cdCvm, { request: DETAIL_PAGE_MUTABLE_API_READ }),
-      fetchCompanyYears(cdCvm, { request: DETAIL_PAGE_MUTABLE_API_READ }),
+      fetchCompanyYears(cdCvm, { request: DETAIL_PAGE_MUTABLE_API_READ }).catch(
+        (error) => {
+          if (isApiClientError(error) && error.code === "not_found") {
+            return [];
+          }
+
+          throw error;
+        },
+      ),
     ]);
   } catch (error) {
     if (isApiClientError(error) && error.code === "not_found") {
