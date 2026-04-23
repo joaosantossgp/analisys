@@ -791,6 +791,8 @@ def test_company_detail_returns_metadata(client: TestClient):
     assert payload["readable_years_count"] == 2
     assert payload["latest_readable_year"] == 2024
     assert payload["read_model_updated_at"] == "2026-04-08T08:55:00"
+    assert payload["read_availability_code"] == "readable_history_available"
+    assert payload["read_availability_message"] == "Leitura anual disponivel ate 2024."
 
 
 def test_company_detail_uses_catalog_fallback_for_unknown_local_company(
@@ -821,6 +823,11 @@ def test_company_detail_uses_catalog_fallback_for_unknown_local_company(
     assert payload["readable_years_count"] == 0
     assert payload["latest_readable_year"] is None
     assert payload["read_model_updated_at"] is None
+    assert payload["read_availability_code"] == "no_readable_annual_history"
+    assert (
+        payload["read_availability_message"]
+        == "Ainda nao ha historico anual legivel para esta companhia."
+    )
 
 
 def test_company_detail_uses_sector_fallback_when_analytical_sector_is_missing(client: TestClient):
@@ -1074,6 +1081,20 @@ def test_refresh_status_returns_operational_rows(client: TestClient):
     assert payload[0]["latest_readable_year"] == 2024
     assert payload[0]["read_model_updated_at"] == "2026-04-08T08:55:00"
     assert payload[0]["latest_attempt_outcome"] == "success"
+    assert payload[0]["latest_attempt_reason_code"] == "refresh_completed"
+    assert (
+        payload[0]["latest_attempt_reason_message"]
+        == "Dados prontos para leitura nesta pagina."
+    )
+    assert payload[0]["latest_attempt_retryable"] is False
+    assert payload[0]["read_availability_code"] == "readable_history_available"
+    assert payload[0]["read_availability_message"] == "Leitura anual disponivel ate 2024."
+    assert payload[0]["freshness_summary_code"] == "refresh_completed_readable"
+    assert (
+        payload[0]["freshness_summary_message"]
+        == "Dados prontos para leitura nesta pagina."
+    )
+    assert payload[0]["freshness_summary_severity"] == "success"
     assert payload[0]["source_label"] == "Base local materializada"
 
 
@@ -1123,7 +1144,131 @@ def test_refresh_status_exposes_terminal_no_data_state(client: TestClient):
     assert payload[0]["has_readable_current_data"] is True
     assert payload[0]["readable_years_count"] == 1
     assert payload[0]["latest_attempt_outcome"] == "no_data"
+    assert payload[0]["latest_attempt_reason_code"] == "no_new_financial_history"
+    assert payload[0]["latest_attempt_retryable"] is True
+    assert payload[0]["read_availability_code"] == "readable_history_available"
+    assert payload[0]["read_availability_message"] == "Leitura anual disponivel ate 2024."
+    assert payload[0]["freshness_summary_code"] == "mixed_no_new_data_readable"
+    assert (
+        payload[0]["freshness_summary_message"]
+        == "A ultima tentativa nao encontrou novos demonstrativos; a leitura atual continua disponivel."
+    )
+    assert payload[0]["freshness_summary_severity"] == "info"
     assert payload[0]["source_label"] == "Solicitacao on-demand"
+
+
+def test_refresh_status_exposes_no_annual_history_without_readable_data(
+    client: TestClient,
+):
+    from sqlalchemy import text as sa_text
+
+    with client.app.state.read_service.engine.begin() as conn:
+        conn.execute(
+            sa_text(
+                """
+                INSERT INTO company_refresh_status (
+                    cd_cvm, company_name, source_scope, last_attempt_at, last_success_at,
+                    last_status, last_error, last_start_year, last_end_year,
+                    last_rows_inserted, updated_at, progress_message, finished_at
+                ) VALUES (
+                    77889, 'SEM DADOS', 'on_demand', '2026-04-21T12:00:00+00:00', NULL,
+                    'no_data', NULL, 2010, 2025,
+                    NULL, '2026-04-21T12:01:00+00:00', 'Nenhuma demonstracao encontrada para 2010-2025.',
+                    '2026-04-21T12:01:00+00:00'
+                )
+                ON CONFLICT (cd_cvm) DO UPDATE SET
+                    last_status = excluded.last_status,
+                    progress_message = excluded.progress_message,
+                    finished_at = excluded.finished_at,
+                    updated_at = excluded.updated_at
+                """
+            )
+        )
+
+    response = client.get("/refresh-status", params={"cd_cvm": 77889})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload) == 1
+    assert payload[0]["last_status"] == "no_data"
+    assert payload[0]["has_readable_current_data"] is False
+    assert payload[0]["readable_years_count"] == 0
+    assert payload[0]["latest_readable_year"] is None
+    assert payload[0]["status_reason_code"] == "no_financial_history_found"
+    assert payload[0]["latest_attempt_outcome"] == "no_data"
+    assert payload[0]["latest_attempt_reason_code"] == "no_annual_history"
+    assert (
+        payload[0]["latest_attempt_reason_message"]
+        == "Nenhuma serie anual legivel foi encontrada para esta companhia."
+    )
+    assert payload[0]["latest_attempt_retryable"] is True
+    assert payload[0]["read_availability_code"] == "no_readable_annual_history"
+    assert (
+        payload[0]["read_availability_message"]
+        == "Ainda nao ha historico anual legivel para esta companhia."
+    )
+    assert payload[0]["freshness_summary_code"] == "no_annual_history"
+    assert (
+        payload[0]["freshness_summary_message"]
+        == "Nenhuma serie anual legivel foi encontrada para esta companhia."
+    )
+    assert payload[0]["freshness_summary_severity"] == "info"
+
+
+def test_refresh_status_exposes_retryable_error_without_hiding_readable_data(
+    client: TestClient,
+):
+    from sqlalchemy import text as sa_text
+
+    with client.app.state.read_service.engine.begin() as conn:
+        conn.execute(
+            sa_text(
+                """
+                INSERT INTO company_refresh_status (
+                    cd_cvm, company_name, source_scope, last_attempt_at, last_success_at,
+                    last_status, last_error, last_start_year, last_end_year,
+                    last_rows_inserted, updated_at, progress_message, finished_at
+                ) VALUES (
+                    4170, 'VALE', 'on_demand', '2026-04-21T12:00:00+00:00', NULL,
+                    'error', 'HTTP 500 ao consultar CVM', 2010, 2025,
+                    NULL, '2026-04-21T12:01:00+00:00', 'Falha temporaria no download.',
+                    '2026-04-21T12:01:00+00:00'
+                )
+                ON CONFLICT (cd_cvm) DO UPDATE SET
+                    last_status = excluded.last_status,
+                    last_error = excluded.last_error,
+                    progress_message = excluded.progress_message,
+                    finished_at = excluded.finished_at,
+                    updated_at = excluded.updated_at
+                """
+            )
+        )
+
+    response = client.get("/refresh-status", params={"cd_cvm": 4170})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload) == 1
+    assert payload[0]["last_status"] == "error"
+    assert payload[0]["tracking_state"] == "error"
+    assert payload[0]["is_retry_allowed"] is True
+    assert payload[0]["has_readable_current_data"] is True
+    assert payload[0]["readable_years_count"] == 1
+    assert payload[0]["status_reason_code"] == "refresh_failed"
+    assert payload[0]["latest_attempt_outcome"] == "error"
+    assert payload[0]["latest_attempt_reason_code"] == "refresh_failed_retryable"
+    assert (
+        payload[0]["latest_attempt_reason_message"]
+        == "Nao foi possivel concluir a atualizacao desta empresa agora."
+    )
+    assert payload[0]["latest_attempt_retryable"] is True
+    assert payload[0]["read_availability_code"] == "readable_history_available"
+    assert payload[0]["freshness_summary_code"] == "mixed_retryable_error_readable"
+    assert (
+        payload[0]["freshness_summary_message"]
+        == "A leitura atual continua disponivel, mas a ultima atualizacao falhou e pode ser tentada novamente."
+    )
+    assert payload[0]["freshness_summary_severity"] == "warning"
 
 
 def test_refresh_status_returns_real_progress_fields_for_active_refresh(client: TestClient):
@@ -1346,6 +1491,10 @@ def test_refresh_status_returns_real_progress_fields_for_active_refresh(client: 
     assert payload[0]["has_readable_current_data"] is True
     assert payload[0]["readable_years_count"] == 1
     assert payload[0]["latest_attempt_outcome"] == "queued"
+    assert payload[0]["latest_attempt_reason_code"] == "refresh_running"
+    assert payload[0]["latest_attempt_retryable"] is False
+    assert payload[0]["freshness_summary_code"] == "refresh_running"
+    assert payload[0]["freshness_summary_severity"] == "info"
     assert payload[0]["source_label"] == "Solicitacao on-demand"
 
 

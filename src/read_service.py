@@ -211,16 +211,25 @@ class CVMReadService:
             int(dto.cd_cvm),
             {},
         )
+        readable_years_count = int(state.get("readable_years_count") or 0)
+        latest_readable_year = (
+            int(state["latest_readable_year"])
+            if state.get("latest_readable_year") is not None
+            else None
+        )
+        read_availability = self._build_read_availability_summary(
+            has_readable_current_data=bool(state.get("has_readable_current_data")),
+            readable_years_count=readable_years_count,
+            latest_readable_year=latest_readable_year,
+        )
         return replace(
             dto,
             read_model_updated_at=state.get("read_model_updated_at"),
             has_readable_current_data=bool(state.get("has_readable_current_data")),
-            readable_years_count=int(state.get("readable_years_count") or 0),
-            latest_readable_year=(
-                int(state["latest_readable_year"])
-                if state.get("latest_readable_year") is not None
-                else None
-            ),
+            readable_years_count=readable_years_count,
+            latest_readable_year=latest_readable_year,
+            read_availability_code=read_availability["code"],
+            read_availability_message=read_availability["message"],
         )
 
     def _ensure_company_catalog_metadata(self, cd_cvm: int) -> bool:
@@ -844,6 +853,29 @@ class CVMReadService:
             active_job=active_job,
             has_readable_current_data=has_readable_current_data,
         )
+        read_availability = self._build_read_availability_summary(
+            has_readable_current_data=has_readable_current_data,
+            readable_years_count=readable_years_count,
+            latest_readable_year=(
+                int(latest_readable_year)
+                if latest_readable_year is not None
+                else None
+            ),
+        )
+        latest_attempt_reason = self._build_latest_attempt_reason(
+            row,
+            tracking_state=tracking_state,
+            active_job=active_job,
+            has_readable_current_data=has_readable_current_data,
+        )
+        freshness_summary = self._build_freshness_summary(
+            row,
+            tracking_state=tracking_state,
+            has_readable_current_data=has_readable_current_data,
+            status_reason_code=status_reason_code,
+            status_reason_message=status_reason_message,
+            latest_attempt_reason=latest_attempt_reason,
+        )
         return RefreshStatusDTO(
             cd_cvm=int(row["cd_cvm"]),
             company_name=str(row["company_name"] or ""),
@@ -916,6 +948,14 @@ class CVMReadService:
                 else None
             ),
             latest_attempt_outcome=latest_attempt_outcome,
+            latest_attempt_reason_code=latest_attempt_reason["code"],
+            latest_attempt_reason_message=latest_attempt_reason["message"],
+            latest_attempt_retryable=bool(latest_attempt_reason["retryable"]),
+            read_availability_code=read_availability["code"],
+            read_availability_message=read_availability["message"],
+            freshness_summary_code=freshness_summary["code"],
+            freshness_summary_message=freshness_summary["message"],
+            freshness_summary_severity=freshness_summary["severity"],
             source_label=self._build_refresh_source_label(
                 row.get("source_scope"),
                 has_readable_current_data=has_readable_current_data,
@@ -1683,6 +1723,271 @@ class CVMReadService:
             ).total_seconds() >= threshold_seconds
 
         return False
+
+    @staticmethod
+    def _build_read_availability_summary(
+        *,
+        has_readable_current_data: bool,
+        readable_years_count: int,
+        latest_readable_year: int | None,
+    ) -> dict[str, str]:
+        if has_readable_current_data:
+            if latest_readable_year is not None:
+                return {
+                    "code": "readable_history_available",
+                    "message": (
+                        f"Leitura anual disponivel ate {int(latest_readable_year)}."
+                    ),
+                }
+            return {
+                "code": "readable_history_available",
+                "message": "Leitura anual disponivel nesta pagina.",
+            }
+
+        return {
+            "code": "no_readable_annual_history",
+            "message": (
+                "Ainda nao ha historico anual legivel para esta companhia."
+            ),
+        }
+
+    def _build_latest_attempt_reason(
+        self,
+        row: dict[str, Any],
+        *,
+        tracking_state: str,
+        active_job: dict[str, Any] | None,
+        has_readable_current_data: bool,
+    ) -> dict[str, Any]:
+        last_status = self._normalize_refresh_status(row.get("last_status"))
+        progress_message = self._clean_optional_text(row.get("progress_message"))
+        last_error = self._clean_optional_text(row.get("last_error"))
+        normalized_progress_message = str(progress_message or "").lower()
+        normalized_last_error = str(last_error or "").lower()
+
+        if tracking_state == "queued":
+            return {
+                "code": "refresh_queued",
+                "message": (
+                    "Solicitacao recebida e aguardando processamento interno."
+                ),
+                "retryable": False,
+            }
+
+        if tracking_state == "running":
+            return {
+                "code": "refresh_running",
+                "message": (
+                    "Os demonstrativos desta companhia estao sendo atualizados agora."
+                ),
+                "retryable": False,
+            }
+
+        if tracking_state == "stalled":
+            if active_job is None and last_status in self.ACTIVE_REFRESH_STATUSES:
+                return {
+                    "code": "refresh_tracking_lost",
+                    "message": (
+                        "A ultima solicitacao nao aparece mais como ativa."
+                    ),
+                    "retryable": True,
+                }
+            return {
+                "code": "refresh_stalled",
+                "message": (
+                    "A solicitacao esta acima do esperado e sem sinais recentes de progresso."
+                ),
+                "retryable": active_job is None,
+            }
+
+        if last_status == "success":
+            if "ja atualizada" in normalized_progress_message:
+                return {
+                    "code": "already_current",
+                    "message": (
+                        "Esta empresa ja estava atualizada para a janela padrao."
+                    ),
+                    "retryable": False,
+                }
+            if has_readable_current_data:
+                return {
+                    "code": "refresh_completed",
+                    "message": "Dados prontos para leitura nesta pagina.",
+                    "retryable": False,
+                }
+            return {
+                "code": "refresh_completed_without_readable_data",
+                "message": (
+                    "A ultima atualizacao terminou, mas a leitura anual ainda nao ficou disponivel."
+                ),
+                "retryable": False,
+            }
+
+        if last_status == "no_data":
+            if has_readable_current_data:
+                return {
+                    "code": "no_new_financial_history",
+                    "message": (
+                        "A ultima tentativa nao encontrou novos demonstrativos."
+                    ),
+                    "retryable": True,
+                }
+            return {
+                "code": "no_annual_history",
+                "message": (
+                    "Nenhuma serie anual legivel foi encontrada para esta companhia."
+                ),
+                "retryable": True,
+            }
+
+        if last_status == "error":
+            if "expirou" in normalized_progress_message:
+                return {
+                    "code": "refresh_expired",
+                    "message": (
+                        "A solicitacao expirou antes de terminar."
+                    ),
+                    "retryable": True,
+                }
+            if "no financial rows found" in normalized_last_error:
+                return {
+                    "code": "no_annual_history",
+                    "message": (
+                        "Nenhuma serie anual legivel foi encontrada para esta companhia."
+                    ),
+                    "retryable": True,
+                }
+            return {
+                "code": "refresh_failed_retryable",
+                "message": (
+                    "Nao foi possivel concluir a atualizacao desta empresa agora."
+                ),
+                "retryable": True,
+            }
+
+        if has_readable_current_data:
+            return {
+                "code": "local_data_ready",
+                "message": "Leitura local pronta para consulta.",
+                "retryable": False,
+            }
+
+        return {
+            "code": "no_local_history_yet",
+            "message": (
+                "Esta empresa ainda nao tem historico anual processado na base local."
+            ),
+            "retryable": False,
+        }
+
+    def _build_freshness_summary(
+        self,
+        row: dict[str, Any],
+        *,
+        tracking_state: str,
+        has_readable_current_data: bool,
+        status_reason_code: str,
+        status_reason_message: str,
+        latest_attempt_reason: dict[str, Any],
+    ) -> dict[str, str]:
+        last_status = self._normalize_refresh_status(row.get("last_status"))
+        attempt_code = str(latest_attempt_reason.get("code") or "")
+
+        if tracking_state in {"queued", "running"}:
+            return {
+                "code": status_reason_code,
+                "message": status_reason_message,
+                "severity": "info",
+            }
+
+        if tracking_state == "stalled":
+            if has_readable_current_data:
+                return {
+                    "code": "mixed_refresh_stalled_readable",
+                    "message": (
+                        "A leitura atual continua disponivel, mas a ultima solicitacao esta sem sinais recentes."
+                    ),
+                    "severity": "warning",
+                }
+            return {
+                "code": "refresh_stalled_no_readable",
+                "message": (
+                    "A solicitacao esta sem sinais recentes e ainda nao ha leitura anual disponivel."
+                ),
+                "severity": "warning",
+            }
+
+        if last_status == "success":
+            if attempt_code == "already_current":
+                return {
+                    "code": "already_current",
+                    "message": (
+                        "A leitura local ja estava atualizada para a janela padrao."
+                    ),
+                    "severity": "success",
+                }
+            if has_readable_current_data:
+                return {
+                    "code": "refresh_completed_readable",
+                    "message": "Dados prontos para leitura nesta pagina.",
+                    "severity": "success",
+                }
+            return {
+                "code": "refresh_completed_no_readable",
+                "message": (
+                    "A atualizacao terminou, mas a leitura anual ainda nao esta disponivel."
+                ),
+                "severity": "warning",
+            }
+
+        if last_status == "no_data":
+            if has_readable_current_data:
+                return {
+                    "code": "mixed_no_new_data_readable",
+                    "message": (
+                        "A ultima tentativa nao encontrou novos demonstrativos; a leitura atual continua disponivel."
+                    ),
+                    "severity": "info",
+                }
+            return {
+                "code": "no_annual_history",
+                "message": (
+                    "Nenhuma serie anual legivel foi encontrada para esta companhia."
+                ),
+                "severity": "info",
+            }
+
+        if last_status == "error":
+            if has_readable_current_data:
+                return {
+                    "code": "mixed_retryable_error_readable",
+                    "message": (
+                        "A leitura atual continua disponivel, mas a ultima atualizacao falhou e pode ser tentada novamente."
+                    ),
+                    "severity": "warning",
+                }
+            return {
+                "code": "refresh_failed_retryable",
+                "message": (
+                    "A ultima atualizacao falhou e ainda nao ha leitura anual disponivel."
+                ),
+                "severity": "error",
+            }
+
+        if has_readable_current_data:
+            return {
+                "code": "readable_history_available",
+                "message": "Leitura local pronta para consulta.",
+                "severity": "success",
+            }
+
+        return {
+            "code": "no_readable_annual_history",
+            "message": (
+                "Ainda nao ha historico anual legivel para esta companhia."
+            ),
+            "severity": "info",
+        }
 
     def _build_refresh_status_reason(
         self,
