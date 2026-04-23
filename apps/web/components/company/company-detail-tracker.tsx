@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 
+import { trackCompanyView } from "@/lib/api";
 import { track } from "@/lib/track";
 
 type CompanyDetailTrackerProps = {
@@ -20,6 +21,7 @@ export function CompanyDetailTracker({
   statementType,
 }: CompanyDetailTrackerProps) {
   useEffect(() => {
+    trackCompanyView(cdCvm);
     track("company_detail_viewed", {
       cd_cvm: cdCvm,
       company_name: companyName,

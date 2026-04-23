@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowRightIcon, TrendingDownIcon, TrendingUpIcon } from "lucide-react";
+import { ArrowRightIcon, TrendingUpIcon } from "lucide-react";
 
 import type { CompanyDirectoryItem } from "@/lib/api";
 import { getCompanyAvailability } from "@/lib/company-discovery";
@@ -18,7 +18,8 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 type DiscoverySectionProps = {
-  topCompanies: CompanyDirectoryItem[];
+  popularesCompanies: CompanyDirectoryItem[];
+  destaqueCompanies: CompanyDirectoryItem[];
 };
 
 function getAvailabilityBadgeClassName(
@@ -192,15 +193,11 @@ function DestaquCard({ co, rank }: { co: CompanyDirectoryItem; rank: number }) {
   );
 }
 
-export function DiscoverySection({ topCompanies }: DiscoverySectionProps) {
+export function DiscoverySection({
+  popularesCompanies,
+  destaqueCompanies,
+}: DiscoverySectionProps) {
   const [activeTab, setActiveTab] = useState<Tab>("populares");
-
-  const readyCompanies = topCompanies
-    .filter((company) => getCompanyAvailability(company).kind === "ready")
-    .slice(0, 4);
-  const attentionCompanies = topCompanies
-    .filter((company) => getCompanyAvailability(company).kind !== "ready")
-    .slice(0, 4);
 
   return (
     <section className="w-full max-w-5xl mx-auto space-y-6 text-left">
@@ -213,8 +210,8 @@ export function DiscoverySection({ topCompanies }: DiscoverySectionProps) {
             Por onde comecar
           </h2>
           <p className="mt-2 max-w-2xl text-sm leading-7 text-muted-foreground">
-            A home separa empresas prontas, solicitaveis e sinais fracos antes
-            do clique, para voce saber se vai analisar agora ou pedir uma carga.
+            As maiores da B3 em market cap para comecar rapido, ou as mais
+            visitadas pela comunidade para seguir o que esta em foco.
           </p>
         </div>
         <div className="inline-flex items-center gap-0.5 rounded-full border border-border bg-muted p-1">
@@ -238,43 +235,32 @@ export function DiscoverySection({ topCompanies }: DiscoverySectionProps) {
 
       {activeTab === "populares" ? (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {topCompanies.slice(0, 8).map((co) => (
-            <CompanyCard key={co.cd_cvm} co={co} />
-          ))}
+          {popularesCompanies.length > 0 ? (
+            popularesCompanies.map((co) => <CompanyCard key={co.cd_cvm} co={co} />)
+          ) : (
+            <p className="col-span-full px-2 py-4 text-sm text-muted-foreground">
+              Carregando empresas populares...
+            </p>
+          )}
         </div>
       ) : null}
 
       {activeTab === "destaque" ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="rounded-[1.25rem] border border-border/60 bg-card p-5">
-            <div className="mb-3 flex items-center gap-2">
-              <TrendingUpIcon className="size-4 text-[color:var(--chart-1)]" />
-              <span className="text-[0.95rem] font-semibold">Prontas para analisar</span>
-            </div>
-            <div className="flex flex-col gap-0.5">
-              {readyCompanies.length > 0 ? readyCompanies.map((co, i) => (
-                <DestaquCard key={co.cd_cvm} co={co} rank={i + 1} />
-              )) : (
-                <p className="px-3 py-2 text-sm leading-6 text-muted-foreground">
-                  Nenhuma sugestao forte apareceu neste recorte inicial.
-                </p>
-              )}
-            </div>
+        <div className="rounded-[1.25rem] border border-border/60 bg-card p-5">
+          <div className="mb-3 flex items-center gap-2">
+            <TrendingUpIcon className="size-4 text-[color:var(--chart-1)]" />
+            <span className="text-[0.95rem] font-semibold">Mais visitadas</span>
           </div>
-          <div className="rounded-[1.25rem] border border-border/60 bg-muted/30 p-5">
-            <div className="mb-3 flex items-center gap-2">
-              <TrendingDownIcon className="size-4 text-destructive" />
-              <span className="text-[0.95rem] font-semibold">On-demand e sinais fracos</span>
-            </div>
-            <div className="flex flex-col gap-0.5">
-              {attentionCompanies.length > 0 ? attentionCompanies.map((co, i) => (
+          <div className="flex flex-col gap-0.5">
+            {destaqueCompanies.length > 0 ? (
+              destaqueCompanies.map((co, i) => (
                 <DestaquCard key={co.cd_cvm} co={co} rank={i + 1} />
-              )) : (
-                <p className="px-3 py-2 text-sm leading-6 text-muted-foreground">
-                  O recorte atual esta concentrado em empresas prontas.
-                </p>
-              )}
-            </div>
+              ))
+            ) : (
+              <p className="px-3 py-2 text-sm leading-6 text-muted-foreground">
+                Ainda sem visitas registradas. Abra qualquer empresa para comecar o ranking.
+              </p>
+            )}
           </div>
         </div>
       ) : null}
