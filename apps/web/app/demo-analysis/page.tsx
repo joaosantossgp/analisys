@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import type { DateRange } from "react-day-picker"
 import {
@@ -15,6 +14,9 @@ import {
   TrendingUp,
   AlertTriangle,
   X,
+  BarChart3,
+  LineChart,
+  AreaChart,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -41,7 +43,7 @@ import {
   SurfaceCard,
   InfoChip,
 } from "@/components/shared/design-system-recipes"
-import { IndicatorSelector } from "@/components/analysis/indicator-selector"
+import { IndicatorSelector, type SelectedIndicator, type ChartType } from "@/components/analysis/indicator-selector"
 import { DateRangePicker } from "@/components/analysis/date-range-picker"
 
 // Mock data
@@ -60,11 +62,11 @@ const STOCK_DATA = {
 }
 
 const FINANCIAL_DATA = [
-  { year: 2020, receita: 274500, ebitda: 77300, margem: 28.2 },
-  { year: 2021, receita: 365800, ebitda: 120200, margem: 32.9 },
-  { year: 2022, receita: 394300, ebitda: 130900, margem: 33.2 },
-  { year: 2023, receita: 383300, ebitda: 125800, margem: 32.8 },
-  { year: 2024, receita: 410500, ebitda: 138200, margem: 33.7 },
+  { year: 2020, receita_liquida: 274500, ebitda: 77300, margem_ebitda: 28.2, lucro_liquido: 57400, roe: 73.7, pl: 35.2 },
+  { year: 2021, receita_liquida: 365800, ebitda: 120200, margem_ebitda: 32.9, lucro_liquido: 94680, roe: 147.4, pl: 28.7 },
+  { year: 2022, receita_liquida: 394300, ebitda: 130900, margem_ebitda: 33.2, lucro_liquido: 99800, roe: 175.5, pl: 24.8 },
+  { year: 2023, receita_liquida: 383300, ebitda: 125800, margem_ebitda: 32.8, lucro_liquido: 97000, roe: 156.1, pl: 29.5 },
+  { year: 2024, receita_liquida: 410500, ebitda: 138200, margem_ebitda: 33.7, lucro_liquido: 105200, roe: 161.8, pl: 31.2 },
 ]
 
 const TABLE_DATA = [
@@ -80,22 +82,39 @@ const NEWS_DATA = [
     id: 1,
     type: "news",
     title: "Apple anuncia novo chip M4 Pro",
-    time: "Há 2 horas",
+    time: "Ha 2 horas",
     category: "Tech",
   },
   {
     id: 2,
     type: "alert",
     title: "Alerta: Resultados do trimestre",
-    time: "Há 3 horas",
+    time: "Ha 3 horas",
   },
   {
     id: 3,
     type: "review",
-    title: "Revisão positiva de analistas Goldman",
-    time: "Há 5 horas",
+    title: "Revisao positiva de analistas Goldman",
+    time: "Ha 5 horas",
   },
 ]
+
+const CHART_COLORS = [
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+]
+
+const INDICATOR_LABELS: Record<string, string> = {
+  receita_liquida: "Receita Liquida",
+  ebitda: "EBITDA",
+  margem_ebitda: "Margem EBITDA",
+  lucro_liquido: "Lucro Liquido",
+  roe: "ROE",
+  pl: "P/L",
+}
 
 // Mini sparkline component for stock card
 function MiniSparkline({ data }: { data: number[] }) {
@@ -125,68 +144,108 @@ function MiniSparkline({ data }: { data: number[] }) {
   )
 }
 
-// Bar + Line Chart component
+// Multi-indicator chart component with per-indicator chart type
 function IndicatorChart({
   data,
   selectedIndicators,
 }: {
   data: typeof FINANCIAL_DATA
-  selectedIndicators: string[]
+  selectedIndicators: SelectedIndicator[]
 }) {
   const [hovered, setHovered] = React.useState<number | null>(null)
 
-  const showReceita = selectedIndicators.includes("receita_liquida")
-  const showEbitda = selectedIndicators.includes("ebitda")
-  const showMargem = selectedIndicators.includes("margem_ebitda")
-
   const W = 700
-  const H = 220
-  const PAD = { top: 24, right: 50, bottom: 32, left: 60 }
+  const H = 260
+  const PAD = { top: 30, right: 60, bottom: 40, left: 70 }
   const innerW = W - PAD.left - PAD.right
   const innerH = H - PAD.top - PAD.bottom
 
-  // Calculate scales
-  const maxValue = Math.max(
-    ...data.map((d) =>
-      Math.max(showReceita ? d.receita : 0, showEbitda ? d.ebitda : 0)
-    )
+  // Calculate max values for each indicator to determine scale
+  const indicatorStats = React.useMemo(() => {
+    const stats: Record<string, { max: number; isPercentage: boolean }> = {}
+    for (const ind of selectedIndicators) {
+      const values = data.map((d) => (d as Record<string, number>)[ind.id] || 0)
+      const max = Math.max(...values)
+      // Percentage indicators are usually < 200
+      const isPercentage = ["margem_ebitda", "roe", "roa", "roic", "margem_liquida"].includes(ind.id)
+      stats[ind.id] = { max, isPercentage }
+    }
+    return stats
+  }, [data, selectedIndicators])
+
+  // Separate indicators by whether they are percentages
+  const valueIndicators = selectedIndicators.filter(
+    (ind) => !indicatorStats[ind.id]?.isPercentage
   )
-  const maxMargem = Math.max(...data.map((d) => d.margem)) + 5
+  const percentIndicators = selectedIndicators.filter(
+    (ind) => indicatorStats[ind.id]?.isPercentage
+  )
+
+  // Max for value axis
+  const maxValue = Math.max(
+    ...valueIndicators.map((ind) => indicatorStats[ind.id]?.max || 0),
+    1
+  )
+  // Max for percent axis
+  const maxPercent = Math.max(
+    ...percentIndicators.map((ind) => indicatorStats[ind.id]?.max || 0),
+    1
+  ) * 1.1
 
   const slot = innerW / data.length
-  const barW = showReceita && showEbitda ? slot * 0.35 : slot * 0.5
+  const barCount = valueIndicators.filter((ind) => ind.chartType === "bar").length
+  const barW = barCount > 0 ? Math.min(slot * 0.6 / barCount, 40) : 30
 
   const toX = (i: number) => PAD.left + i * slot + slot / 2
-  const toY = (v: number) => PAD.top + innerH - (v / maxValue) * innerH
-  const toYMargem = (v: number) =>
-    PAD.top + innerH - (v / maxMargem) * innerH
-
-  // Line points for margem
-  const margemPoints = data
-    .map((d, i) => `${toX(i)},${toYMargem(d.margem)}`)
-    .join(" ")
+  const toY = (v: number, isPercent: boolean) => {
+    const maxVal = isPercent ? maxPercent : maxValue
+    return PAD.top + innerH - (v / maxVal) * innerH
+  }
 
   // Y-axis ticks
-  const yTicks = [0, maxValue * 0.25, maxValue * 0.5, maxValue * 0.75, maxValue]
-  const yMargemTicks = [0, maxMargem * 0.5, maxMargem]
+  const valueTicks = [0, maxValue * 0.25, maxValue * 0.5, maxValue * 0.75, maxValue]
+  const percentTicks = [0, maxPercent * 0.5, maxPercent]
 
   const fmtValue = (v: number) => {
     if (v >= 1e6) return `$${(v / 1e6).toFixed(0)}B`
     if (v >= 1e3) return `$${(v / 1e3).toFixed(0)}M`
-    return `$${v}`
+    return `$${v.toFixed(0)}`
   }
+
+  // Generate path for line/area charts
+  const generatePath = (indicatorId: string, isPercent: boolean) => {
+    return data
+      .map((d, i) => {
+        const value = (d as Record<string, number>)[indicatorId] || 0
+        const x = toX(i)
+        const y = toY(value, isPercent)
+        return `${i === 0 ? "M" : "L"}${x},${y}`
+      })
+      .join(" ")
+  }
+
+  const generateAreaPath = (indicatorId: string, isPercent: boolean) => {
+    const linePath = generatePath(indicatorId, isPercent)
+    const lastX = toX(data.length - 1)
+    const firstX = toX(0)
+    const baseY = PAD.top + innerH
+    return `${linePath} L${lastX},${baseY} L${firstX},${baseY} Z`
+  }
+
+  // Get color for indicator
+  const getColor = (index: number) => CHART_COLORS[index % CHART_COLORS.length]
 
   return (
     <div className="relative">
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: H }}>
         {/* Grid lines */}
-        {yTicks.map((tick) => (
+        {valueTicks.map((tick) => (
           <line
             key={tick}
             x1={PAD.left}
             x2={W - PAD.right}
-            y1={toY(tick)}
-            y2={toY(tick)}
+            y1={toY(tick, false)}
+            y2={toY(tick, false)}
             stroke="var(--border)"
             strokeWidth="1"
             strokeOpacity="0.4"
@@ -195,11 +254,11 @@ function IndicatorChart({
         ))}
 
         {/* Y-axis labels (left - values) */}
-        {yTicks.map((tick) => (
+        {valueIndicators.length > 0 && valueTicks.map((tick) => (
           <text
             key={tick}
             x={PAD.left - 8}
-            y={toY(tick)}
+            y={toY(tick, false)}
             textAnchor="end"
             dominantBaseline="middle"
             fontSize={10}
@@ -210,118 +269,153 @@ function IndicatorChart({
           </text>
         ))}
 
-        {/* Y-axis labels (right - margem %) */}
-        {showMargem &&
-          yMargemTicks.map((tick) => (
-            <text
-              key={tick}
-              x={W - PAD.right + 8}
-              y={toYMargem(tick)}
-              textAnchor="start"
-              dominantBaseline="middle"
-              fontSize={10}
-              fill="var(--muted-foreground)"
-              fontFamily="monospace"
-            >
-              {tick.toFixed(0)}%
-            </text>
-          ))}
+        {/* Y-axis labels (right - percentages) */}
+        {percentIndicators.length > 0 && percentTicks.map((tick) => (
+          <text
+            key={tick}
+            x={W - PAD.right + 8}
+            y={toY(tick, true)}
+            textAnchor="start"
+            dominantBaseline="middle"
+            fontSize={10}
+            fill="var(--muted-foreground)"
+            fontFamily="monospace"
+          >
+            {tick.toFixed(0)}%
+          </text>
+        ))}
 
-        {/* Bars */}
-        {data.map((d, i) => {
-          const x = toX(i)
-          const isHovered = hovered === i
+        {/* Render each indicator based on its chart type */}
+        {selectedIndicators.map((ind, indIndex) => {
+          const color = getColor(indIndex)
+          const isPercent = indicatorStats[ind.id]?.isPercentage || false
+
+          if (ind.chartType === "area") {
+            return (
+              <g key={ind.id}>
+                <path
+                  d={generateAreaPath(ind.id, isPercent)}
+                  fill={color}
+                  fillOpacity={0.15}
+                />
+                <path
+                  d={generatePath(ind.id, isPercent)}
+                  fill="none"
+                  stroke={color}
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                {data.map((d, i) => {
+                  const value = (d as Record<string, number>)[ind.id] || 0
+                  return (
+                    <circle
+                      key={d.year}
+                      cx={toX(i)}
+                      cy={toY(value, isPercent)}
+                      r={hovered === i ? 5 : 3}
+                      fill={color}
+                      stroke="var(--background)"
+                      strokeWidth="2"
+                      style={{ transition: "r 120ms" }}
+                      onMouseEnter={() => setHovered(i)}
+                      onMouseLeave={() => setHovered(null)}
+                    />
+                  )
+                })}
+              </g>
+            )
+          }
+
+          if (ind.chartType === "line") {
+            return (
+              <g key={ind.id}>
+                <path
+                  d={generatePath(ind.id, isPercent)}
+                  fill="none"
+                  stroke={color}
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                {data.map((d, i) => {
+                  const value = (d as Record<string, number>)[ind.id] || 0
+                  return (
+                    <circle
+                      key={d.year}
+                      cx={toX(i)}
+                      cy={toY(value, isPercent)}
+                      r={hovered === i ? 6 : 4}
+                      fill={color}
+                      stroke="var(--background)"
+                      strokeWidth="2"
+                      style={{ transition: "r 120ms" }}
+                      onMouseEnter={() => setHovered(i)}
+                      onMouseLeave={() => setHovered(null)}
+                    />
+                  )
+                })}
+              </g>
+            )
+          }
+
+          // Bar chart
+          const barIndicators = valueIndicators.filter((i) => i.chartType === "bar")
+          const barIndex = barIndicators.findIndex((i) => i.id === ind.id)
+          if (barIndex === -1) return null
+
+          const totalBarWidth = barW * barCount + (barCount - 1) * 4
+          const startOffset = -totalBarWidth / 2
 
           return (
-            <g key={d.year}>
-              {/* Receita bar */}
-              {showReceita && (
-                <rect
-                  x={showEbitda ? x - barW - 2 : x - barW / 2}
-                  y={toY(d.receita)}
-                  width={barW}
-                  height={innerH - (toY(d.receita) - PAD.top)}
-                  rx={4}
-                  fill={
-                    isHovered
-                      ? "var(--chart-1)"
-                      : "color-mix(in oklch, var(--chart-1) 70%, transparent)"
-                  }
-                  style={{ transition: "fill 120ms" }}
-                  onMouseEnter={() => setHovered(i)}
-                  onMouseLeave={() => setHovered(null)}
-                />
-              )}
+            <g key={ind.id}>
+              {data.map((d, i) => {
+                const value = (d as Record<string, number>)[ind.id] || 0
+                const x = toX(i) + startOffset + barIndex * (barW + 4)
+                const y = toY(value, false)
+                const height = PAD.top + innerH - y
 
-              {/* EBITDA bar */}
-              {showEbitda && (
-                <rect
-                  x={showReceita ? x + 2 : x - barW / 2}
-                  y={toY(d.ebitda)}
-                  width={barW}
-                  height={innerH - (toY(d.ebitda) - PAD.top)}
-                  rx={4}
-                  fill={
-                    isHovered
-                      ? "var(--chart-3)"
-                      : "color-mix(in oklch, var(--chart-3) 70%, transparent)"
-                  }
-                  style={{ transition: "fill 120ms" }}
-                  onMouseEnter={() => setHovered(i)}
-                  onMouseLeave={() => setHovered(null)}
-                />
-              )}
-
-              {/* X-axis label */}
-              <text
-                x={x}
-                y={H - 10}
-                textAnchor="middle"
-                fontSize={11}
-                fill="var(--muted-foreground)"
-              >
-                {d.year}
-              </text>
+                return (
+                  <rect
+                    key={d.year}
+                    x={x}
+                    y={y}
+                    width={barW}
+                    height={height}
+                    rx={4}
+                    fill={hovered === i ? color : `color-mix(in oklch, ${color} 75%, transparent)`}
+                    style={{ transition: "fill 120ms" }}
+                    onMouseEnter={() => setHovered(i)}
+                    onMouseLeave={() => setHovered(null)}
+                  />
+                )
+              })}
             </g>
           )
         })}
 
-        {/* Margem line */}
-        {showMargem && (
-          <>
-            <polyline
-              points={margemPoints}
-              fill="none"
-              stroke="var(--chart-2)"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            {data.map((d, i) => (
-              <circle
-                key={d.year}
-                cx={toX(i)}
-                cy={toYMargem(d.margem)}
-                r={hovered === i ? 5 : 4}
-                fill="var(--chart-2)"
-                stroke="var(--background)"
-                strokeWidth="2"
-                style={{ transition: "r 120ms" }}
-                onMouseEnter={() => setHovered(i)}
-                onMouseLeave={() => setHovered(null)}
-              />
-            ))}
-          </>
-        )}
+        {/* X-axis labels */}
+        {data.map((d, i) => (
+          <text
+            key={d.year}
+            x={toX(i)}
+            y={H - 12}
+            textAnchor="middle"
+            fontSize={11}
+            fill="var(--muted-foreground)"
+          >
+            {d.year}
+          </text>
+        ))}
 
         {/* Hover tooltip */}
         {hovered !== null && data[hovered] && (
           <g>
             <rect
-              x={toX(hovered) - 55}
-              y={PAD.top - 20}
-              width={110}
-              height={50}
+              x={toX(hovered) - 70}
+              y={8}
+              width={140}
+              height={20 + selectedIndicators.length * 16}
               rx={6}
               fill="var(--popover)"
               stroke="var(--border)"
@@ -329,58 +423,56 @@ function IndicatorChart({
             />
             <text
               x={toX(hovered)}
-              y={PAD.top - 5}
+              y={24}
               textAnchor="middle"
-              fontSize={10}
+              fontSize={11}
               fontWeight="600"
               fill="var(--foreground)"
             >
               {data[hovered].year}
             </text>
-            <text
-              x={toX(hovered)}
-              y={PAD.top + 10}
-              textAnchor="middle"
-              fontSize={9}
-              fill="var(--muted-foreground)"
-              fontFamily="monospace"
-            >
-              Receita: {fmtValue(data[hovered].receita)}
-            </text>
-            <text
-              x={toX(hovered)}
-              y={PAD.top + 22}
-              textAnchor="middle"
-              fontSize={9}
-              fill="var(--muted-foreground)"
-              fontFamily="monospace"
-            >
-              Margem: {data[hovered].margem}%
-            </text>
+            {selectedIndicators.map((ind, idx) => {
+              const value = (data[hovered] as Record<string, number>)[ind.id] || 0
+              const isPercent = indicatorStats[ind.id]?.isPercentage
+              const label = INDICATOR_LABELS[ind.id] || ind.id
+              const formattedValue = isPercent ? `${value.toFixed(1)}%` : fmtValue(value)
+              
+              return (
+                <text
+                  key={ind.id}
+                  x={toX(hovered)}
+                  y={40 + idx * 16}
+                  textAnchor="middle"
+                  fontSize={9}
+                  fill="var(--muted-foreground)"
+                  fontFamily="monospace"
+                >
+                  {label}: {formattedValue}
+                </text>
+              )
+            })}
           </g>
         )}
       </svg>
 
       {/* Legend */}
-      <div className="mt-3 flex flex-wrap items-center justify-center gap-4 text-xs">
-        {showReceita && (
-          <div className="flex items-center gap-1.5">
-            <div className="size-3 rounded-sm bg-chart-1" />
-            <span className="text-muted-foreground">Receita Líquida</span>
-          </div>
-        )}
-        {showEbitda && (
-          <div className="flex items-center gap-1.5">
-            <div className="size-3 rounded-sm bg-chart-3" />
-            <span className="text-muted-foreground">EBITDA</span>
-          </div>
-        )}
-        {showMargem && (
-          <div className="flex items-center gap-1.5">
-            <div className="h-0.5 w-4 rounded-full bg-chart-2" />
-            <span className="text-muted-foreground">Margem EBITDA</span>
-          </div>
-        )}
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-xs">
+        {selectedIndicators.map((ind, idx) => {
+          const color = getColor(idx)
+          const label = INDICATOR_LABELS[ind.id] || ind.id
+          const ChartIcon = ind.chartType === "bar" ? BarChart3 : ind.chartType === "line" ? LineChart : AreaChart
+          
+          return (
+            <div key={ind.id} className="flex items-center gap-1.5">
+              <div
+                className="size-3 rounded-sm"
+                style={{ backgroundColor: color }}
+              />
+              <span className="text-muted-foreground">{label}</span>
+              <ChartIcon className="size-3 text-muted-foreground/60" />
+            </div>
+          )
+        })}
       </div>
     </div>
   )
@@ -442,15 +534,14 @@ function NewsItem({
 }
 
 export default function DemoAnalysisPage() {
-  const [selectedIndicators, setSelectedIndicators] = React.useState<string[]>([
-    "receita_liquida",
-    "margem_ebitda",
+  const [selectedIndicators, setSelectedIndicators] = React.useState<SelectedIndicator[]>([
+    { id: "receita_liquida", chartType: "bar" },
+    { id: "margem_ebitda", chartType: "line" },
   ])
   const [dateRange, setDateRange] = React.useState<DateRange | undefined>({
     from: new Date(2020, 0, 1),
     to: new Date(),
   })
-  const [chartType, setChartType] = React.useState("barras")
   const [news, setNews] = React.useState(NEWS_DATA)
 
   const dismissNews = (id: number) => {
@@ -540,23 +631,46 @@ export default function DemoAnalysisPage() {
                   minDate={new Date(2010, 0, 1)}
                   maxDate={new Date()}
                 />
-                <Select value={chartType} onValueChange={setChartType}>
-                  <SelectTrigger className="w-[120px]">
-                    <SelectValue placeholder="Tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="barras">Barras</SelectItem>
-                    <SelectItem value="linha">Linha</SelectItem>
-                    <SelectItem value="area">Area</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
 
+              {/* Selected indicators summary */}
+              {selectedIndicators.length > 0 && (
+                <div className="mb-4 flex flex-wrap items-center gap-2">
+                  {selectedIndicators.map((ind, idx) => {
+                    const label = INDICATOR_LABELS[ind.id] || ind.id
+                    const ChartIcon = ind.chartType === "bar" ? BarChart3 : ind.chartType === "line" ? LineChart : AreaChart
+                    const color = CHART_COLORS[idx % CHART_COLORS.length]
+                    
+                    return (
+                      <div
+                        key={ind.id}
+                        className="flex items-center gap-1.5 rounded-full border border-border bg-muted/30 px-2.5 py-1 text-xs"
+                      >
+                        <div
+                          className="size-2 rounded-full"
+                          style={{ backgroundColor: color }}
+                        />
+                        <span className="font-medium">{label}</span>
+                        <ChartIcon className="size-3 text-muted-foreground" />
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
               {/* Chart */}
-              <IndicatorChart
-                data={FINANCIAL_DATA}
-                selectedIndicators={selectedIndicators}
-              />
+              {selectedIndicators.length > 0 ? (
+                <IndicatorChart
+                  data={FINANCIAL_DATA}
+                  selectedIndicators={selectedIndicators}
+                />
+              ) : (
+                <div className="flex h-[260px] items-center justify-center rounded-lg border border-dashed border-border">
+                  <p className="text-sm text-muted-foreground">
+                    Selecione indicadores para visualizar o grafico
+                  </p>
+                </div>
+              )}
             </SurfaceCard>
 
             {/* Data Table Card */}

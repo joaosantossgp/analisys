@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Check, ChevronDown, Search, X } from "lucide-react"
+import { Check, ChevronDown, Search, X, BarChart3, LineChart, AreaChart } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,19 +11,32 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 
+export type ChartType = "bar" | "line" | "area"
+
 export interface Indicator {
   id: string
   label: string
   category: string
 }
 
+export interface SelectedIndicator {
+  id: string
+  chartType: ChartType
+}
+
+const CHART_TYPES: { value: ChartType; label: string; icon: typeof BarChart3 }[] = [
+  { value: "bar", label: "Barras", icon: BarChart3 },
+  { value: "line", label: "Linha", icon: LineChart },
+  { value: "area", label: "Area", icon: AreaChart },
+]
+
 const DEFAULT_INDICATORS: Indicator[] = [
   // Rentabilidade
-  { id: "receita_liquida", label: "Receita Líquida", category: "Rentabilidade" },
+  { id: "receita_liquida", label: "Receita Liquida", category: "Rentabilidade" },
   { id: "ebitda", label: "EBITDA", category: "Rentabilidade" },
   { id: "margem_ebitda", label: "Margem EBITDA", category: "Rentabilidade" },
-  { id: "lucro_liquido", label: "Lucro Líquido", category: "Rentabilidade" },
-  { id: "margem_liquida", label: "Margem Líquida", category: "Rentabilidade" },
+  { id: "lucro_liquido", label: "Lucro Liquido", category: "Rentabilidade" },
+  { id: "margem_liquida", label: "Margem Liquida", category: "Rentabilidade" },
   { id: "roe", label: "ROE", category: "Rentabilidade" },
   { id: "roa", label: "ROA", category: "Rentabilidade" },
   { id: "roic", label: "ROIC", category: "Rentabilidade" },
@@ -33,15 +46,15 @@ const DEFAULT_INDICATORS: Indicator[] = [
   { id: "ev_ebitda", label: "EV/EBITDA", category: "Valuation" },
   { id: "psr", label: "P/Receita", category: "Valuation" },
   // Endividamento
-  { id: "divida_ebitda", label: "Dívida/EBITDA", category: "Endividamento" },
-  { id: "divida_liquida_pl", label: "Dívida Líquida/PL", category: "Endividamento" },
-  { id: "divida_bruta", label: "Dívida Bruta", category: "Endividamento" },
+  { id: "divida_ebitda", label: "Divida/EBITDA", category: "Endividamento" },
+  { id: "divida_liquida_pl", label: "Divida Liquida/PL", category: "Endividamento" },
+  { id: "divida_bruta", label: "Divida Bruta", category: "Endividamento" },
 ]
 
 interface IndicatorSelectorProps {
   indicators?: Indicator[]
-  selected: string[]
-  onSelectionChange: (selected: string[]) => void
+  selected: SelectedIndicator[]
+  onSelectionChange: (selected: SelectedIndicator[]) => void
   maxSelections?: number
   className?: string
 }
@@ -55,6 +68,8 @@ export function IndicatorSelector({
 }: IndicatorSelectorProps) {
   const [open, setOpen] = React.useState(false)
   const [search, setSearch] = React.useState("")
+
+  const selectedIds = React.useMemo(() => selected.map((s) => s.id), [selected])
 
   const filteredIndicators = React.useMemo(() => {
     if (!search.trim()) return indicators
@@ -78,20 +93,28 @@ export function IndicatorSelector({
   }, [filteredIndicators])
 
   const toggleIndicator = (id: string) => {
-    if (selected.includes(id)) {
-      onSelectionChange(selected.filter((s) => s !== id))
+    if (selectedIds.includes(id)) {
+      onSelectionChange(selected.filter((s) => s.id !== id))
     } else if (selected.length < maxSelections) {
-      onSelectionChange([...selected, id])
+      onSelectionChange([...selected, { id, chartType: "bar" }])
     }
+  }
+
+  const changeChartType = (id: string, chartType: ChartType) => {
+    onSelectionChange(
+      selected.map((s) => (s.id === id ? { ...s, chartType } : s))
+    )
   }
 
   const clearSelection = () => {
     onSelectionChange([])
   }
 
+  const getSelectedIndicator = (id: string) => selected.find((s) => s.id === id)
+
   const selectedLabels = React.useMemo(() => {
     return selected
-      .map((id) => indicators.find((ind) => ind.id === id)?.label)
+      .map((s) => indicators.find((ind) => ind.id === s.id)?.label)
       .filter(Boolean)
   }, [selected, indicators])
 
@@ -118,7 +141,7 @@ export function IndicatorSelector({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[280px] p-0"
+        className="w-[340px] p-0"
         align="start"
       >
         <div className="border-b border-border p-2">
@@ -133,31 +156,31 @@ export function IndicatorSelector({
           </div>
         </div>
 
-        <div className="max-h-[280px] overflow-y-auto p-1">
+        <div className="max-h-[320px] overflow-y-auto p-1">
           {Object.entries(groupedIndicators).map(([category, items]) => (
             <div key={category} className="mb-1">
               <div className="px-2 py-1.5">
                 <span className="eyebrow">{category}</span>
               </div>
               {items.map((indicator) => {
-                const isSelected = selected.includes(indicator.id)
+                const isSelected = selectedIds.includes(indicator.id)
                 const isDisabled = !isSelected && selected.length >= maxSelections
+                const selectedItem = getSelectedIndicator(indicator.id)
 
                 return (
-                  <button
+                  <div
                     key={indicator.id}
-                    type="button"
-                    onClick={() => toggleIndicator(indicator.id)}
-                    disabled={isDisabled}
                     className={cn(
-                      "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
-                      "hover:bg-accent focus:bg-accent focus:outline-none",
-                      isSelected && "text-foreground",
-                      !isSelected && "text-muted-foreground",
+                      "flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors",
+                      "hover:bg-accent",
                       isDisabled && "cursor-not-allowed opacity-50"
                     )}
                   >
-                    <div
+                    {/* Checkbox */}
+                    <button
+                      type="button"
+                      onClick={() => toggleIndicator(indicator.id)}
+                      disabled={isDisabled}
                       className={cn(
                         "flex size-4 shrink-0 items-center justify-center rounded-full border transition-colors",
                         isSelected
@@ -166,9 +189,48 @@ export function IndicatorSelector({
                       )}
                     >
                       {isSelected && <Check className="size-3" strokeWidth={3} />}
-                    </div>
-                    <span className="flex-1 text-left">{indicator.label}</span>
-                  </button>
+                    </button>
+
+                    {/* Label */}
+                    <span
+                      className={cn(
+                        "flex-1 cursor-pointer text-left text-sm",
+                        isSelected ? "text-foreground" : "text-muted-foreground"
+                      )}
+                      onClick={() => !isDisabled && toggleIndicator(indicator.id)}
+                    >
+                      {indicator.label}
+                    </span>
+
+                    {/* Chart Type Selector - only show when selected */}
+                    {isSelected && selectedItem && (
+                      <div className="flex items-center gap-0.5 rounded-md border border-border bg-muted/50 p-0.5">
+                        {CHART_TYPES.map((ct) => {
+                          const Icon = ct.icon
+                          const isActive = selectedItem.chartType === ct.value
+                          return (
+                            <button
+                              key={ct.value}
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                changeChartType(indicator.id, ct.value)
+                              }}
+                              title={ct.label}
+                              className={cn(
+                                "flex size-6 items-center justify-center rounded transition-colors",
+                                isActive
+                                  ? "bg-background text-foreground shadow-sm"
+                                  : "text-muted-foreground hover:text-foreground"
+                              )}
+                            >
+                              <Icon className="size-3.5" />
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
                 )
               })}
             </div>
@@ -200,3 +262,5 @@ export function IndicatorSelector({
     </Popover>
   )
 }
+
+export { DEFAULT_INDICATORS }
