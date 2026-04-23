@@ -8,6 +8,12 @@
       "port": 3000
     },
     {
+      "name": "Next.js Web (elastic-nobel-e1d0f4)",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "apps\\web\\start-web-wt.cmd"],
+      "port": 3002
+    },
+    {
       "name": "Next.js Web (79-foundation-tokens)",
       "runtimeExecutable": "cmd",
       "runtimeArgs": ["/c", ".claude\\worktrees\\frontend\\79-foundation-tokens\\apps\\web\\start-web-wt.cmd"],
