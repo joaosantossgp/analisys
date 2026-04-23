@@ -8,6 +8,8 @@ test("fluxo inicial de descoberta por empresa", async ({ page }) => {
       name: /analise financeira/i,
     }),
   ).toBeVisible();
+  await expect(page.getByText(/companhias abertas/i).first()).toBeVisible();
+  await expect(page.getByText(/ao vivo|verificando|sem sinal/i).first()).toBeVisible();
 
   const searchBox = page.getByLabel(/buscar empresa/i);
   await searchBox.fill("petrobras");
@@ -29,6 +31,17 @@ test("fluxo inicial de descoberta por empresa", async ({ page }) => {
   await expect(page.locator("h1").first()).toContainText(/PETROBRAS/i);
 });
 
+test("detalhe com historico renderiza o dashboard de analise na visao geral", async ({
+  page,
+}) => {
+  await page.goto("/empresas/4170");
+
+  await expect(page.locator("h1").first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("company-analysis-panel")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(/visao anual em um unico painel/i)).toBeVisible();
+  await expect(page.getByText(/tabela anual/i)).toBeVisible();
+});
+
 test("home suggestions usam a rota same-origin", async ({ page }) => {
   await page.goto("/");
 
@@ -44,14 +57,14 @@ test("home suggestions usam a rota same-origin", async ({ page }) => {
 });
 
 test("detalhe sem historico vira experiencia guiada de pre-refresh", async ({ page }) => {
-  await page.goto("/empresas/9512");
+  await page.goto("/empresas/25640");
 
-  await expect(page.locator("h1").first()).toContainText(/PETROBRAS/i, {
+  await expect(page.locator("h1").first()).toContainText(/AUREN/i, {
     timeout: 30_000,
   });
 
   await expect(
-    page.getByText(/historico anual ainda nao liberado/i),
+    page.getByText(/esta empresa ainda depende da primeira materializacao/i),
   ).toBeVisible();
   await expect(
     page.getByText(/o que destrava esta pagina/i),

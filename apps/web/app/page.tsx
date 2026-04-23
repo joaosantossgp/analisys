@@ -2,6 +2,7 @@ import { BentoFeatures } from "@/components/home/bento-features";
 import { CompanySearchHero } from "@/components/home/company-search-hero";
 import { CtaSection } from "@/components/home/cta-section";
 import { DiscoverySectionLazy } from "@/components/home/discovery-section-lazy";
+import { HomeTrustStrip } from "@/components/home/home-trust-strip";
 import { StatsStrip } from "@/components/home/stats-strip";
 import { PageShell } from "@/components/shared/design-system-recipes";
 import { fetchCompanies } from "@/lib/api";
@@ -27,6 +28,9 @@ export default async function HomePage() {
 
       {/* Stats Strip */}
       <StatsStrip totalCompanies={totalCompanies} />
+
+      {/* Trust and live health */}
+      <HomeTrustStrip totalCompanies={totalCompanies} />
 
       {/* Bento Features Grid */}
       <BentoFeatures />
