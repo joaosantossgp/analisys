@@ -18,8 +18,9 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { serializeCompanyIds } from "@/lib/compare-utils";
 import {
-  buildApiUrlFromBase,
   type CompanySuggestionItem,
+  fetchCompanySuggestionsRoute,
+  getUserFacingErrorMessage,
 } from "@/lib/api";
 import { getSectorNameFromSlug } from "@/lib/constants";
 import { formatYearsLabel } from "@/lib/formatters";
@@ -29,7 +30,6 @@ import { track } from "@/lib/track";
 import { cn } from "@/lib/utils";
 
 type CompareSelectorProps = {
-  apiBaseUrl: string;
   pathname: string;
   selectedCompanies: CompareCompanyOption[];
   quickCompanies: CompareCompanyOption[];
@@ -40,7 +40,6 @@ type CompareSelectorProps = {
 
 type SuggestionResponse = {
   items?: CompanySuggestionItem[];
-  error?: string;
 };
 
 const DEFAULT_MAX_COMPANIES = 5;
@@ -55,7 +54,6 @@ function toCompareOption(item: CompanySuggestionItem): CompareCompanyOption {
 }
 
 export function CompareSelector({
-  apiBaseUrl,
   pathname,
   selectedCompanies,
   quickCompanies,
@@ -94,22 +92,13 @@ export function CompareSelector({
       setSuggestionError(null);
 
       try {
-        const url = new URL(
-          buildApiUrlFromBase(apiBaseUrl, "/companies/suggestions"),
-        );
-        url.searchParams.set("q", normalized);
-        url.searchParams.set("limit", "6");
-
-        const response = await fetch(url.toString());
-        const payload = (await response.json()) as SuggestionResponse;
+        const payload = (await fetchCompanySuggestionsRoute(
+          normalized,
+          6,
+          { readyOnly: true },
+        )) as SuggestionResponse;
 
         if (!active) {
-          return;
-        }
-
-        if (!response.ok) {
-          setSuggestions([]);
-          setSuggestionError(payload.error ?? "Nao foi possivel buscar sugestoes.");
           return;
         }
 
@@ -118,12 +107,12 @@ export function CompareSelector({
           .filter((item) => !selectedIdSet.has(item.cd_cvm));
 
         setSuggestions(nextSuggestions);
-      } catch {
+      } catch (error) {
         if (!active) {
           return;
         }
         setSuggestions([]);
-        setSuggestionError("Nao foi possivel buscar sugestoes.");
+        setSuggestionError(getUserFacingErrorMessage(error));
       } finally {
         if (active) {
           setLoadingSuggestions(false);
@@ -135,7 +124,7 @@ export function CompareSelector({
       active = false;
       window.clearTimeout(timer);
     };
-  }, [apiBaseUrl, deferredQuery, maxCompanies, selectedCompanies.length, selectedIdSet]);
+  }, [deferredQuery, maxCompanies, selectedCompanies.length, selectedIdSet]);
 
   function pushSelection(nextIds: number[], nextYears: number[] | null) {
     const queryString = mergeSearchParams(searchParams.toString(), {
@@ -292,6 +281,15 @@ export function CompareSelector({
           </div>
         ) : null}
 
+        {!loadingSuggestions &&
+        deferredQuery.trim().length >= 2 &&
+        suggestions.length === 0 &&
+        !suggestionError ? (
+          <p className="text-sm text-muted-foreground">
+            Nenhuma companhia pronta para comparar apareceu com esse termo. A comparacao mostra apenas empresas com historico anual local.
+          </p>
+        ) : null}
+
         {quickOptions.length > 0 && selectedIds.length < maxCompanies ? (
           <div className="space-y-2">
             <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Sugestoes rapidas</p>
@@ -311,6 +309,19 @@ export function CompareSelector({
                 </button>
               ))}
             </div>
+          </div>
+        ) : null}
+
+        {quickOptions.length === 0 &&
+        selectedCompanies.length === 0 &&
+        deferredQuery.trim().length < 2 ? (
+          <div className="rounded-[1.15rem] border border-dashed border-border/70 bg-muted/35 px-4 py-3">
+            <p className="text-sm font-medium text-foreground">
+              Nenhuma sugestao rapida pronta agora
+            </p>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              Esta comparacao so lista companhias com historico anual local suficiente. Quando o slice atual nao tiver empresas prontas, use a busca para conferir uma companhia especifica ou abra o diretorio.
+            </p>
           </div>
         ) : null}
       </div>

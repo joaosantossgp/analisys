@@ -5,7 +5,8 @@ import { DiscoverySectionLazy } from "@/components/home/discovery-section-lazy";
 import { HomeTrustStrip } from "@/components/home/home-trust-strip";
 import { buttonVariants } from "@/components/ui/button";
 import { PageShell } from "@/components/shared/design-system-recipes";
-import { fetchCompanies, getApiBaseUrl } from "@/lib/api";
+import { fetchCompanies } from "@/lib/api";
+import { prioritizeDiscoveryCompanies } from "@/lib/company-discovery";
 import { cn } from "@/lib/utils";
 
 export const revalidate = 300;
@@ -16,11 +17,14 @@ export default async function HomePage() {
   );
 
   const totalCompanies = topCompaniesResult?.pagination.total_items ?? null;
-  const topCompanies = topCompaniesResult?.items ?? [];
+  const topCompanies = prioritizeDiscoveryCompanies(
+    topCompaniesResult?.items ?? [],
+    8,
+  );
 
   return (
     <PageShell density="relaxed" className="flex flex-col items-center gap-14 pb-20">
-      <CompanySearchHero apiBaseUrl={getApiBaseUrl()} />
+      <CompanySearchHero />
 
       <HomeTrustStrip totalCompanies={totalCompanies} />
 

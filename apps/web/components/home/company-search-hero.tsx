@@ -6,8 +6,9 @@ import { useRouter } from "next/navigation";
 
 import { buttonVariants } from "@/components/ui/button";
 import {
-  buildApiUrlFromBase,
   type CompanySuggestionItem,
+  fetchCompanySuggestionsRoute,
+  getUserFacingErrorMessage,
 } from "@/lib/api";
 import { getSectorColor, getSectorNameFromSlug } from "@/lib/constants";
 import { track } from "@/lib/track";
@@ -19,24 +20,17 @@ const QUICK_CHIPS = [
   "ITAUB4",
   "BBDC4",
   "Financeiro",
-  "Petróleo e Gás",
+  "Petroleo e Gas",
 ];
 
-type CompanySearchHeroProps = {
-  apiBaseUrl: string;
-};
-
-type SuggestionResponse = {
-  items?: CompanySuggestionItem[];
-};
-
-export function CompanySearchHero({ apiBaseUrl }: CompanySearchHeroProps) {
+export function CompanySearchHero() {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const [focused, setFocused] = useState(false);
   const [suggestions, setSuggestions] = useState<CompanySuggestionItem[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [suggestionError, setSuggestionError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const deferredQuery = useDeferredValue(query);
 
@@ -45,35 +39,26 @@ export function CompanySearchHero({ apiBaseUrl }: CompanySearchHeroProps) {
     if (normalized.length < 2) {
       setSuggestions([]);
       setLoadingSuggestions(false);
+      setSuggestionError(null);
       return;
     }
 
     let active = true;
     const timer = window.setTimeout(async () => {
       setLoadingSuggestions(true);
+      setSuggestionError(null);
+
       try {
-        const url = new URL(
-          buildApiUrlFromBase(apiBaseUrl, "/companies/suggestions"),
-        );
-        url.searchParams.set("q", normalized);
-        url.searchParams.set("limit", "6");
-
-        const response = await fetch(url.toString());
-        const payload = (await response.json()) as SuggestionResponse;
-
-        if (!active) {
-          return;
+        const payload = await fetchCompanySuggestionsRoute(normalized, 6);
+        if (active) {
+          setSuggestions(payload.items ?? []);
         }
-
-        if (!response.ok) {
-          setSuggestions([]);
-          return;
-        }
-
-        setSuggestions(payload.items ?? []);
-      } catch {
+      } catch (error) {
         if (active) {
           setSuggestions([]);
+          setSuggestionError(
+            `${getUserFacingErrorMessage(error)} Pressione Enter para abrir o diretorio completo.`,
+          );
         }
       } finally {
         if (active) {
@@ -86,9 +71,10 @@ export function CompanySearchHero({ apiBaseUrl }: CompanySearchHeroProps) {
       active = false;
       window.clearTimeout(timer);
     };
-  }, [apiBaseUrl, deferredQuery]);
+  }, [deferredQuery]);
 
-  const showDropdown = focused && (loadingSuggestions || suggestions.length > 0);
+  const showDropdown =
+    focused && (loadingSuggestions || suggestions.length > 0 || suggestionError !== null);
 
   function navigateToCompany(item: CompanySuggestionItem) {
     track("home_suggestion_selected", {
@@ -110,15 +96,15 @@ export function CompanySearchHero({ apiBaseUrl }: CompanySearchHeroProps) {
     <div className="w-full max-w-[680px] mx-auto space-y-6 text-center">
       <div className="space-y-4">
         <h1 className="font-heading text-[clamp(2.5rem,5.5vw,4.25rem)] leading-[1.02] tracking-[-0.045em] text-foreground">
-          Análise financeira
+          Analise financeira
           <br />
           <span className="text-muted-foreground italic font-normal">
-            de quem está na bolsa.
+            de quem esta na bolsa.
           </span>
         </h1>
         <p className="max-w-[560px] mx-auto text-[1.0625rem] leading-[1.55] text-muted-foreground">
-          Pesquise qualquer companhia aberta brasileira. Leia DRE, balanço e KPIs
-          com 10+ anos de histórico, direto da CVM.
+          Pesquise qualquer companhia aberta brasileira. Leia DRE, balanco e KPIs
+          com 10+ anos de historico, direto da CVM.
         </p>
       </div>
 
@@ -141,7 +127,7 @@ export function CompanySearchHero({ apiBaseUrl }: CompanySearchHeroProps) {
             onFocus={() => setFocused(true)}
             onBlur={() => setTimeout(() => setFocused(false), 150)}
             onKeyDown={(event) => event.key === "Enter" && submit()}
-            placeholder="Petrobras, VALE3, setor financeiro…"
+            placeholder="Petrobras, VALE3, setor financeiro..."
             className="flex-1 border-none bg-transparent py-[0.85rem] text-[1.125rem] text-foreground outline-none placeholder:text-muted-foreground"
             aria-label="Buscar empresa"
           />
@@ -173,9 +159,18 @@ export function CompanySearchHero({ apiBaseUrl }: CompanySearchHeroProps) {
           <div className="absolute inset-x-0 top-full z-20 overflow-hidden rounded-[0_0_1.25rem_1.25rem] border border-t-0 border-ring/50 bg-card shadow-[0_20px_60px_-30px_rgba(16,30,24,0.25)]">
             <div className="border-t border-border bg-muted/30 px-5 py-1.5 text-[0.7rem] font-medium uppercase tracking-[0.2em] text-muted-foreground">
               {loadingSuggestions
-                ? "Buscando…"
-                : `${suggestions.length} resultado${suggestions.length !== 1 ? "s" : ""}`}
+                ? "Buscando..."
+                : suggestionError
+                  ? "Busca com fallback"
+                  : `${suggestions.length} resultado${suggestions.length !== 1 ? "s" : ""}`}
             </div>
+
+            {suggestionError ? (
+              <div className="border-t border-border/50 px-5 py-3 text-sm text-muted-foreground">
+                {suggestionError}
+              </div>
+            ) : null}
+
             {suggestions.map((item) => {
               const sectorName = getSectorNameFromSlug(item.sector_slug);
               const color = getSectorColor(sectorName);
@@ -214,7 +209,7 @@ export function CompanySearchHero({ apiBaseUrl }: CompanySearchHeroProps) {
                       ) : null}
                     </div>
                     <p className="text-[0.8rem] text-muted-foreground mt-0.5">
-                      {sectorName ?? "Setor não informado"}
+                      {sectorName ?? "Setor nao informado"}
                     </p>
                   </div>
                   <div className="text-right shrink-0">

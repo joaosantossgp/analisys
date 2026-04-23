@@ -7,6 +7,7 @@ import {
   fetchCompanyFilters,
   fetchCompanyFreshness,
   fetchCompanyKpis,
+  fetchCompanySuggestionsRoute,
   fetchCompanyStatement,
   fetchCompanySuggestions,
   fetchCompanyYears,
@@ -113,8 +114,10 @@ test("fetchCompanyFilters opts into the backend-aligned revalidate window", asyn
 });
 
 test("fetchCompanySuggestions opts into the backend-aligned revalidate window", async () => {
+  let capturedInput: RequestInfo | URL | undefined;
   let capturedInit: RequestInit | undefined;
-  const restore = withFetchMock((async (_input, init) => {
+  const restore = withFetchMock((async (input, init) => {
+    capturedInput = input;
     capturedInit = init;
 
     return new Response(
@@ -133,8 +136,99 @@ test("fetchCompanySuggestions opts into the backend-aligned revalidate window", 
   try {
     await fetchCompanySuggestions("itub4", 6);
 
+    assert.match(String(capturedInput), /\/companies\/suggestions\?q=itub4&limit=6$/);
     assert.equal(capturedInit?.cache, undefined);
     assert.deepEqual(capturedInit?.next, { revalidate: 60 });
+  } finally {
+    restore();
+  }
+});
+
+test("fetchCompanySuggestions can restrict suggestions to ready companies", async () => {
+  let capturedInput: RequestInfo | URL | undefined;
+  const restore = withFetchMock((async (input) => {
+    capturedInput = input;
+
+    return new Response(
+      JSON.stringify({
+        items: [],
+      }),
+      {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+        },
+      },
+    );
+  }) as FetchMock);
+
+  try {
+    await fetchCompanySuggestions("vale", 6, { readyOnly: true });
+
+    assert.match(
+      String(capturedInput),
+      /\/companies\/suggestions\?q=vale&limit=6&ready_only=1$/,
+    );
+  } finally {
+    restore();
+  }
+});
+
+test("fetchCompanySuggestionsRoute uses the internal same-origin proxy with no-store semantics", async () => {
+  let capturedInput: RequestInfo | URL | undefined;
+  let capturedInit: RequestInit | undefined;
+  const restore = withFetchMock((async (input, init) => {
+    capturedInput = input;
+    capturedInit = init;
+
+    return new Response(
+      JSON.stringify({
+        items: [],
+      }),
+      {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+        },
+      },
+    );
+  }) as FetchMock);
+
+  try {
+    await fetchCompanySuggestionsRoute("itub4", 6);
+
+    assert.match(String(capturedInput), /\/api\/company-search\?q=itub4&limit=6$/);
+    assert.equal(capturedInit?.cache, "no-store");
+  } finally {
+    restore();
+  }
+});
+
+test("fetchCompanySuggestionsRoute forwards ready-only compare lookups", async () => {
+  let capturedInput: RequestInfo | URL | undefined;
+  const restore = withFetchMock((async (input) => {
+    capturedInput = input;
+
+    return new Response(
+      JSON.stringify({
+        items: [],
+      }),
+      {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+        },
+      },
+    );
+  }) as FetchMock);
+
+  try {
+    await fetchCompanySuggestionsRoute("vale", 6, { readyOnly: true });
+
+    assert.match(
+      String(capturedInput),
+      /\/api\/company-search\?q=vale&limit=6&ready_only=1$/,
+    );
   } finally {
     restore();
   }
@@ -392,6 +486,9 @@ test("fetchRequestRefresh accepts the new internal queue payload", async () => {
         job_id: "job-4170",
         accepted_at: "2026-04-21T12:00:00+00:00",
         message: "Solicitacao enfileirada para processamento interno.",
+        status_reason_code: "refresh_queued",
+        status_reason_message: "Solicitacao aceita e aguardando processamento interno.",
+        is_retry_allowed: false,
       }),
       {
         status: 202,
@@ -407,6 +504,8 @@ test("fetchRequestRefresh accepts the new internal queue payload", async () => {
     assert.equal(payload.status, "queued");
     assert.equal(payload.job_id, "job-4170");
     assert.equal(payload.accepted_at, "2026-04-21T12:00:00+00:00");
+    assert.equal(payload.status_reason_code, "refresh_queued");
+    assert.equal(payload.is_retry_allowed, false);
   } finally {
     restore();
   }
@@ -443,6 +542,15 @@ test("fetchRefreshStatus accepts estimated progress fields from the API", async 
           elapsed_seconds: 420,
           estimated_completion_at: "2026-04-21T12:21:00+00:00",
           estimate_confidence: "medium",
+          tracking_state: "queued",
+          progress_mode: "real_progress",
+          is_retry_allowed: false,
+          status_reason_code: "refresh_queued",
+          status_reason_message: "Solicitacao recebida e aguardando processamento interno.",
+          has_readable_current_data: false,
+          readable_years_count: 0,
+          latest_attempt_outcome: "queued",
+          source_label: "Solicitacao on-demand",
         },
       ]),
       {
@@ -464,6 +572,11 @@ test("fetchRefreshStatus accepts estimated progress fields from the API", async 
     assert.equal(payload[0]?.estimated_progress_pct, 31.4);
     assert.equal(payload[0]?.estimated_eta_seconds, 840);
     assert.equal(payload[0]?.estimate_confidence, "medium");
+    assert.equal(payload[0]?.tracking_state, "queued");
+    assert.equal(payload[0]?.progress_mode, "real_progress");
+    assert.equal(payload[0]?.status_reason_code, "refresh_queued");
+    assert.equal(payload[0]?.has_readable_current_data, false);
+    assert.equal(payload[0]?.source_label, "Solicitacao on-demand");
   } finally {
     restore();
   }
@@ -509,6 +622,11 @@ test("fetchRefreshStatus normalizes missing estimate fields from legacy payloads
     assert.equal(payload[0]?.elapsed_seconds, null);
     assert.equal(payload[0]?.estimated_completion_at, null);
     assert.equal(payload[0]?.estimate_confidence, null);
+    assert.equal(payload[0]?.tracking_state, null);
+    assert.equal(payload[0]?.progress_mode, null);
+    assert.equal(payload[0]?.is_retry_allowed, false);
+    assert.equal(payload[0]?.has_readable_current_data, false);
+    assert.equal(payload[0]?.readable_years_count, 0);
   } finally {
     restore();
   }
@@ -548,6 +666,9 @@ test("fetchCompanyFreshness normalizes missing estimate fields from legacy API p
     assert.equal(payload?.estimated_progress_pct, null);
     assert.equal(payload?.estimated_eta_seconds, null);
     assert.equal(payload?.estimate_confidence, null);
+    assert.equal(payload?.tracking_state, null);
+    assert.equal(payload?.status_reason_message, null);
+    assert.equal(payload?.has_readable_current_data, false);
   } finally {
     restore();
   }

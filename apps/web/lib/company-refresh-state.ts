@@ -61,6 +61,32 @@ function normalizeStatus(status: string | null | undefined): string {
   return String(status || "").trim().toLowerCase();
 }
 
+function getTrackingState(item: RefreshStatusItem | null | undefined): string {
+  const trackingState = normalizeStatus(item?.tracking_state);
+  if (trackingState) {
+    return trackingState;
+  }
+  return normalizeStatus(item?.last_status);
+}
+
+function getProgressMode(item: RefreshStatusItem | null | undefined): string {
+  return normalizeStatus(item?.progress_mode);
+}
+
+function hasReadableData(item: RefreshStatusItem | null | undefined): boolean {
+  return item?.has_readable_current_data === true;
+}
+
+function isActiveRefreshItem(item: RefreshStatusItem | null | undefined): boolean {
+  const trackingState = getTrackingState(item);
+  return (
+    trackingState === "queued" ||
+    trackingState === "running" ||
+    trackingState === "stalled" ||
+    isActiveRefreshStatus(item?.last_status)
+  );
+}
+
 function getStageLabel(item: RefreshStatusItem | null | undefined): string {
   const stage = normalizeStatus(item?.stage);
   switch (stage) {
@@ -87,13 +113,16 @@ function getQueuedMessage(
   const queuePosition = item?.queue_position ?? null;
   if (typeof queuePosition === "number" && queuePosition > 0) {
     return {
-      message: "Solicitacao na fila interna.",
+      message:
+        item?.status_reason_message ?? "Solicitacao na fila interna.",
       detail: `Ha ${queuePosition} job(s) na frente desta empresa no worker interno.`,
     };
   }
 
   return {
-    message: "Solicitacao enviada. Aguardando processamento...",
+    message:
+      item?.status_reason_message ??
+      "Solicitacao enviada. Aguardando processamento...",
     detail:
       item?.progress_message ??
       "Aguardando o worker interno iniciar esta solicitacao.",
@@ -105,7 +134,9 @@ function getRunningMessage(
 ): { message: string; detail: string } {
   return {
     message:
-      item?.progress_message ?? "Atualizando demonstracoes financeiras...",
+      item?.progress_message ??
+      item?.status_reason_message ??
+      "Atualizando demonstracoes financeiras...",
     detail:
       item?.stage
         ? `Etapa atual: ${getStageLabel(item).toLowerCase()}.`
@@ -164,8 +195,17 @@ function formatEstimatedTime(dateIso: string | null | undefined): string | null 
   return ESTIMATE_TIME_FORMATTER.format(date);
 }
 
-function getConfidenceLabel(confidence: string | null | undefined): string | null {
-  switch (normalizeStatus(confidence)) {
+function getConfidenceLabel(item: RefreshStatusItem | null | undefined): string | null {
+  switch (getProgressMode(item)) {
+    case "queue":
+      return "Acompanhando apenas a fila interna ate o job comecar de fato.";
+    case "stalled":
+      return "Mostrando o ultimo progresso conhecido enquanto o status nao retoma.";
+    default:
+      break;
+  }
+
+  switch (normalizeStatus(item?.estimate_confidence)) {
     case "high":
       return "Estimativa baseada no progresso real do job.";
     case "medium":
@@ -181,8 +221,16 @@ function getFallbackProgress(
   phase: RefreshPhase,
   item: RefreshStatusItem | null | undefined,
 ): number {
-  const itemStatus = normalizeStatus(item?.last_status);
+  const progressMode = getProgressMode(item);
+  if (progressMode === "queue") {
+    return 18;
+  }
 
+  if (progressMode === "stalled") {
+    return 58;
+  }
+
+  const itemStatus = normalizeStatus(item?.last_status);
   if (itemStatus === "running") {
     return phase === "delayed" ? 64 : 42;
   }
@@ -227,7 +275,7 @@ function getEstimateIndicatorClassName(phase: RefreshPhase): string {
 function getEstimateReferenceItem(
   state: RefreshMachineState,
 ): RefreshStatusItem | null {
-  if (isActiveRefreshStatus(state.currentItem?.last_status)) {
+  if (isActiveRefreshItem(state.currentItem)) {
     return state.currentItem;
   }
 
@@ -266,34 +314,50 @@ function buildRefreshEstimate(state: RefreshMachineState): RefreshEstimate | nul
     100,
     Math.max(8, item?.estimated_progress_pct ?? fallbackProgress),
   );
-  const totalSeconds = item?.estimated_total_seconds;
-  const elapsedSeconds = item?.elapsed_seconds;
-  const etaSeconds = item?.estimated_eta_seconds;
-  const isOverdue =
-    typeof totalSeconds === "number" &&
-    typeof elapsedSeconds === "number" &&
-    elapsedSeconds > totalSeconds;
+  const progressMode = getProgressMode(item);
   const confidence = normalizeStatus(item?.estimate_confidence);
   const completionTime = formatEstimatedTime(item?.estimated_completion_at);
-  const hasEstimate =
+  const etaSeconds = item?.estimated_eta_seconds;
+
+  if (progressMode === "queue") {
+    return {
+      progress,
+      etaLabel:
+        typeof item?.queue_position === "number" && item.queue_position > 0
+          ? "Aguardando a vez na fila interna"
+          : "Esperando o worker iniciar o job",
+      confidenceLabel: getConfidenceLabel(item) ?? undefined,
+      indicatorClassName: getEstimateIndicatorClassName(state.phase),
+    };
+  }
+
+  if (progressMode === "stalled" || state.phase === "delayed") {
+    return {
+      progress,
+      etaLabel: "Sem novos sinais recentes de progresso",
+      confidenceLabel: getConfidenceLabel(item) ?? undefined,
+      indicatorClassName: getEstimateIndicatorClassName(state.phase),
+    };
+  }
+
+  const hasScheduleSignal =
     typeof etaSeconds === "number" ||
-    typeof totalSeconds === "number" ||
-    typeof elapsedSeconds === "number";
+    typeof item?.estimated_total_seconds === "number" ||
+    typeof item?.estimated_completion_at === "string";
 
   return {
     progress,
-    etaLabel: isOverdue
-      ? "Acima da estimativa, mas ainda em processamento."
-      : typeof etaSeconds === "number" && etaSeconds > 0
+    etaLabel:
+      typeof etaSeconds === "number" && etaSeconds > 0
         ? `~${formatDuration(etaSeconds)} restantes`
-        : hasEstimate
+        : hasScheduleSignal
           ? "Finalizando a atualizacao..."
           : "Estimativa ainda indisponivel",
     completionLabel:
       (confidence === "medium" || confidence === "high") && completionTime
         ? `Previsao: ${completionTime}`
         : undefined,
-    confidenceLabel: getConfidenceLabel(item?.estimate_confidence) ?? undefined,
+    confidenceLabel: getConfidenceLabel(item) ?? undefined,
     indicatorClassName: getEstimateIndicatorClassName(state.phase),
   };
 }
@@ -408,27 +472,71 @@ export function hydrateRefreshState(
   initialStatus: RefreshStatusItem | null | undefined,
   nowMs = Date.now(),
 ): RefreshMachineState {
-  if (isActiveRefreshStatus(initialStatus?.last_status) && initialStatus) {
+  if (!initialStatus) {
+    return createIdleRefreshState();
+  }
+
+  const trackingState = getTrackingState(initialStatus);
+
+  if (trackingState === "queued" || trackingState === "running") {
     return buildActiveState(
-      normalizeStatus(initialStatus.last_status) as "queued" | "running",
+      trackingState as "queued" | "running",
       initialStatus,
       nowMs,
     );
   }
 
-  if (normalizeStatus(initialStatus?.last_status) === "no_data" && initialStatus) {
+  if (trackingState === "stalled") {
+    if (hasReadableData(initialStatus)) {
+      return createIdleRefreshState();
+    }
+
+    return {
+      phase: "delayed",
+      startedAt: parseTimestamp(initialStatus.last_attempt_at) ?? nowMs,
+      currentItem: initialStatus,
+      lastKnownActiveItem: initialStatus,
+      failureCount: 0,
+      canRequestAgain: initialStatus.is_retry_allowed ?? false,
+      notice: initialStatus.status_reason_message ?? null,
+      terminalMessage: null,
+    };
+  }
+
+  if (hasReadableData(initialStatus)) {
+    return createIdleRefreshState();
+  }
+
+  if (trackingState === "no_data") {
     return {
       phase: "no_data",
       startedAt: parseTimestamp(initialStatus.last_attempt_at) ?? nowMs,
       currentItem: initialStatus,
       lastKnownActiveItem: null,
       failureCount: 0,
-      canRequestAgain: true,
+      canRequestAgain: initialStatus.is_retry_allowed ?? true,
       notice: null,
       terminalMessage:
+        initialStatus.status_reason_message ??
         initialStatus.progress_message ??
         initialStatus.last_error ??
         "Nenhuma demonstracao foi encontrada para o intervalo solicitado.",
+    };
+  }
+
+  if (trackingState === "error") {
+    return {
+      phase: "terminal_error",
+      startedAt: parseTimestamp(initialStatus.last_attempt_at) ?? nowMs,
+      currentItem: initialStatus,
+      lastKnownActiveItem: null,
+      failureCount: 0,
+      canRequestAgain: initialStatus.is_retry_allowed ?? false,
+      notice: null,
+      terminalMessage:
+        initialStatus.status_reason_message ??
+        initialStatus.last_error ??
+        "Nao foi possivel concluir a atualizacao desta empresa.",
     };
   }
 
@@ -461,8 +569,11 @@ export function createDelayedRefreshState(
     phase: "delayed",
     currentItem: state.currentItem ?? state.lastKnownActiveItem,
     failureCount: 0,
-    canRequestAgain: false,
-    notice: null,
+    canRequestAgain: state.currentItem?.is_retry_allowed ?? false,
+    notice:
+      state.currentItem?.status_reason_message ??
+      state.notice ??
+      null,
   };
 }
 
@@ -538,8 +649,6 @@ export function applyRefreshStatusResult(
     return state;
   }
 
-  const status = normalizeStatus(item?.last_status);
-
   if (!item) {
     if (source === "manual") {
       return {
@@ -565,56 +674,85 @@ export function applyRefreshStatusResult(
     };
   }
 
-  if (status === "success") {
+  const trackingState = getTrackingState(item);
+
+  if (trackingState === "success") {
     return {
       ...state,
       phase: "success",
       currentItem: item,
       failureCount: 0,
       canRequestAgain: false,
-      notice: null,
+      notice:
+        item.status_reason_message ??
+        (hasReadableData(item)
+          ? "Dados disponiveis! Recarregando..."
+          : "Atualizacao concluida."),
       terminalMessage: null,
     };
   }
 
-  if (status === "no_data") {
+  if (trackingState === "no_data") {
     return {
       ...state,
       phase: "no_data",
       currentItem: item,
       failureCount: 0,
-      canRequestAgain: true,
+      canRequestAgain: item.is_retry_allowed ?? true,
       notice: null,
       terminalMessage:
+        item.status_reason_message ??
         item.progress_message ??
         item.last_error ??
         "Nenhuma demonstracao foi encontrada para o intervalo solicitado.",
     };
   }
 
-  if (TERMINAL_REFRESH_STATUSES.has(status)) {
+  if (trackingState === "error" || TERMINAL_REFRESH_STATUSES.has(trackingState)) {
     return {
       ...state,
       phase: "terminal_error",
       currentItem: item,
       failureCount: 0,
-      canRequestAgain: false,
+      canRequestAgain: item.is_retry_allowed ?? false,
       notice: null,
       terminalMessage:
+        item.status_reason_message ??
         item.last_error ??
         "Nao foi possivel concluir a atualizacao desta empresa.",
     };
   }
 
-  if (status === "queued" || status === "running") {
-    return buildActiveState(status, item, nowMs, state);
+  if (trackingState === "queued" || trackingState === "running") {
+    return buildActiveState(
+      trackingState as "queued" | "running",
+      item,
+      nowMs,
+      state,
+    );
+  }
+
+  if (trackingState === "stalled") {
+    return {
+      ...createDelayedRefreshState(state),
+      currentItem: item,
+      lastKnownActiveItem: item,
+      startedAt:
+        parseTimestamp(item.last_attempt_at) ??
+        state.startedAt ??
+        nowMs,
+      canRequestAgain: item.is_retry_allowed ?? false,
+      notice:
+        item.status_reason_message ??
+        "A ultima solicitacao perdeu previsibilidade.",
+    };
   }
 
   if (source === "manual") {
     return {
       ...createDelayedRefreshState(state),
-      canRequestAgain: true,
-      notice: "Nenhum refresh ativo foi encontrado agora.",
+      canRequestAgain: item.is_retry_allowed ?? true,
+      notice: item.status_reason_message ?? "Nenhum refresh ativo foi encontrado agora.",
     };
   }
 
@@ -625,6 +763,7 @@ export function getRefreshViewModel(
   state: RefreshMachineState,
 ): RefreshViewModel {
   const estimate = buildRefreshEstimate(state);
+  const currentItem = state.currentItem;
 
   switch (state.phase) {
     case "submitting":
@@ -695,20 +834,18 @@ export function getRefreshViewModel(
     case "delayed":
       return {
         showCard: true,
-        title: "Atualizacao em andamento",
-        message: "Esta atualizacao esta demorando mais que o normal.",
-        detail: state.notice
-          ? `${state.notice} ${
-              state.canRequestAgain
-                ? "Se os dados ainda nao apareceram, voce pode solicitar novamente."
-                : ""
-            }`.trim()
-          : "O acompanhamento automatico foi pausado para evitar consultas repetidas. Atualize o status manualmente.",
-        stepLabel: "Demorado",
+        title: "Atualizacao sem sinais recentes",
+        message:
+          state.notice ??
+          "Esta solicitacao perdeu previsibilidade e precisa de uma nova checagem.",
+        detail: state.canRequestAgain
+          ? "Atualize o status agora. Se a solicitacao ja tiver expirado, voce tambem pode pedir novamente."
+          : "Atualize o status manualmente para verificar se o processamento voltou a responder.",
+        stepLabel: "Travado",
         stepClassName: getBadgeClassName(state.phase),
         isDestructive: false,
         estimate,
-        requestButtonLabel: "Atualizacao demorada",
+        requestButtonLabel: "Status em analise",
         requestButtonDisabled: true,
         showManualStatusButton: true,
         showRequestAgainButton: state.canRequestAgain,
@@ -716,12 +853,15 @@ export function getRefreshViewModel(
     case "no_data":
       return {
         showCard: true,
-        title: "Nenhum dado encontrado",
+        title: hasReadableData(currentItem)
+          ? "Nenhum novo demonstrativo encontrado"
+          : "Nenhum dado encontrado",
         message:
           state.terminalMessage ??
           "Nenhuma demonstracao foi encontrada para o intervalo solicitado.",
-        detail:
-          "Esse resultado e terminal e informativo. Voce pode solicitar novamente depois, se necessario.",
+        detail: hasReadableData(currentItem)
+          ? "A leitura atual da empresa continua disponivel. Voce pode tentar novamente se esperar novos documentos."
+          : "Esse resultado e terminal e informativo. Voce pode solicitar novamente depois, se necessario.",
         stepLabel: "Sem dados",
         stepClassName: getBadgeClassName(state.phase),
         isDestructive: false,
@@ -753,10 +893,9 @@ export function getRefreshViewModel(
         showCard: true,
         title: "Atualizacao concluida",
         message: state.notice ?? "Dados disponiveis! Recarregando...",
-        detail:
-          state.notice === null
-            ? "A leitura detalhada desta empresa sera atualizada agora."
-            : "A pagina sera atualizada para refletir o estado mais recente.",
+        detail: hasReadableData(currentItem)
+          ? "A pagina sera atualizada para refletir a nova leitura disponivel."
+          : "A pagina sera atualizada para refletir o estado mais recente.",
         stepLabel: "Concluido",
         stepClassName: getBadgeClassName(state.phase),
         isDestructive: false,
@@ -776,7 +915,7 @@ export function getRefreshViewModel(
         stepClassName: getBadgeClassName("queued"),
         isDestructive: false,
         estimate,
-        requestButtonLabel: "Solicitar dados financeiros",
+        requestButtonLabel: "Atualizar leitura da CVM",
         requestButtonDisabled: false,
         showManualStatusButton: false,
         showRequestAgainButton: false,

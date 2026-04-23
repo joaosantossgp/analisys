@@ -199,6 +199,9 @@ class RefreshDispatchPayload(BaseModel):
     job_id: str | None = None
     accepted_at: str
     message: str
+    status_reason_code: str | None = None
+    status_reason_message: str | None = None
+    is_retry_allowed: bool = False
 
 
 class RankedRefreshQueueItemPayload(BaseModel):
@@ -252,6 +255,15 @@ class RefreshStatusPayload(BaseModel):
     elapsed_seconds: int | None = None
     estimated_completion_at: str | None = None
     estimate_confidence: str | None = None
+    tracking_state: str | None = None
+    progress_mode: str | None = None
+    is_retry_allowed: bool = False
+    status_reason_code: str | None = None
+    status_reason_message: str | None = None
+    has_readable_current_data: bool = False
+    readable_years_count: int = 0
+    latest_attempt_outcome: str | None = None
+    source_label: str | None = None
 
 
 class HealthYearCoveragePayload(BaseModel):

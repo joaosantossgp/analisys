@@ -95,6 +95,12 @@ class CVMReadService:
     REFRESH_ESTIMATE_PROGRESS_FLOOR = 12.0
     REFRESH_ESTIMATE_PROGRESS_CEILING = 92.0
     REFRESH_ESTIMATE_PROGRESS_CAP = 96.0
+    REFRESH_QUEUE_PROGRESS_BASE = 14.0
+    REFRESH_QUEUE_PROGRESS_STEP = 4.0
+    REFRESH_QUEUE_POSITION_STEP_SECONDS = 2 * 60
+    REFRESH_RUNNING_PROGRESS_CAP = 88.0
+    REFRESH_RUNNING_STALL_SECONDS = 3 * 60
+    REFRESH_QUEUE_STALL_SECONDS = 12 * 60
 
     def __init__(self, settings: AppSettings | None = None):
         self.settings = settings or get_settings()
@@ -312,8 +318,18 @@ class CVMReadService:
         )
         return CompanyFiltersDTO(sectors=sectors)
 
-    def suggest_companies(self, q: str, limit: int) -> tuple[CompanySuggestionDTO, ...]:
-        df = self.query_layer.get_company_suggestions(q=q, limit=limit)
+    def suggest_companies(
+        self,
+        q: str,
+        limit: int,
+        *,
+        ready_only: bool = False,
+    ) -> tuple[CompanySuggestionDTO, ...]:
+        df = self.query_layer.get_company_suggestions(
+            q=q,
+            limit=limit,
+            ready_only=ready_only,
+        )
         local_items = tuple(
             CompanySuggestionDTO(
                 cd_cvm=int(row["cd_cvm"]),
@@ -323,7 +339,7 @@ class CVMReadService:
             )
             for _, row in df.iterrows()
         )
-        if not str(q or "").strip() or len(local_items) >= int(limit):
+        if ready_only or not str(q or "").strip() or len(local_items) >= int(limit):
             return local_items[: int(limit)]
 
         seen_codes = {item.cd_cvm for item in local_items}
@@ -658,19 +674,30 @@ class CVMReadService:
         )
         with self.engine.connect() as conn:
             rows = conn.execute(query, {"cd_cvm": int(cd_cvm) if cd_cvm is not None else None}).mappings().all()
+        cd_cvms = [int(row["cd_cvm"]) for row in rows]
+        active_jobs = self._load_active_refresh_jobs_map(cd_cvms)
+        readable_years_map = (
+            self.query_layer.get_company_years_map(cd_cvms)
+            if cd_cvms
+            else {}
+        )
         duration_profile = (
             self._estimate_refresh_duration_profile()
             if any(
                 str(row.get("last_status") or "").strip().lower()
                 in self.ACTIVE_REFRESH_STATUSES
                 for row in rows
-            )
+            ) or active_jobs
             else None
         )
         return [
             self._build_refresh_status_dto(
                 row,
                 duration_profile=duration_profile,
+                active_job=active_jobs.get(int(row["cd_cvm"])),
+                readable_years_count=len(
+                    readable_years_map.get(int(row["cd_cvm"]), ())
+                ),
             )
             for row in rows
         ]
@@ -680,10 +707,28 @@ class CVMReadService:
         row: dict[str, Any],
         *,
         duration_profile: dict[str, Any] | None,
+        active_job: dict[str, Any] | None,
+        readable_years_count: int,
     ) -> RefreshStatusDTO:
+        has_readable_current_data = int(readable_years_count or 0) > 0
+        latest_attempt_outcome = self._normalize_refresh_status(row.get("last_status")) or None
+        tracking_state = self._resolve_refresh_tracking_state(
+            row,
+            active_job=active_job,
+            duration_profile=duration_profile,
+            has_readable_current_data=has_readable_current_data,
+        )
         estimate = self._estimate_refresh_runtime(
             row,
             duration_profile=duration_profile,
+            active_job=active_job,
+            tracking_state=tracking_state,
+        )
+        status_reason_code, status_reason_message = self._build_refresh_status_reason(
+            row,
+            tracking_state=tracking_state,
+            active_job=active_job,
+            has_readable_current_data=has_readable_current_data,
         )
         return RefreshStatusDTO(
             cd_cvm=int(row["cd_cvm"]),
@@ -736,6 +781,21 @@ class CVMReadService:
             elapsed_seconds=estimate["elapsed_seconds"],
             estimated_completion_at=estimate["estimated_completion_at"],
             estimate_confidence=estimate["estimate_confidence"],
+            tracking_state=tracking_state,
+            progress_mode=estimate["progress_mode"],
+            is_retry_allowed=self._is_refresh_retry_allowed(
+                tracking_state=tracking_state,
+                active_job=active_job,
+            ),
+            status_reason_code=status_reason_code,
+            status_reason_message=status_reason_message,
+            has_readable_current_data=has_readable_current_data,
+            readable_years_count=int(readable_years_count or 0),
+            latest_attempt_outcome=latest_attempt_outcome,
+            source_label=self._build_refresh_source_label(
+                row.get("source_scope"),
+                has_readable_current_data=has_readable_current_data,
+            ),
         )
 
     def request_company_refresh(self, cd_cvm: int) -> RefreshDispatchDTO:
@@ -785,6 +845,11 @@ class CVMReadService:
                 job_id=None,
                 accepted_at=str(projection["accepted_at"]),
                 message=str(projection["message"]),
+                status_reason_code="already_current",
+                status_reason_message=(
+                    "Esta empresa ja estava atualizada para a janela padrao."
+                ),
+                is_retry_allowed=False,
             )
 
         job = self.refresh_job_repository.enqueue_job(
@@ -808,6 +873,11 @@ class CVMReadService:
                 job.progress_message
                 or "Solicitacao enfileirada para processamento interno."
             ),
+            status_reason_code="refresh_queued",
+            status_reason_message=(
+                "Solicitacao aceita e aguardando processamento interno."
+            ),
+            is_retry_allowed=False,
         )
 
     def request_top_ranked_historical_refresh(
@@ -1398,6 +1468,214 @@ class CVMReadService:
             for cd_cvm, years in years_map.items()
         }
 
+    @staticmethod
+    def _normalize_refresh_status(value: Any) -> str:
+        return str(value or "").strip().lower()
+
+    def _resolve_refresh_tracking_state(
+        self,
+        row: dict[str, Any],
+        *,
+        active_job: dict[str, Any] | None,
+        duration_profile: dict[str, Any] | None,
+        has_readable_current_data: bool,
+    ) -> str:
+        last_status = self._normalize_refresh_status(row.get("last_status"))
+        if last_status in {"success", "no_data", "error"}:
+            return last_status
+
+        active_state = (
+            self._normalize_refresh_status(active_job.get("state"))
+            if active_job is not None
+            else ""
+        )
+        if active_state in self.ACTIVE_REFRESH_STATUSES:
+            if self._is_refresh_tracking_stalled(
+                row,
+                active_job=active_job,
+                duration_profile=duration_profile,
+                active_state=active_state,
+            ):
+                return "stalled"
+            return active_state
+
+        if last_status in self.ACTIVE_REFRESH_STATUSES:
+            return "stalled"
+
+        return "success" if has_readable_current_data else "idle"
+
+    def _is_refresh_tracking_stalled(
+        self,
+        row: dict[str, Any],
+        *,
+        active_job: dict[str, Any] | None,
+        duration_profile: dict[str, Any] | None,
+        active_state: str,
+    ) -> bool:
+        now = datetime.now(timezone.utc)
+        if active_state == "running":
+            activity_at = (
+                self._parse_timestamp(active_job.get("heartbeat_at"))
+                or self._parse_timestamp(active_job.get("started_at"))
+                or self._parse_timestamp(row.get("heartbeat_at"))
+                or self._parse_timestamp(row.get("started_at"))
+                or self._parse_timestamp(active_job.get("requested_at"))
+                or self._parse_timestamp(row.get("last_attempt_at"))
+            )
+            if activity_at is None:
+                return False
+            return (
+                now - activity_at
+            ).total_seconds() >= self.REFRESH_RUNNING_STALL_SECONDS
+
+        if active_state == "queued":
+            requested_at = (
+                self._parse_timestamp(active_job.get("requested_at"))
+                or self._parse_timestamp(row.get("last_attempt_at"))
+            )
+            if requested_at is None:
+                return False
+            queue_position = (
+                int(row["queue_position"])
+                if row.get("queue_position") is not None
+                else 0
+            )
+            typical_total_seconds = int(
+                round(
+                    float(
+                        (duration_profile or {}).get("typical_total_seconds")
+                        or self.REFRESH_ESTIMATE_DEFAULT_TOTAL_SECONDS
+                    )
+                )
+            )
+            threshold_seconds = max(
+                self.REFRESH_QUEUE_STALL_SECONDS,
+                typical_total_seconds
+                + 120
+                + (min(max(queue_position, 0), 5) * self.REFRESH_QUEUE_POSITION_STEP_SECONDS),
+            )
+            return (
+                now - requested_at
+            ).total_seconds() >= threshold_seconds
+
+        return False
+
+    def _build_refresh_status_reason(
+        self,
+        row: dict[str, Any],
+        *,
+        tracking_state: str,
+        active_job: dict[str, Any] | None,
+        has_readable_current_data: bool,
+    ) -> tuple[str, str]:
+        last_status = self._normalize_refresh_status(row.get("last_status"))
+        progress_message = self._clean_optional_text(row.get("progress_message"))
+        last_error = self._clean_optional_text(row.get("last_error"))
+        normalized_progress_message = str(progress_message or "").lower()
+        normalized_last_error = str(last_error or "").lower()
+
+        if tracking_state == "queued":
+            return (
+                "refresh_queued",
+                "Solicitacao recebida e aguardando processamento interno.",
+            )
+
+        if tracking_state == "running":
+            return (
+                "refresh_running",
+                "Os demonstrativos desta companhia estao sendo atualizados agora.",
+            )
+
+        if tracking_state == "stalled":
+            if active_job is None and last_status in self.ACTIVE_REFRESH_STATUSES:
+                return (
+                    "refresh_tracking_lost",
+                    "A ultima solicitacao nao aparece mais como ativa. Atualize o status ou tente novamente.",
+                )
+            return (
+                "refresh_stalled",
+                "A solicitacao esta acima do esperado e sem sinais recentes de progresso.",
+            )
+
+        if last_status == "success":
+            if "ja atualizada" in normalized_progress_message:
+                return (
+                    "already_current",
+                    "Esta empresa ja estava atualizada para a janela padrao.",
+                )
+            if has_readable_current_data:
+                return (
+                    "refresh_completed",
+                    "Dados prontos para leitura nesta pagina.",
+                )
+            return ("refresh_completed", "Processamento concluido.")
+
+        if last_status == "no_data":
+            if has_readable_current_data:
+                return (
+                    "no_new_financial_history",
+                    "A ultima tentativa nao encontrou novos demonstrativos, mas a leitura atual continua disponivel.",
+                )
+            return (
+                "no_financial_history_found",
+                "Ainda nao foi encontrada uma serie anual suficiente para liberar esta leitura.",
+            )
+
+        if last_status == "error":
+            if "expirou" in normalized_progress_message:
+                return (
+                    "refresh_stalled",
+                    "A solicitacao expirou antes de terminar. Voce pode tentar novamente.",
+                )
+            if "no financial rows found" in normalized_last_error:
+                return (
+                    "no_financial_history_found",
+                    "Nenhuma serie anual utilizavel foi encontrada para esta empresa.",
+                )
+            return (
+                "refresh_failed",
+                "Nao foi possivel concluir a atualizacao desta empresa agora.",
+            )
+
+        if has_readable_current_data:
+            return ("local_data_ready", "Leitura local pronta para consulta.")
+
+        return (
+            "no_local_history_yet",
+            "Esta empresa ainda nao tem historico anual processado na base local.",
+        )
+
+    @staticmethod
+    def _build_refresh_source_label(
+        source_scope: Any,
+        *,
+        has_readable_current_data: bool,
+    ) -> str:
+        normalized_scope = str(source_scope or "").strip().lower()
+        if normalized_scope == "local":
+            return (
+                "Base local materializada"
+                if has_readable_current_data
+                else "Base local"
+            )
+        if normalized_scope == "on_demand":
+            return "Solicitacao on-demand"
+        if normalized_scope == "on_demand_bootstrap":
+            return "Primeira carga on-demand"
+        if normalized_scope == "ranked_backfill":
+            return "Backfill historico"
+        return "Leitura CVM processada"
+
+    @staticmethod
+    def _is_refresh_retry_allowed(
+        *,
+        tracking_state: str,
+        active_job: dict[str, Any] | None,
+    ) -> bool:
+        if tracking_state in {"no_data", "error"}:
+            return True
+        return tracking_state == "stalled" and active_job is None
+
     def _load_refresh_status_map(
         self,
         cd_cvms: list[int] | None = None,
@@ -1421,6 +1699,51 @@ class CVMReadService:
         with self.engine.connect() as conn:
             rows = conn.execute(query, params).mappings().all()
         return {int(row["cd_cvm"]): dict(row) for row in rows}
+
+    def _load_active_refresh_jobs_map(
+        self,
+        cd_cvms: list[int] | None = None,
+    ) -> dict[int, dict[str, Any]]:
+        if not inspect(self.engine).has_table("refresh_jobs"):
+            return {}
+
+        if cd_cvms:
+            query = text(
+                """
+                SELECT *
+                FROM refresh_jobs
+                WHERE state IN ('queued', 'running')
+                  AND cd_cvm IN :cd_cvms
+                ORDER BY
+                    CASE WHEN state = 'running' THEN 0 ELSE 1 END,
+                    requested_at ASC,
+                    id ASC
+                """
+            ).bindparams(bindparam("cd_cvms", expanding=True))
+            params = {"cd_cvms": [int(cd_cvm) for cd_cvm in cd_cvms]}
+        else:
+            query = text(
+                """
+                SELECT *
+                FROM refresh_jobs
+                WHERE state IN ('queued', 'running')
+                ORDER BY
+                    CASE WHEN state = 'running' THEN 0 ELSE 1 END,
+                    requested_at ASC,
+                    id ASC
+                """
+            )
+            params = {}
+
+        with self.engine.connect() as conn:
+            rows = conn.execute(query, params).mappings().all()
+
+        active_jobs: dict[int, dict[str, Any]] = {}
+        for row in rows:
+            cd_cvm = int(row["cd_cvm"])
+            if cd_cvm not in active_jobs:
+                active_jobs[cd_cvm] = dict(row)
+        return active_jobs
 
     def _default_refresh_year_span(self) -> int:
         start_year, end_year = self._resolve_refresh_range(
@@ -1495,9 +1818,15 @@ class CVMReadService:
         row: dict[str, Any],
         *,
         duration_profile: dict[str, Any] | None,
+        active_job: dict[str, Any] | None,
+        tracking_state: str,
     ) -> dict[str, Any]:
-        last_status = str(row.get("last_status") or "").strip().lower()
-        if last_status not in self.ACTIVE_REFRESH_STATUSES:
+        active_state = (
+            self._normalize_refresh_status(active_job.get("state"))
+            if active_job is not None
+            else self._normalize_refresh_status(row.get("last_status"))
+        )
+        if tracking_state not in {"queued", "running", "stalled"}:
             return {
                 "estimated_progress_pct": None,
                 "estimated_eta_seconds": None,
@@ -1505,13 +1834,55 @@ class CVMReadService:
                 "elapsed_seconds": None,
                 "estimated_completion_at": None,
                 "estimate_confidence": None,
+                "progress_mode": "none",
             }
 
-        real_progress_estimate = self._estimate_refresh_runtime_from_real_progress(row)
+        real_progress_estimate = self._estimate_refresh_runtime_from_real_progress(
+            row,
+            tracking_state=tracking_state,
+        )
         if real_progress_estimate is not None:
             return real_progress_estimate
 
-        attempted_at = self._parse_timestamp(row.get("last_attempt_at"))
+        attempted_at = (
+            self._parse_timestamp(row.get("started_at"))
+            or self._parse_timestamp(row.get("last_attempt_at"))
+            or (
+                self._parse_timestamp(active_job.get("requested_at"))
+                if active_job is not None
+                else None
+            )
+        )
+        now = datetime.now(timezone.utc)
+        elapsed_seconds = (
+            max(0, int(round((now - attempted_at).total_seconds())))
+            if attempted_at is not None
+            else None
+        )
+
+        if active_state == "queued" and tracking_state != "running":
+            queue_position = (
+                int(row["queue_position"])
+                if row.get("queue_position") is not None
+                else 0
+            )
+            estimated_progress_pct = min(
+                32.0,
+                self.REFRESH_QUEUE_PROGRESS_BASE
+                + (min(max(queue_position, 0), 4) * self.REFRESH_QUEUE_PROGRESS_STEP),
+            )
+            if tracking_state == "stalled":
+                estimated_progress_pct = max(estimated_progress_pct, 22.0)
+            return {
+                "estimated_progress_pct": round(float(estimated_progress_pct), 1),
+                "estimated_eta_seconds": None,
+                "estimated_total_seconds": None,
+                "elapsed_seconds": elapsed_seconds,
+                "estimated_completion_at": None,
+                "estimate_confidence": "low",
+                "progress_mode": "stalled" if tracking_state == "stalled" else "queue",
+            }
+
         profile = duration_profile or self._estimate_refresh_duration_profile()
         typical_year_span = max(
             1.0,
@@ -1528,13 +1899,6 @@ class CVMReadService:
         estimated_total_seconds = max(
             60,
             int(round(typical_total_seconds * (current_year_span / typical_year_span))),
-        )
-
-        now = datetime.now(timezone.utc)
-        elapsed_seconds = (
-            max(0, int(round((now - attempted_at).total_seconds())))
-            if attempted_at is not None
-            else None
         )
         estimated_completion_at = (
             (
@@ -1560,13 +1924,24 @@ class CVMReadService:
             )
             if ratio > 1.0:
                 estimated_progress_pct = min(
-                    self.REFRESH_ESTIMATE_PROGRESS_CAP,
+                    self.REFRESH_RUNNING_PROGRESS_CAP,
                     estimated_progress_pct + min(6.0, (ratio - 1.0) * 10.0),
                 )
             estimated_eta_seconds = max(0, estimated_total_seconds - elapsed_seconds)
 
-        if last_status == "running":
+        if active_state == "running":
             estimated_progress_pct = max(estimated_progress_pct, 28.0)
+
+        if tracking_state == "stalled":
+            return {
+                "estimated_progress_pct": round(float(estimated_progress_pct), 1),
+                "estimated_eta_seconds": None,
+                "estimated_total_seconds": int(estimated_total_seconds),
+                "elapsed_seconds": elapsed_seconds,
+                "estimated_completion_at": None,
+                "estimate_confidence": str(profile.get("confidence") or "low"),
+                "progress_mode": "stalled",
+            }
 
         return {
             "estimated_progress_pct": round(float(estimated_progress_pct), 1),
@@ -1575,11 +1950,14 @@ class CVMReadService:
             "elapsed_seconds": elapsed_seconds,
             "estimated_completion_at": estimated_completion_at,
             "estimate_confidence": str(profile.get("confidence") or "low"),
+            "progress_mode": "time_window",
         }
 
     def _estimate_refresh_runtime_from_real_progress(
         self,
         row: dict[str, Any],
+        *,
+        tracking_state: str,
     ) -> dict[str, Any] | None:
         stage = str(row.get("stage") or "").strip().lower()
         if stage not in REFRESH_STAGE_WEIGHTS:
@@ -1633,6 +2011,10 @@ class CVMReadService:
                     started_at + timedelta(seconds=int(estimated_total_seconds))
                 ).replace(microsecond=0).isoformat()
 
+        if tracking_state == "stalled":
+            estimated_eta_seconds = None
+            estimated_completion_at = None
+
         return {
             "estimated_progress_pct": round(float(progress_pct), 1),
             "estimated_eta_seconds": estimated_eta_seconds,
@@ -1640,6 +2022,9 @@ class CVMReadService:
             "elapsed_seconds": elapsed_seconds,
             "estimated_completion_at": estimated_completion_at,
             "estimate_confidence": "high",
+            "progress_mode": (
+                "stalled" if tracking_state == "stalled" else "real_progress"
+            ),
         }
 
     def _estimate_refresh_throughput(self) -> dict[str, Any]:

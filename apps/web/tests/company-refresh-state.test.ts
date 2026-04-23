@@ -47,6 +47,15 @@ function buildRefreshStatusItem(
     elapsed_seconds: null,
     estimated_completion_at: null,
     estimate_confidence: null,
+    tracking_state: null,
+    progress_mode: null,
+    is_retry_allowed: false,
+    status_reason_code: null,
+    status_reason_message: null,
+    has_readable_current_data: false,
+    readable_years_count: 0,
+    latest_attempt_outcome: null,
+    source_label: null,
     ...overrides,
   };
 }
@@ -240,7 +249,11 @@ test("delayed state appears after the timeout threshold without turning destruct
   assert.equal(delayedState.phase, "delayed");
   assert.equal(view.isDestructive, false);
   assert.equal(view.showManualStatusButton, true);
-  assert.equal(view.message, "Esta atualizacao esta demorando mais que o normal.");
+  assert.equal(
+    view.message,
+    "Esta solicitacao perdeu previsibilidade e precisa de uma nova checagem.",
+  );
+  assert.equal(view.stepLabel, "Travado");
 });
 
 test("manual refresh from delayed enables request again when no active status is found", () => {
@@ -282,6 +295,50 @@ test("no_data is treated as a terminal informative state", () => {
   assert.equal(view.isDestructive, false);
   assert.equal(view.message, "Nenhuma demonstracao encontrada para 2010-2025.");
   assert.equal(view.requestButtonDisabled, false);
+});
+
+test("initial terminal no_data stays neutral when readable data already exists", () => {
+  const state = hydrateRefreshState(
+    buildRefreshStatusItem({
+      last_status: "no_data",
+      tracking_state: "no_data",
+      has_readable_current_data: true,
+      readable_years_count: 8,
+      status_reason_message:
+        "A ultima tentativa nao encontrou novos demonstrativos, mas a leitura atual continua disponivel.",
+    }),
+    Date.now(),
+  );
+
+  assert.equal(state.phase, "idle");
+  assert.equal(getRefreshViewModel(state).showCard, false);
+});
+
+test("stalled tracking state keeps a manual recovery path", () => {
+  const state = applyRefreshStatusResult(
+    createDispatchedRefreshState(Date.now()),
+    buildRefreshStatusItem({
+      last_status: "queued",
+      tracking_state: "stalled",
+      progress_mode: "stalled",
+      estimated_progress_pct: 22,
+      status_reason_message:
+        "A ultima solicitacao nao aparece mais como ativa. Atualize o status ou tente novamente.",
+      is_retry_allowed: true,
+    }),
+    Date.now(),
+  );
+
+  assert.equal(state.phase, "delayed");
+  assert.equal(state.canRequestAgain, true);
+
+  const view = getRefreshViewModel(state);
+  assert.equal(view.showManualStatusButton, true);
+  assert.equal(view.showRequestAgainButton, true);
+  assert.equal(
+    view.message,
+    "A ultima solicitacao nao aparece mais como ativa. Atualize o status ou tente novamente.",
+  );
 });
 
 test("already_current uses the success state for immediate reload", () => {
