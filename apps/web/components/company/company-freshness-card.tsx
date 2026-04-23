@@ -5,6 +5,10 @@ import {
   getUserFacingErrorMessage,
   type RefreshStatusItem,
 } from "@/lib/api";
+import {
+  type FreshnessBadgeTone,
+  getCompanyFreshnessCopy,
+} from "@/lib/company-refresh-state";
 import { cn } from "@/lib/utils";
 
 type CompanyFreshnessCardProps = {
@@ -69,96 +73,25 @@ function formatAbsolute(dateIso: string): string | null {
   return ABSOLUTE_TIME_FORMATTER.format(target);
 }
 
-function getStatusBadge(freshness: RefreshStatusItem | null) {
-  const trackingState = String(freshness?.tracking_state ?? "").toLowerCase();
-
-  if (trackingState === "queued" || trackingState === "running") {
-    return {
-      label: "Atualizando agora",
-      className:
-        "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300",
-    };
+function getStatusBadgeClassName(tone: FreshnessBadgeTone): string {
+  switch (tone) {
+    case "active":
+      return "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300";
+    case "ready":
+      return "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
+    case "warning":
+      return "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300";
+    case "neutral":
+      return "border-border/70 bg-muted/55 text-muted-foreground";
+    default:
+      return "border-primary/20 bg-primary/8 text-primary/80";
   }
-
-  if (trackingState === "stalled") {
-    return {
-      label: "Sem sinais recentes",
-      className:
-        "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300",
-    };
-  }
-
-  if (freshness?.has_readable_current_data) {
-    return {
-      label: "Leitura pronta",
-      className:
-        "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-    };
-  }
-
-  return {
-    label: "Historico pendente",
-    className:
-      "border-primary/20 bg-primary/8 text-primary/80",
-  };
-}
-
-function getSummaryCopy(freshness: RefreshStatusItem | null): {
-  title: string;
-  description: string;
-} {
-  const trackingState = String(freshness?.tracking_state ?? "").toLowerCase();
-  const latestOutcome = String(
-    freshness?.latest_attempt_outcome ?? freshness?.last_status ?? "",
-  ).toLowerCase();
-
-  if (trackingState === "queued" || trackingState === "running") {
-    return {
-      title: "Atualizacao em andamento",
-      description:
-        freshness?.status_reason_message ??
-        "A leitura atual continua disponivel enquanto o refresh acompanha a fila interna e o processamento.",
-    };
-  }
-
-  if (trackingState === "stalled") {
-    return {
-      title: "Atualizacao sem previsao firme",
-      description:
-        freshness?.status_reason_message ??
-        "A ultima solicitacao perdeu sinais recentes de progresso. O acompanhamento abaixo permite conferir se vale tentar de novo.",
-    };
-  }
-
-  if (freshness?.has_readable_current_data && latestOutcome === "no_data") {
-    return {
-      title: "Leitura atual continua valida",
-      description:
-        freshness?.status_reason_message ??
-        "A ultima tentativa nao encontrou novos demonstrativos, mas a pagina continua com uma leitura local utilizavel.",
-    };
-  }
-
-  if (freshness?.has_readable_current_data) {
-    return {
-      title: "Dados prontos para leitura",
-      description:
-        "Use este controle quando quiser confirmar se houve novos demonstrativos ou atualizar a serie local desta empresa.",
-    };
-  }
-
-  return {
-    title: "Primeira leitura ainda pendente",
-    description:
-      freshness?.status_reason_message ??
-      "Esta empresa ainda nao tem historico anual liberado na base local. A solicitacao abaixo dispara a primeira carga on-demand.",
-  };
 }
 
 export async function CompanyFreshnessCard({
   cdCvm,
 }: CompanyFreshnessCardProps) {
-  let freshness = null;
+  let freshness: RefreshStatusItem | null = null;
   let fetchError: string | null = null;
 
   try {
@@ -167,8 +100,7 @@ export async function CompanyFreshnessCard({
     fetchError = getUserFacingErrorMessage(error);
   }
 
-  const summary = getSummaryCopy(freshness);
-  const statusBadge = getStatusBadge(freshness);
+  const summary = getCompanyFreshnessCopy(freshness);
   const materializedAt =
     freshness?.read_model_updated_at ?? freshness?.last_success_at ?? null;
   const sourceLabel = freshness?.source_label ?? "Leitura CVM processada";
@@ -190,10 +122,10 @@ export async function CompanyFreshnessCard({
           <span
             className={cn(
               "rounded-full border px-2.5 py-1 text-[0.64rem] font-medium uppercase tracking-[0.16em]",
-              statusBadge.className,
+              getStatusBadgeClassName(summary.badgeTone),
             )}
           >
-            {statusBadge.label}
+            {summary.badgeLabel}
           </span>
           <span className="rounded-full border border-border/65 px-2.5 py-1 text-[0.64rem] font-medium uppercase tracking-[0.16em] text-muted-foreground">
             {sourceLabel}
@@ -235,11 +167,19 @@ export async function CompanyFreshnessCard({
           <dd className="text-right text-foreground">{readableYearsLabel}</dd>
         </div>
         <div className="flex items-baseline justify-between gap-3">
-          <dt className="text-muted-foreground">Ultimo resultado</dt>
+          <dt className="text-muted-foreground">{summary.latestResultLabel}</dt>
           <dd className="max-w-[18rem] text-right text-foreground/85">
-            {freshness?.status_reason_message ?? "Sem tentativa recente registrada"}
+            {summary.latestResultDescription}
           </dd>
         </div>
+        {summary.retryHint ? (
+          <div className="flex items-baseline justify-between gap-3">
+            <dt className="text-muted-foreground">Proximo passo</dt>
+            <dd className="max-w-[18rem] text-right text-foreground/85">
+              {summary.retryHint}
+            </dd>
+          </div>
+        ) : null}
       </dl>
 
       {fetchError ? (
