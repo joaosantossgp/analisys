@@ -470,6 +470,74 @@ class CVMQueryLayer:
             years_map.setdefault(int(row["CD_CVM"]), []).append(int(row["REPORT_YEAR"]))
         return {cd_cvm: tuple(years) for cd_cvm, years in years_map.items()}
 
+    @slow_query_warn(threshold_ms=200)
+    def get_companies_by_cvm_ids(self, cvm_ids: list[int]) -> pd.DataFrame:
+        """Returns directory rows for a specific ordered set of cd_cvm values.
+
+        Result rows are returned in database order; callers are responsible for
+        re-applying the desired ordering (e.g. static market-cap rank).
+        Returns an empty DataFrame when cvm_ids is empty.
+        """
+        if not cvm_ids:
+            return pd.DataFrame()
+        unique_ids = [int(cd) for cd in cvm_ids]
+        placeholders = ", ".join(f":id_{i}" for i in range(len(unique_ids)))
+        params: dict[str, object] = {f"id_{i}": cd for i, cd in enumerate(unique_ids)}
+        sql = text(
+            f"""
+            SELECT
+                c.cd_cvm,
+                c.company_name,
+                COALESCE(c.ticker_b3, '') AS ticker_b3,
+                c.setor_analitico,
+                c.setor_cvm,
+                {_CANONICAL_SECTOR_SQL} AS sector_name,
+                COALESCE(COUNT(fr."CD_CVM"), 0) AS total_rows,
+                CASE WHEN COUNT(fr."CD_CVM") > 0 THEN 1 ELSE 0 END AS has_financial_data,
+                c.coverage_rank
+            FROM companies c
+            LEFT JOIN financial_reports fr ON fr."CD_CVM" = c.cd_cvm
+            WHERE c.cd_cvm IN ({placeholders})
+            GROUP BY c.cd_cvm, c.company_name, c.ticker_b3,
+                     c.setor_analitico, c.setor_cvm, c.coverage_rank
+            """
+        )
+        return pd.read_sql(sql, self.engine, params=params).reset_index(drop=True)
+
+    @slow_query_warn(threshold_ms=200)
+    def get_top_viewed_companies(self, limit: int = 10) -> pd.DataFrame:
+        """Returns top-N companies ordered by view_count DESC.
+
+        Falls back to coverage_rank ASC when view_count values are equal (or when
+        the company_views table is empty), matching the existing smart default.
+        """
+        sql = text(
+            f"""
+            SELECT
+                c.cd_cvm,
+                c.company_name,
+                COALESCE(c.ticker_b3, '') AS ticker_b3,
+                c.setor_analitico,
+                c.setor_cvm,
+                {_CANONICAL_SECTOR_SQL} AS sector_name,
+                COALESCE(COUNT(fr."CD_CVM"), 0) AS total_rows,
+                CASE WHEN COUNT(fr."CD_CVM") > 0 THEN 1 ELSE 0 END AS has_financial_data,
+                c.coverage_rank,
+                COALESCE(cv.view_count, 0) AS view_count
+            FROM companies c
+            LEFT JOIN financial_reports fr ON fr."CD_CVM" = c.cd_cvm
+            LEFT JOIN company_views cv ON cv.cd_cvm = c.cd_cvm
+            GROUP BY c.cd_cvm, c.company_name, c.ticker_b3,
+                     c.setor_analitico, c.setor_cvm, c.coverage_rank, cv.view_count
+            ORDER BY
+                COALESCE(cv.view_count, 0) DESC,
+                CASE WHEN c.coverage_rank IS NULL THEN 1 ELSE 0 END ASC,
+                c.coverage_rank ASC
+            LIMIT :limit
+            """
+        )
+        return pd.read_sql(sql, self.engine, params={"limit": int(limit)}).reset_index(drop=True)
+
     def _company_directory_filters(
         self,
         *,

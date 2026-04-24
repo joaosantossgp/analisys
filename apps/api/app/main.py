@@ -15,6 +15,7 @@ from sentry_sdk.integrations.starlette import StarletteIntegration
 
 from apps.api.app.dependencies import ApiError, ServiceUnavailableError, serialize_error
 from apps.api.app.presenters import ErrorResponsePayload
+from apps.api.app.routes.analytics import router as analytics_router
 from apps.api.app.routes.companies import router as companies_router
 from apps.api.app.routes.health import router as health_router
 from apps.api.app.routes.sectors import router as sectors_router
@@ -135,6 +136,7 @@ def create_app(
     app.include_router(companies_router)
     app.include_router(sectors_router)
     app.include_router(status_router)
+    app.include_router(analytics_router)
     return app
 
 

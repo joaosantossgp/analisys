@@ -61,6 +61,22 @@ from src.settings import AppSettings, get_settings
 
 EXPORT_STATEMENT_TYPES = ("DRE", "BPA", "BPP", "DFC", "DVA", "DMPL")
 
+# Top-10 B3 companies by approximate market cap, ordered largest-first.
+# cd_cvm values sourced from src/ticker_map.py.
+# Update this list when B3 composition changes significantly (roughly annual).
+POPULARES_CVM_IDS: tuple[int, ...] = (
+    9512,   # PETR4  – PETROBRAS
+    4170,   # VALE3  – VALE
+    19348,  # ITUB4  – ITAÚ UNIBANCO
+    906,    # BBDC4  – BANCO BRADESCO
+    1023,   # BBAS3  – BANCO DO BRASIL
+    22616,  # BPAC11 – BTG PACTUAL
+    23264,  # ABEV3  – AMBEV
+    5410,   # WEGE3  – WEG
+    24813,  # RENT3  – LOCALIZA
+    21610,  # B3SA3  – B3
+)
+
 
 class RefreshAlreadyActiveError(RuntimeError):
     """Raised when an internal on-demand refresh is already active."""
@@ -336,6 +352,79 @@ class CVMReadService:
                 sector=sector_slug,
             ),
         )
+
+    def get_populares_companies(self) -> CompanyDirectoryPage:
+        """Returns top-10 B3 companies by market cap in static rank order.
+
+        The ranking is maintained in POPULARES_CVM_IDS. Companies missing from
+        the local DB (e.g. during seeding) are silently omitted.
+        """
+        ids = list(POPULARES_CVM_IDS)
+        rows_df = self.query_layer.get_companies_by_cvm_ids(ids)
+        if not rows_df.empty:
+            order_map = {cd: i for i, cd in enumerate(ids)}
+            rows_df = rows_df.copy()
+            rows_df["_order"] = rows_df["cd_cvm"].map(lambda x: order_map.get(int(x), 999))
+            rows_df = rows_df.sort_values("_order").drop(columns=["_order"]).reset_index(drop=True)
+            years_map = self.query_layer.get_company_years_map(rows_df["cd_cvm"].tolist())
+            rows_df["anos_disponiveis"] = rows_df["cd_cvm"].map(lambda cd: years_map.get(int(cd), ()))
+        n = len(rows_df)
+        return CompanyDirectoryPage(
+            items=tuple(self._build_company_results(rows_df)),
+            pagination=CompanyDirectoryPagination(
+                page=1, page_size=n, total_items=n,
+                total_pages=1, has_next=False, has_previous=False,
+            ),
+            applied_filters=CompanyDirectoryAppliedFilters(search="", sector=None),
+        )
+
+    def get_em_destaque_companies(self, limit: int = 10) -> CompanyDirectoryPage:
+        """Returns companies most visited globally, ordered by view_count DESC.
+
+        Falls back gracefully to coverage_rank ordering when the company_views
+        table is empty (e.g. immediately after deployment).
+        """
+        rows_df = self.query_layer.get_top_viewed_companies(limit=limit)
+        if not rows_df.empty:
+            rows_df = rows_df.copy()
+            years_map = self.query_layer.get_company_years_map(rows_df["cd_cvm"].tolist())
+            rows_df["anos_disponiveis"] = rows_df["cd_cvm"].map(lambda cd: years_map.get(int(cd), ()))
+        n = len(rows_df)
+        return CompanyDirectoryPage(
+            items=tuple(self._build_company_results(rows_df)),
+            pagination=CompanyDirectoryPagination(
+                page=1, page_size=n, total_items=n,
+                total_pages=1, has_next=False, has_previous=False,
+            ),
+            applied_filters=CompanyDirectoryAppliedFilters(search="", sector=None),
+        )
+
+    def record_company_view(self, cd_cvm: int) -> None:
+        """Increments the global view counter for a company.
+
+        Uses an upsert so the call is idempotent and safe under concurrent
+        writes. Silently ignores unknown cd_cvm values (FK constraint skips
+        the insert rather than raising).
+        """
+        now_iso = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+        try:
+            with self.engine.begin() as conn:
+                conn.execute(
+                    text("""
+                        INSERT INTO company_views (cd_cvm, view_count, last_viewed_at)
+                        VALUES (:cd, 1, :now)
+                        ON CONFLICT(cd_cvm) DO UPDATE SET
+                            view_count     = company_views.view_count + 1,
+                            last_viewed_at = :now
+                    """),
+                    {"cd": int(cd_cvm), "now": now_iso},
+                )
+        except Exception:
+            # Analytics must never break the API — log and continue
+            import logging
+            logging.getLogger(__name__).warning(
+                "record_company_view failed for cd_cvm=%s", cd_cvm, exc_info=True
+            )
 
     def get_company_filters(self) -> CompanyFiltersDTO:
         df = self.query_layer.get_available_company_sectors()

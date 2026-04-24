@@ -80,9 +80,17 @@ def init_db_tables(engine: Engine) -> None:
                 updated_at      TEXT NOT NULL
             )
         """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS company_views (
+                cd_cvm         INTEGER PRIMARY KEY REFERENCES companies(cd_cvm) ON DELETE CASCADE,
+                view_count     INTEGER NOT NULL DEFAULT 0,
+                last_viewed_at TEXT NOT NULL
+            )
+        """))
         ensure_refresh_runtime_tables_for_connection(conn)
 
     _index_ddl = [
+        'CREATE INDEX {c}IF NOT EXISTS idx_company_views_count ON company_views(view_count DESC)',
         'CREATE INDEX {c}IF NOT EXISTS idx_fr_cd_cvm ON financial_reports("CD_CVM")',
         'CREATE INDEX {c}IF NOT EXISTS idx_fr_cd_cvm_stmt_year ON financial_reports("CD_CVM", "STATEMENT_TYPE", "REPORT_YEAR")',
         'CREATE INDEX {c}IF NOT EXISTS idx_fr_cd_conta ON financial_reports("CD_CONTA")',
