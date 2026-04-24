@@ -7,8 +7,7 @@ import { StatsStrip } from "@/components/home/stats-strip";
 import { PageShell } from "@/components/shared/design-system-recipes";
 import { fetchCompanies, fetchEmDestaqueCompanies, fetchPopularesCompanies } from "@/lib/api";
 
-// Keep at 300 to match the perf baseline; em-destaque fetch has its own
-// next: { revalidate: 120 } cache at the fetch level
+// Keep at 300 to match the perf baseline.
 export const revalidate = 300;
 
 export default async function HomePage() {
