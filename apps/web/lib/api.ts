@@ -349,7 +349,7 @@ const COMPANY_POPULARES_API_READ: ApiReadRequestInit = {
   next: { revalidate: 3600 },
 };
 const COMPANY_DESTAQUE_API_READ: ApiReadRequestInit = {
-  next: { revalidate: 120 },
+  next: { revalidate: 300 },
 };
 const COMPANY_FILTERS_API_READ: ApiReadRequestInit = {
   next: { revalidate: 3600 },
