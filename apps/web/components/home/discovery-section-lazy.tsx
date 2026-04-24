@@ -27,11 +27,18 @@ const DiscoverySection = dynamic(
 );
 
 type DiscoverySectionLazyProps = {
-  topCompanies: CompanyDirectoryItem[];
+  popularesCompanies: CompanyDirectoryItem[];
+  destaqueCompanies: CompanyDirectoryItem[];
 };
 
 export function DiscoverySectionLazy({
-  topCompanies,
+  popularesCompanies,
+  destaqueCompanies,
 }: DiscoverySectionLazyProps) {
-  return <DiscoverySection topCompanies={topCompanies} />;
+  return (
+    <DiscoverySection
+      popularesCompanies={popularesCompanies}
+      destaqueCompanies={destaqueCompanies}
+    />
+  );
 }

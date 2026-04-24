@@ -345,6 +345,12 @@ const UNCACHED_API_READ: ApiReadRequestInit = {
 const COMPANY_DIRECTORY_API_READ: ApiReadRequestInit = {
   next: { revalidate: 300 },
 };
+const COMPANY_POPULARES_API_READ: ApiReadRequestInit = {
+  next: { revalidate: 3600 },
+};
+const COMPANY_DESTAQUE_API_READ: ApiReadRequestInit = {
+  next: { revalidate: 300 },
+};
 const COMPANY_FILTERS_API_READ: ApiReadRequestInit = {
   next: { revalidate: 3600 },
 };
@@ -997,6 +1003,37 @@ export async function fetchCompanies(params: {
       invalidResponseMessage: "A API retornou um diretorio de empresas invalido.",
     },
   )) as CompanyDirectoryPage;
+}
+
+export async function fetchPopularesCompanies(): Promise<CompanyDirectoryPage> {
+  return (await apiFetch<CompanyDirectoryPage>("/companies/populares", {
+    request: COMPANY_POPULARES_API_READ,
+    validate: isCompanyDirectoryPage,
+    invalidResponseMessage: "A API retornou um formato invalido para as empresas populares.",
+  })) as CompanyDirectoryPage;
+}
+
+export async function fetchEmDestaqueCompanies(): Promise<CompanyDirectoryPage> {
+  return (await apiFetch<CompanyDirectoryPage>("/companies/em-destaque", {
+    request: COMPANY_DESTAQUE_API_READ,
+    validate: isCompanyDirectoryPage,
+    invalidResponseMessage: "A API retornou um formato invalido para as empresas em destaque.",
+  })) as CompanyDirectoryPage;
+}
+
+/**
+ * Fire-and-forget: records a company page view for the "Em destaque" ranking.
+ * Never throws — analytics must never block or break navigation.
+ */
+export function trackCompanyView(cdCvm: number): void {
+  fetch("/api/company-view", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ cd_cvm: cdCvm }),
+    cache: "no-store",
+  }).catch(() => {
+    // intentionally swallowed
+  });
 }
 
 export async function fetchCompanyFilters(): Promise<CompanyFiltersResponse> {
