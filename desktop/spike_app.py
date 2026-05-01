@@ -147,21 +147,23 @@ class CVMBridge:
             self._service = CVMReadService()
         return self._service
 
-    def get_companies(
-        self,
-        page: int = 1,
-        page_size: int = 20,
-        search: str = "",
-        sector_slug: str | None = None,
-    ) -> dict:
+    def get_companies(self, params=None) -> dict:
+        # pywebview passes JS objects as a single dict positional arg
+        if params is None:
+            params = {}
+        page = int(params.get("page", 1))
+        page_size = int(params.get("page_size", 20))
+        search = str(params.get("search", ""))
+        sector_slug = params.get("sector_slug") or None
+
         t0 = time.perf_counter()
         try:
             svc = self._get_service()
             result = svc.list_companies(
                 search=search,
-                sector_slug=sector_slug or None,
-                page=int(page),
-                page_size=int(page_size),
+                sector_slug=sector_slug,
+                page=page,
+                page_size=page_size,
             )
             elapsed_ms = (time.perf_counter() - t0) * 1000
             payload = dataclasses.asdict(result)
