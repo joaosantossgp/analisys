@@ -66,7 +66,7 @@ const AnalysisRemotionPlayer = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="h-full min-h-[20rem] rounded-[1.35rem] bg-[oklch(0.16_0.025_160)]" />
+      <div className="aspect-video w-full rounded-[1.35rem] bg-[#07110f]" />
     ),
   },
 );
@@ -77,7 +77,7 @@ function getAccentVar(accent: string) {
 
 export function BentoFeatures() {
   return (
-    <section className="mx-auto w-full max-w-5xl">
+    <section className="mx-auto w-full max-w-6xl">
       <div className="mb-8 text-center">
         <p className="eyebrow mb-3">Recursos</p>
         <h2 className="font-heading text-[clamp(1.75rem,4vw,2.5rem)] font-medium tracking-[-0.035em] text-foreground">
@@ -88,44 +88,47 @@ export function BentoFeatures() {
         </p>
       </div>
 
-      <div className="overflow-hidden rounded-[1.75rem] border border-border/70 bg-card shadow-[0_28px_90px_-42px_rgba(16,30,24,0.32)]">
-        <div className="grid gap-0 lg:grid-cols-[0.95fr_1.25fr]">
-          <div className="relative min-h-[22rem] bg-muted/30 p-3 sm:min-h-[25rem]">
-            <AnalysisRemotionPlayer />
+      <div className="overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#080d0c] p-3 shadow-[0_34px_110px_-50px_rgba(7,18,15,0.72)]">
+        <div className="grid items-center gap-3 xl:grid-cols-[1.08fr_0.92fr]">
+          <div className="relative overflow-hidden rounded-[1.35rem] border border-white/10 bg-[#07110f] shadow-[0_24px_70px_rgba(0,0,0,0.34)]">
+            <div className="aspect-video w-full">
+              <AnalysisRemotionPlayer />
+            </div>
           </div>
 
-          <div className="grid content-center gap-3 p-4 sm:p-6 lg:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             {FEATURES.map((feature) => {
               const accentColor = getAccentVar(feature.accent);
               return (
                 <div
                   key={feature.title}
                   className={cn(
-                    "group relative overflow-hidden rounded-[1.15rem] border border-border/60 bg-background/72 p-5",
-                    "transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/25 hover:bg-background"
+                    "group relative overflow-hidden rounded-[1.1rem] border border-white/10 bg-white/[0.045] p-4",
+                    "shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-all duration-300",
+                    "hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.07]"
                   )}
                 >
                   <div
                     className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
                     style={{
-                      background: `radial-gradient(ellipse at top left, color-mix(in oklch, ${accentColor} 10%, transparent), transparent 62%)`,
+                      background: `radial-gradient(ellipse at top left, color-mix(in oklch, ${accentColor} 18%, transparent), transparent 64%)`,
                     }}
                   />
                   <div className="relative">
                     <div
-                      className="mb-4 flex size-10 items-center justify-center rounded-[12px] transition-transform duration-300 group-hover:scale-105"
+                      className="mb-3 flex size-9 items-center justify-center rounded-[0.8rem] transition-transform duration-300 group-hover:scale-105"
                       style={{
-                        background: `color-mix(in oklch, ${accentColor} 12%, transparent)`,
-                        border: `1px solid color-mix(in oklch, ${accentColor} 22%, transparent)`,
+                        background: `color-mix(in oklch, ${accentColor} 16%, transparent)`,
+                        border: `1px solid color-mix(in oklch, ${accentColor} 30%, transparent)`,
                         color: accentColor,
                       }}
                     >
                       <feature.icon className="size-4.5" strokeWidth={1.8} />
                     </div>
-                    <h3 className="mb-2 font-heading text-base font-semibold tracking-tight text-foreground">
+                    <h3 className="mb-1.5 font-heading text-[0.98rem] font-semibold tracking-tight text-white">
                       {feature.title}
                     </h3>
-                    <p className="text-[0.84rem] leading-relaxed text-muted-foreground">
+                    <p className="text-[0.82rem] leading-relaxed text-white/58">
                       {feature.description}
                     </p>
                   </div>
