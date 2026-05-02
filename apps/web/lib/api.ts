@@ -326,6 +326,8 @@ import {
   bridgeFetchSectorDetail,
   bridgeFetchHealth,
   bridgeTrackCompanyView,
+  bridgeFetchRefreshStatus,
+  bridgeRequestRefresh,
 } from "./desktop-bridge.ts";
 
 export type ApiErrorCode =
@@ -1205,6 +1207,7 @@ export async function fetchCompanyStatement(
 export async function fetchRequestRefresh(
   cdCvm: number,
 ): Promise<RefreshDispatchResponse> {
+  if (isDesktopMode()) return bridgeRequestRefresh(cdCvm);
   return (await routeFetch<RefreshDispatchResponse>(
     `/api/request-refresh/${cdCvm}`,
     {
@@ -1221,6 +1224,7 @@ export async function fetchRequestRefresh(
 export async function fetchRefreshStatus(
   cdCvm: number,
 ): Promise<RefreshStatusItem[]> {
+  if (isDesktopMode()) return bridgeFetchRefreshStatus(cdCvm);
   const items = (await routeFetch<RawRefreshStatusItem[]>(
     `/api/refresh-status/${cdCvm}`,
     undefined,

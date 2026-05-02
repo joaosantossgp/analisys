@@ -173,6 +173,32 @@ class CVMBridge:
             return {"error": str(exc)}
 
     # ------------------------------------------------------------------
+    # Refresh (stub — desktop não tem scraper ativo)
+    # ------------------------------------------------------------------
+
+    def get_refresh_status(self, params=None) -> dict:
+        # Desktop viewer tem dados estáticos; nenhum job de refresh ativo.
+        return {"items": []}
+
+    def request_refresh(self, params=None) -> dict:
+        p = params or {}
+        cd_cvm = int(p.get("cd_cvm", 0))
+        # "already_current" evita que a UI entre em loop de polling.
+        return {
+            "status": "already_current",
+            "cd_cvm": cd_cvm,
+            "job_id": None,
+            "accepted_at": "",
+            "message": (
+                "Atualizacao de dados nao disponivel no modo desktop. "
+                "Use o app de atualizacao (cvm_pyqt_app.py)."
+            ),
+            "status_reason_code": "desktop_viewer",
+            "status_reason_message": None,
+            "is_retry_allowed": False,
+        }
+
+    # ------------------------------------------------------------------
     # Health / diagnóstico
     # ------------------------------------------------------------------
 

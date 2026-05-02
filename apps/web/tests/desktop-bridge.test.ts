@@ -10,6 +10,8 @@ import {
   bridgeFetchCompanyYears,
   bridgeFetchHealth,
   bridgeTrackCompanyView,
+  bridgeFetchRefreshStatus,
+  bridgeRequestRefresh,
 } from "../lib/desktop-bridge.ts";
 
 // ---------------------------------------------------------------------------
@@ -206,4 +208,48 @@ test("bridgeFetchHealth returns ok status", async () => {
 
 test("bridgeTrackCompanyView is a no-op when not in desktop mode", () => {
   assert.doesNotThrow(() => bridgeTrackCompanyView(9512));
+});
+
+// ---------------------------------------------------------------------------
+// bridgeFetchRefreshStatus — retorna lista vazia no desktop
+// ---------------------------------------------------------------------------
+
+test("bridgeFetchRefreshStatus returns empty array in desktop mode", async () => {
+  const restore = withPywebview({
+    get_refresh_status: async () => ({ items: [] }),
+  } as unknown as PyApi);
+
+  try {
+    const items = await bridgeFetchRefreshStatus(9512);
+    assert.deepEqual(items, []);
+  } finally {
+    restore();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// bridgeRequestRefresh — retorna already_current, não inicia polling
+// ---------------------------------------------------------------------------
+
+test("bridgeRequestRefresh returns already_current status", async () => {
+  const restore = withPywebview({
+    request_refresh: async () => ({
+      status: "already_current",
+      cd_cvm: 9512,
+      job_id: null,
+      accepted_at: "",
+      message: "Atualizacao nao disponivel no modo desktop.",
+      status_reason_code: "desktop_viewer",
+      status_reason_message: null,
+      is_retry_allowed: false,
+    }),
+  } as unknown as PyApi);
+
+  try {
+    const result = await bridgeRequestRefresh(9512);
+    assert.equal(result.status, "already_current");
+    assert.equal(result.is_retry_allowed, false);
+  } finally {
+    restore();
+  }
 });
