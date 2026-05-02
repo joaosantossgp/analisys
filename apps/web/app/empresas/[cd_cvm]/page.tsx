@@ -41,7 +41,8 @@ type EmpresaDetailPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export const dynamic = "force-dynamic";
+// Static export: no pages pre-rendered; SPA fallback in desktop/app.py handles routing.
+export function generateStaticParams() { return []; }
 
 const DETAIL_PAGE_MUTABLE_API_READ = {
   cache: "no-store",
