@@ -1,12 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import {
-  AreaChartIcon,
-  BarChart3Icon,
-  LineChartIcon,
-  SearchIcon,
-} from "lucide-react";
+import { useMemo, useState, type ReactNode } from "react";
+import { SearchIcon } from "lucide-react";
 
 import { IndicatorSelector } from "@/components/analysis/indicator-selector";
 import { CompanyAnalysisChart } from "@/components/company/company-analysis-chart";
@@ -28,20 +23,13 @@ import { formatKpiDelta, formatKpiValue } from "@/lib/formatters";
 
 type CompanyAnalysisPanelProps = {
   model: CompanyDashboardModel;
+  periodControl?: ReactNode;
 };
 
-function getChartIcon(chartType: DashboardSelectedIndicator["chartType"]) {
-  switch (chartType) {
-    case "line":
-      return LineChartIcon;
-    case "area":
-      return AreaChartIcon;
-    default:
-      return BarChart3Icon;
-  }
-}
-
-export function CompanyAnalysisPanel({ model }: CompanyAnalysisPanelProps) {
+export function CompanyAnalysisPanel({
+  model,
+  periodControl,
+}: CompanyAnalysisPanelProps) {
   const [selectedIndicators, setSelectedIndicators] = useState<DashboardSelectedIndicator[]>(
     model.defaultSelectedIndicators,
   );
@@ -112,33 +100,9 @@ export function CompanyAnalysisPanel({ model }: CompanyAnalysisPanelProps) {
             maxSelections={5}
             className="min-w-[220px]"
           />
-          <div className="rounded-full border border-border/60 bg-muted/18 px-3 py-2 text-xs text-muted-foreground">
-            Periodo atual: <span className="font-medium text-foreground">{model.yearsLabel}</span>
-          </div>
+          {periodControl}
         </div>
       </div>
-
-      {effectiveSelectedIndicators.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-2">
-          {effectiveSelectedIndicators.map((indicator) => {
-            const option = model.indicatorOptions.find((item) => item.id === indicator.id);
-            if (!option) {
-              return null;
-            }
-
-            const ChartIcon = getChartIcon(indicator.chartType);
-            return (
-              <div
-                key={indicator.id}
-                className="flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/18 px-3 py-1.5 text-xs"
-              >
-                <span className="font-medium text-foreground">{option.label}</span>
-                <ChartIcon className="size-3.5 text-muted-foreground" />
-              </div>
-            );
-          })}
-        </div>
-      ) : null}
 
       <CompanyAnalysisChart
         chartSeries={model.chartSeries}

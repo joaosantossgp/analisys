@@ -15,6 +15,7 @@ type CompanyPeriodPresetProps = {
   pathname: string;
   availableYears: number[];
   selectedYears: number[];
+  variant?: "full" | "custom-only";
 };
 
 const PRESET_OPTIONS: Array<{
@@ -200,6 +201,7 @@ export function CompanyPeriodPreset({
   pathname,
   availableYears,
   selectedYears,
+  variant = "full",
 }: CompanyPeriodPresetProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -232,6 +234,39 @@ export function CompanyPeriodPreset({
     startTransition(() => {
       router.push(`${pathname}?${query}`);
     });
+  }
+
+  if (variant === "custom-only") {
+    return (
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="rounded-full border border-border/60 bg-muted/18 px-3 py-2 text-xs text-muted-foreground">
+            Periodo atual:{" "}
+            <span className="font-medium text-foreground">
+              {selectedYears.join(", ")}
+            </span>
+          </div>
+          <Button
+            type="button"
+            variant={customLocked ? "secondary" : "outline"}
+            size="sm"
+            className="rounded-full px-4"
+            onClick={() => setCustomLocked((current) => !current)}
+          >
+            Personalizado
+          </Button>
+        </div>
+
+        {customLocked ? (
+          <CustomCompanyPeriodRange
+            key={selectedYears.join(",")}
+            pathname={pathname}
+            availableYears={availableYears}
+            selectedYears={selectedYears}
+          />
+        ) : null}
+      </div>
+    );
   }
 
   return (
