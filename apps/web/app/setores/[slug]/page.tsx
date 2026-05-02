@@ -33,8 +33,6 @@ const SECTOR_TABS = [
 ] as const;
 
 export const revalidate = 3600;
-// Static export: no pages pre-rendered; SPA fallback in desktop/app.py handles routing.
-export function generateStaticParams() { return []; }
 
 function SectorDetailError({
   message,
