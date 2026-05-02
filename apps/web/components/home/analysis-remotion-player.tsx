@@ -2,13 +2,11 @@
 
 import { Player } from "@remotion/player";
 import {
-  ActivityIcon,
   BarChart3Icon,
   DatabaseIcon,
   FileTextIcon,
   GitCompareArrowsIcon,
   LayersIcon,
-  LineChartIcon,
   SearchIcon,
   TrendingUpIcon,
   type LucideIcon,
@@ -34,43 +32,36 @@ const capabilities: Capability[] = [
     icon: SearchIcon,
     title: "Busca inteligente",
     detail: "Nome, ticker ou codigo CVM",
-    color: "rgba(45, 212, 191, 0.96)",
-    delay: 18,
+    color: "rgb(94, 234, 212)",
+    delay: 14,
   },
   {
     icon: FileTextIcon,
-    title: "DRE, BPA, BPP e DFC",
-    detail: "Tabelas anuais navegaveis",
-    color: "rgba(52, 211, 153, 0.94)",
-    delay: 26,
+    title: "Demonstracoes CVM",
+    detail: "DRE, BPA, BPP e DFC navegaveis",
+    color: "rgb(110, 231, 183)",
+    delay: 22,
   },
   {
     icon: BarChart3Icon,
     title: "60+ KPIs",
-    detail: "Margens, ROE e liquidez",
-    color: "rgba(251, 113, 133, 0.94)",
-    delay: 34,
+    detail: "Margens, ROE, liquidez e eficiencia",
+    color: "rgb(251, 191, 36)",
+    delay: 30,
   },
   {
     icon: GitCompareArrowsIcon,
-    title: "Comparacao side-by-side",
-    detail: "Ate 4 empresas sincronizadas",
-    color: "rgba(96, 165, 250, 0.96)",
-    delay: 42,
+    title: "Comparacao sincronizada",
+    detail: "Ate 4 empresas lado a lado",
+    color: "rgb(147, 197, 253)",
+    delay: 38,
   },
   {
     icon: LayersIcon,
     title: "Setores organizados",
-    detail: "Contexto setorial conectado",
-    color: "rgba(251, 191, 36, 0.95)",
-    delay: 50,
-  },
-  {
-    icon: TrendingUpIcon,
-    title: "On-demand guiado",
-    detail: "Refresh acompanhado ponta a ponta",
-    color: "rgba(216, 180, 254, 0.96)",
-    delay: 58,
+    detail: "Contexto setorial para leitura rapida",
+    color: "rgb(196, 181, 253)",
+    delay: 46,
   },
 ];
 
@@ -80,28 +71,15 @@ const rows = [
   { label: "ROE anual", value: "18.6%", trend: "+2.8 p.p.", width: 64 },
 ];
 
-const streamItems = [
-  "DRE",
-  "BPA",
-  "BPP",
-  "DFC",
-  "ROE",
-  "EBIT",
-  "LIQUIDEZ",
-  "SETORES",
-  "PEERS",
-  "EXCEL",
-];
-
 function getSpring(frame: number, fps: number, delay = 0) {
   return spring({
     frame: frame - delay,
     fps,
-    config: { damping: 20, stiffness: 88 },
+    config: { damping: 24, stiffness: 76 },
   });
 }
 
-function oscillate(frame: number, speed: number, min: number, max: number) {
+function softLoop(frame: number, speed: number, min: number, max: number) {
   return interpolate(Math.sin(frame / speed), [-1, 1], [min, max]);
 }
 
@@ -110,166 +88,111 @@ function AnalysisRemotionVideo() {
   const { fps } = useVideoConfig();
   const intro = getSpring(frame, fps);
   const loop = frame % 180;
-  const gridShift = interpolate(loop, [0, 180], [0, -64]);
-  const scanX = interpolate(loop, [0, 180], [-16, 116]);
-  const orbit = interpolate(loop, [0, 180], [0, 360]);
-  const tickerX = interpolate(loop, [0, 180], [0, -50]);
-  const auroraA = oscillate(frame, 34, -12, 12);
-  const auroraB = oscillate(frame + 50, 43, -14, 14);
+  const progress = interpolate(loop, [0, 180], [0, 1]);
+  const lightX = interpolate(loop, [0, 180], [-12, 112]);
+  const activeIndex = Math.floor(interpolate(loop, [0, 180], [0, capabilities.length])) % capabilities.length;
 
   return (
-    <AbsoluteFill className="overflow-hidden rounded-[1.35rem] bg-[#050908] text-white">
-      <div className="absolute inset-0 bg-[linear-gradient(135deg,#071511_0%,#08110f_42%,#050706_100%)]" />
+    <AbsoluteFill className="overflow-hidden bg-[#050908] text-white">
+      <div className="absolute inset-0 bg-[linear-gradient(135deg,#061410_0%,#09110f_52%,#050605_100%)]" />
       <div
-        className="absolute -left-32 -top-24 h-80 w-80 rounded-full bg-teal-400/22 blur-3xl"
-        style={{ transform: `translate(${auroraA}px, ${auroraB}px)` }}
+        className="absolute -left-20 top-0 h-[28rem] w-[28rem] rounded-full bg-teal-400/14 blur-3xl"
+        style={{
+          transform: `translate(${softLoop(frame, 70, -10, 10)}px, ${softLoop(frame + 30, 82, -8, 8)}px)`,
+        }}
       />
       <div
-        className="absolute right-[-4rem] top-8 h-72 w-72 rounded-full bg-amber-300/12 blur-3xl"
-        style={{ transform: `translate(${-auroraB}px, ${auroraA}px)` }}
+        className="absolute right-0 top-8 h-[24rem] w-[24rem] rounded-full bg-amber-200/8 blur-3xl"
+        style={{
+          transform: `translate(${softLoop(frame + 20, 90, -8, 8)}px, ${softLoop(frame, 72, -10, 10)}px)`,
+        }}
       />
+      <div className="absolute inset-0 opacity-[0.08] [background-image:linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:80px_80px]" />
       <div
-        className="absolute bottom-[-6rem] right-40 h-80 w-80 rounded-full bg-blue-400/12 blur-3xl"
-        style={{ transform: `translate(${auroraB}px, ${-auroraA}px)` }}
-      />
-      <div
-        className="absolute inset-0 opacity-[0.14] [background-image:linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:64px_64px]"
-        style={{ backgroundPosition: `${gridShift}px ${gridShift}px` }}
-      />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_46%_44%,transparent_0%,rgba(0,0,0,0.22)_65%,rgba(0,0,0,0.62)_100%)]" />
-
-      <div
-        className="absolute bottom-0 top-0 w-36 bg-white/10 blur-2xl"
-        style={{ left: `${scanX}%` }}
-      />
-      <div className="absolute inset-5 rounded-[1.2rem] border border-white/10 bg-white/[0.026] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_30px_90px_rgba(0,0,0,0.36)]" />
-
-      <div
-        className="absolute left-[56%] top-[51%] h-[36rem] w-[36rem] rounded-full border border-teal-200/8"
-        style={{ transform: `translate(-50%, -50%) rotate(${orbit}deg)` }}
-      >
-        <span className="absolute -top-1 left-1/2 size-2 rounded-full bg-teal-200 shadow-[0_0_22px_rgba(94,234,212,0.8)]" />
-        <span className="absolute bottom-12 right-8 size-1.5 rounded-full bg-amber-200 shadow-[0_0_18px_rgba(253,230,138,0.75)]" />
-      </div>
-      <div
-        className="absolute left-[56%] top-[51%] h-[25rem] w-[25rem] rounded-full border border-white/7"
-        style={{ transform: `translate(-50%, -50%) rotate(${-orbit * 0.62}deg)` }}
+        className="absolute inset-y-0 w-40 bg-white/[0.055] blur-2xl"
+        style={{ left: `${lightX}%` }}
       />
 
       <div
-        className="relative z-20 grid h-full grid-cols-[0.58fr_0.42fr] gap-8 px-9 pb-16 pt-8"
+        className="relative z-10 grid h-full grid-cols-[0.56fr_0.44fr] gap-12 px-14 py-12"
         style={{
           opacity: interpolate(intro, [0, 1], [0, 1]),
-          transform: `scale(${interpolate(intro, [0, 1], [0.985, 1])}) translateY(${interpolate(intro, [0, 1], [18, 0])}px)`,
+          transform: `translateY(${interpolate(intro, [0, 1], [14, 0])}px)`,
         }}
       >
-        <section className="relative min-w-0">
-          <div className="absolute -left-4 top-16 h-px w-28 rotate-[-16deg] bg-gradient-to-r from-teal-200/0 via-teal-200/45 to-teal-200/0" />
-          <div className="absolute bottom-10 right-6 h-px w-36 rotate-[13deg] bg-gradient-to-r from-amber-200/0 via-amber-200/28 to-amber-200/0" />
-
-          <div className="relative h-full overflow-hidden rounded-[1.25rem] border border-white/12 bg-[#0a1311]/88 p-4 shadow-[0_28px_80px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur">
-            <div className="mb-4 flex items-center justify-between border-b border-white/8 pb-3">
-              <div>
-                <div className="text-[0.66rem] uppercase text-white/42">
-                  Analise guiada
-                </div>
-                <h3 className="mt-1 font-heading text-[2.3rem] font-semibold leading-[0.96]">
-                  Financial intelligence for every CVM filing.
-                </h3>
+        <section className="flex min-w-0 flex-col">
+          <div className="mb-8 flex items-start justify-between gap-8 border-b border-white/10 pb-6">
+            <div>
+              <div className="mb-3 text-[0.7rem] font-medium uppercase tracking-[0.18em] text-teal-100/52">
+                Analise guiada
               </div>
-              <div className="flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-[0.72rem] font-medium text-emerald-100">
-                <ActivityIcon className="size-3.5" />
-                Live model
-              </div>
+              <h3 className="max-w-[34rem] font-heading text-[2.65rem] font-semibold leading-[0.95] tracking-[-0.02em]">
+                Financial intelligence for every CVM filing.
+              </h3>
             </div>
+            <div className="mt-2 shrink-0 rounded-full border border-teal-200/18 bg-teal-200/[0.08] px-4 py-2 text-[0.78rem] font-medium text-teal-50/86">
+              Live model
+            </div>
+          </div>
 
-            <div className="grid grid-cols-[1fr_0.58fr] gap-4">
-              <div className="rounded-[1rem] border border-white/10 bg-white/[0.045] p-3">
-                <div className="mb-3 flex items-center justify-between">
+          <div className="grid flex-1 grid-cols-[1fr_0.36fr] gap-8">
+            <div className="flex min-w-0 flex-col justify-between">
+              <div>
+                <div className="mb-3 flex items-center justify-between text-white/58">
                   <div>
-                    <div className="text-[0.78rem] font-medium text-white/64">
+                    <div className="text-[0.84rem] font-medium text-white/72">
                       Equity command center
                     </div>
-                    <div className="mt-1 text-[0.68rem] text-white/38">
+                    <div className="mt-1 text-[0.72rem] text-white/42">
                       Annual view with peer signal
                     </div>
                   </div>
-                  <LineChartIcon className="size-4 text-teal-200/80" />
+                  <TrendingUpIcon className="size-4 text-teal-100/75" />
                 </div>
-                <div className="relative flex h-24 items-end gap-2 overflow-hidden rounded-[0.7rem] bg-black/12 px-2 pb-2">
-                  <div
-                    className="absolute inset-x-0 top-1/2 h-px bg-teal-200/18"
-                    style={{
-                      transform: `translateY(${oscillate(frame, 16, -12, 12)}px)`,
-                    }}
-                  />
-                  {[36, 58, 44, 70, 62, 86, 76, 94].map((height, index) => {
-                    const bar = getSpring(frame, fps, 18 + index * 3);
-                    return (
-                      <div
-                        key={`${height}-${index}`}
-                        className="relative flex-1 rounded-t-md bg-gradient-to-t from-teal-500/40 to-teal-100/95 shadow-[0_0_18px_rgba(45,212,191,0.18)]"
-                        style={{
-                          height: `${interpolate(bar, [0, 1], [12, height])}%`,
-                          opacity: oscillate(frame + index * 5, 18, 0.72, 1),
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
 
-              <div className="space-y-3">
-                {[
-                  { icon: DatabaseIcon, label: "Fonte", value: "CVM" },
-                  { icon: BarChart3Icon, label: "Universo", value: "800+" },
-                  { icon: TrendingUpIcon, label: "Status", value: "Ready" },
-                ].map((item, index) => (
-                  <div
-                    key={item.label}
-                    className="rounded-[0.9rem] border border-white/8 bg-white/[0.045] p-3"
-                    style={{
-                      transform: `translateY(${oscillate(frame + index * 18, 40, -2, 2)}px)`,
-                    }}
-                  >
-                    <item.icon className="mb-2 size-4 text-teal-200" />
-                    <div className="text-[0.68rem] text-white/48">{item.label}</div>
-                    <div className="font-heading text-[0.9rem] font-semibold">
-                      {item.value}
-                    </div>
+                <div className="relative h-48 overflow-hidden border-y border-white/10 py-7">
+                  <div className="absolute inset-x-0 top-1/2 h-px bg-white/8" />
+                  <div className="absolute inset-x-0 top-[72%] h-px bg-white/6" />
+                  <div className="relative flex h-full items-end gap-4">
+                    {[36, 58, 44, 70, 62, 86, 76, 94].map((height, index) => {
+                      const bar = getSpring(frame, fps, 18 + index * 3);
+                      return (
+                        <div
+                          key={`${height}-${index}`}
+                          className="flex-1 rounded-t-lg bg-gradient-to-t from-teal-500/48 via-teal-200/74 to-white/80 shadow-[0_0_26px_rgba(45,212,191,0.16)]"
+                          style={{
+                            height: `${interpolate(bar, [0, 1], [10, height])}%`,
+                            opacity: softLoop(frame + index * 6, 54, 0.8, 1),
+                          }}
+                        />
+                      );
+                    })}
                   </div>
-                ))}
+                </div>
               </div>
-            </div>
 
-            <div className="mt-3 grid grid-cols-[1fr_0.4fr] gap-4">
-              <div className="space-y-3">
+              <div className="mt-7 space-y-4">
                 {rows.map((row, index) => (
-                  <div
-                    key={row.label}
-                    className="rounded-[0.9rem] border border-white/8 bg-white/[0.04] px-3.5 py-2"
-                  >
-                    <div className="mb-2 flex items-center justify-between gap-3">
-                      <span className="text-[0.78rem] text-white/58">
-                        {row.label}
-                      </span>
-                      <span className="font-heading text-[0.88rem] font-semibold">
+                  <div key={row.label}>
+                    <div className="mb-2 grid grid-cols-[1fr_auto_auto] items-center gap-5 text-[0.84rem]">
+                      <span className="text-white/58">{row.label}</span>
+                      <span className="font-heading font-semibold text-white/92">
                         {row.value}
                       </span>
-                      <span className="text-[0.72rem] font-medium text-emerald-200">
+                      <span className="font-medium text-emerald-200/90">
                         {row.trend}
                       </span>
                     </div>
-                    <div className="h-1.5 overflow-hidden rounded-full bg-white/8">
+                    <div className="h-1.5 overflow-hidden rounded-full bg-white/9">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-teal-300 to-emerald-300"
+                        className="h-full rounded-full bg-gradient-to-r from-teal-300 to-emerald-200"
                         style={{
                           width: `${row.width}%`,
                           transformOrigin: "left",
                           transform: `scaleX(${interpolate(
-                            getSpring(frame, fps, 34 + index * 7),
+                            getSpring(frame, fps, 36 + index * 7),
                             [0, 1],
-                            [0.18, oscillate(frame + index * 16, 42, 0.93, 1)],
+                            [0.12, softLoop(frame + index * 20, 80, 0.96, 1)],
                           )})`,
                         }}
                       />
@@ -277,127 +200,98 @@ function AnalysisRemotionVideo() {
                   </div>
                 ))}
               </div>
-
-              <div className="flex flex-col justify-between rounded-[0.95rem] border border-white/8 bg-white/[0.04] p-3">
-                <div>
-                  <div className="text-[0.66rem] uppercase text-white/42">
-                    Pipeline
-                  </div>
-                  <div className="mt-1 font-heading text-[0.9rem] font-semibold">
-                    DFP -&gt; KPI
-                  </div>
-                </div>
-                <div className="relative h-14">
-                  <div className="absolute left-1/2 top-1 h-12 w-px bg-gradient-to-b from-teal-200/0 via-teal-200/40 to-teal-200/0" />
-                  {[0, 1, 2].map((item) => (
-                    <span
-                      key={item}
-                      className="absolute left-1/2 size-2.5 rounded-full border border-teal-100/45 bg-[#07110f] shadow-[0_0_18px_rgba(45,212,191,0.45)]"
-                      style={{
-                        top: `${8 + item * 32}%`,
-                        transform: `translateX(-50%) scale(${oscillate(frame + item * 12, 12, 0.82, 1.18)})`,
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
             </div>
 
-            <div className="mt-3 flex items-center gap-2 border-t border-white/8 pt-3 text-[0.68rem] uppercase text-white/42">
-              <span className="size-1.5 rounded-full bg-teal-200 shadow-[0_0_14px_rgba(94,234,212,0.72)]" />
-              100% cobertura CVM
-              <span className="mx-1 text-white/18">/</span>
-              60+ KPIs
-              <span className="mx-1 text-white/18">/</span>
-              4x comparar
+            <div className="flex flex-col justify-between border-l border-white/10 pl-6">
+              {[
+                { label: "Fonte", value: "CVM", icon: DatabaseIcon },
+                { label: "Universo", value: "800+", icon: BarChart3Icon },
+                { label: "Status", value: "Ready", icon: TrendingUpIcon },
+              ].map((item, index) => (
+                <div
+                  key={item.label}
+                  className="py-2"
+                  style={{
+                    opacity: interpolate(getSpring(frame, fps, 24 + index * 7), [0, 1], [0.28, 1]),
+                    transform: `translateY(${softLoop(frame + index * 22, 86, -1.5, 1.5)}px)`,
+                  }}
+                >
+                  <item.icon className="mb-3 size-4 text-teal-100/80" />
+                  <div className="text-[0.7rem] uppercase tracking-[0.12em] text-white/38">
+                    {item.label}
+                  </div>
+                  <div className="mt-1 font-heading text-[1rem] font-semibold">
+                    {item.value}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </section>
 
-        <section className="relative min-w-0 overflow-hidden rounded-[1.25rem] border border-white/10 bg-white/[0.032] px-6 py-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-          <div className="absolute inset-y-8 left-10 w-px bg-gradient-to-b from-teal-200/0 via-teal-200/28 to-teal-200/0" />
-          <div className="absolute left-10 top-[13%] h-[74%] w-[74%] rounded-full border border-white/7" />
-          <div
-            className="absolute left-10 top-[13%] h-[74%] w-[74%] rounded-full border border-teal-200/8"
-            style={{ transform: `rotate(${-orbit * 0.38}deg)` }}
-          />
-
-          <div className="relative z-10 mb-3">
-            <div className="text-[0.72rem] uppercase text-white/42">
+        <section className="relative min-w-0 border-l border-white/10 pl-12">
+          <div className="mb-8">
+            <div className="mb-3 text-[0.7rem] font-medium uppercase tracking-[0.18em] text-white/42">
               Recursos em movimento
             </div>
-            <h4 className="mt-2 max-w-[22rem] font-heading text-[1.95rem] font-semibold leading-[0.98]">
-              One flow from source data to decision.
+            <h4 className="max-w-[25rem] font-heading text-[2.35rem] font-semibold leading-[0.96] tracking-[-0.02em]">
+              One calm flow from source data to decision.
             </h4>
-            <p className="mt-2 max-w-[24rem] text-[0.84rem] leading-5 text-white/58">
-              Tudo fica dentro da mesma cena: busca, demonstracoes, KPIs,
-              comparacao, setores e refresh on-demand.
+            <p className="mt-4 max-w-[28rem] text-[0.96rem] leading-6 text-white/58">
+              Busca, demonstracoes, KPIs, comparacao e setores aparecem como uma
+              unica trilha de trabalho, sem blocos competindo pela atencao.
             </p>
           </div>
 
-          <div className="relative z-10 space-y-1.5">
-            {capabilities.map((feature, index) => {
-              const itemIn = getSpring(frame, fps, feature.delay);
-              const Icon = feature.icon;
-              const y = oscillate(frame + index * 10, 34, -2, 2);
+          <div className="relative">
+            <div className="absolute bottom-4 left-5 top-5 w-px bg-gradient-to-b from-teal-200/0 via-teal-200/30 to-teal-200/0" />
+            <div
+              className="absolute left-5 top-5 w-px bg-teal-200/80 shadow-[0_0_18px_rgba(94,234,212,0.45)]"
+              style={{ height: `${interpolate(progress, [0, 1], [0, 86])}%` }}
+            />
 
-              return (
-                <div
-                  key={feature.title}
-                  className="relative flex items-center gap-3 py-1.5"
-                  style={{
-                    opacity: interpolate(itemIn, [0, 1], [0.18, 1]),
-                    transform: `translateX(${interpolate(itemIn, [0, 1], [22, 0])}px) translateY(${y}px)`,
-                  }}
-                >
+            <div className="space-y-5">
+              {capabilities.map((feature, index) => {
+                const Icon = feature.icon;
+                const itemIn = getSpring(frame, fps, feature.delay);
+                const isActive = index === activeIndex;
+
+                return (
                   <div
-                    className="relative flex size-9 shrink-0 items-center justify-center rounded-full border"
+                    key={feature.title}
+                    className="relative grid grid-cols-[2.75rem_1fr] gap-5"
                     style={{
-                      borderColor: feature.color.replace("0.96", "0.28").replace("0.95", "0.28").replace("0.94", "0.28"),
-                      background: feature.color.replace("0.96", "0.12").replace("0.95", "0.12").replace("0.94", "0.12"),
-                      color: feature.color,
+                      opacity: interpolate(itemIn, [0, 1], [0.24, 1]),
+                      transform: `translateX(${interpolate(itemIn, [0, 1], [18, 0])}px)`,
                     }}
                   >
-                    <span
-                      className="absolute inset-[-0.35rem] rounded-full border border-current opacity-20"
-                      style={{ transform: `scale(${oscillate(frame + index * 8, 18, 0.9, 1.08)})` }}
-                    />
-                    <Icon className="size-4.5" strokeWidth={1.8} />
-                  </div>
-                  <div className="min-w-0 flex-1 border-b border-white/8 pb-1.5">
-                    <div className="font-heading text-[0.96rem] font-semibold leading-tight">
-                      {feature.title}
+                    <div
+                      className="relative z-10 flex size-10 items-center justify-center rounded-full border bg-[#07110f]"
+                      style={{
+                        borderColor: isActive ? feature.color : "rgba(255,255,255,0.13)",
+                        color: feature.color,
+                        boxShadow: isActive
+                          ? `0 0 28px color-mix(in srgb, ${feature.color} 34%, transparent)`
+                          : "none",
+                        transform: `scale(${isActive ? softLoop(frame, 36, 1.02, 1.08) : 1})`,
+                      }}
+                    >
+                      <Icon className="size-4.5" strokeWidth={1.8} />
                     </div>
-                    <div className="mt-0.5 text-[0.76rem] leading-snug text-white/54">
-                      {feature.detail}
+                    <div className="border-b border-white/8 pb-4">
+                      <div className="font-heading text-[1.04rem] font-semibold leading-tight">
+                        {feature.title}
+                      </div>
+                      <div className="mt-1 text-[0.84rem] leading-5 text-white/54">
+                        {feature.detail}
+                      </div>
                     </div>
                   </div>
-                  <div
-                    className="h-px w-12 shrink-0 bg-gradient-to-r from-white/20 to-transparent"
-                    style={{ opacity: oscillate(frame + index * 9, 20, 0.32, 0.82) }}
-                  />
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </section>
-      </div>
-
-      <div className="absolute inset-x-8 bottom-4 z-30 overflow-hidden rounded-full border border-white/8 bg-black/18 py-1 backdrop-blur">
-        <div
-          className="flex w-[200%] gap-3 whitespace-nowrap text-[0.7rem] uppercase text-white/48"
-          style={{ transform: `translateX(${tickerX}%)` }}
-        >
-          {[...streamItems, ...streamItems].map((item, index) => (
-            <div
-              key={`${item}-${index}`}
-              className="inline-flex items-center gap-2 rounded-full px-3"
-            >
-              <span className="size-1 rounded-full bg-teal-200/70" />
-              {item}
-            </div>
-          ))}
-        </div>
       </div>
     </AbsoluteFill>
   );
