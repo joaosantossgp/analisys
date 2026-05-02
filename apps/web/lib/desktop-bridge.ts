@@ -21,7 +21,9 @@ import type {
   SectorDirectory,
   SectorDetail,
   HealthResponse,
-} from "./api";
+  RefreshDispatchResponse,
+  RefreshStatusItem,
+} from "./api.ts";
 
 // ---------------------------------------------------------------------------
 // Declaração global do pywebview
@@ -50,6 +52,8 @@ interface PywebviewApi {
   get_sectors(params?: Record<string, unknown>): Promise<unknown>;
   get_sector_detail(params: Record<string, unknown>): Promise<unknown>;
   get_health(params?: Record<string, unknown>): Promise<unknown>;
+  get_refresh_status(params?: Record<string, unknown>): Promise<unknown>;
+  request_refresh(params: Record<string, unknown>): Promise<unknown>;
 }
 
 // ---------------------------------------------------------------------------
@@ -205,4 +209,22 @@ export function bridgeTrackCompanyView(cdCvm: number): void {
   if (!isDesktopMode()) return;
   const api = typeof window !== "undefined" ? window.pywebview?.api : undefined;
   api?.track_company_view({ cd_cvm: cdCvm }).catch(() => undefined);
+}
+
+export async function bridgeFetchRefreshStatus(
+  cdCvm: number,
+): Promise<RefreshStatusItem[]> {
+  const result = await callBridge<{ items: RefreshStatusItem[] }>(
+    "get_refresh_status",
+    { cd_cvm: cdCvm },
+  );
+  return result.items ?? [];
+}
+
+export async function bridgeRequestRefresh(
+  cdCvm: number,
+): Promise<RefreshDispatchResponse> {
+  return callBridge<RefreshDispatchResponse>("request_refresh", {
+    cd_cvm: cdCvm,
+  });
 }
