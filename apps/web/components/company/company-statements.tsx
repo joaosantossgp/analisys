@@ -4,6 +4,7 @@ import { startTransition, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { SearchIcon } from "lucide-react";
 
+import { CompanyHelpTip } from "@/components/company/company-help-tip";
 import { SurfaceCard } from "@/components/shared/design-system-recipes";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -223,6 +224,9 @@ export function CompanyStatements({ matrix }: CompanyStatementsProps) {
             onCheckedChange={(checked) => setShowYoY(Boolean(checked))}
           />
           Mostrar variação YoY
+          <CompanyHelpTip>
+            Mostra a variacao percentual contra o periodo anterior disponivel na tabela.
+          </CompanyHelpTip>
         </label>
         <span className="ml-auto text-[0.72rem] text-muted-foreground tabular-nums">
           {filteredRows.length} linhas · R$ milhões
@@ -270,10 +274,12 @@ export function CompanyStatements({ matrix }: CompanyStatementsProps) {
         </table>
       </div>
 
-      <p className="pt-3 text-xs italic text-muted-foreground">
-        Fonte: CVM · DFP/ITR consolidados. Linhas em destaque são totalizadoras. Valores em R$
-        milhões, sem ajuste de inflação.
-      </p>
+      <div className="flex items-center gap-2 pt-3 text-xs text-muted-foreground">
+        <span>Fonte: CVM · R$ milhoes</span>
+        <CompanyHelpTip>
+          DFP/ITR consolidados. Linhas em destaque sao totalizadoras. Valores sem ajuste de inflacao.
+        </CompanyHelpTip>
+      </div>
     </div>
   );
 }

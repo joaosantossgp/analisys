@@ -3,6 +3,7 @@
 import { startTransition, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
+import { CompanyHelpTip } from "@/components/company/company-help-tip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { resolveCompanyPeriodRange } from "@/lib/company-period-range";
@@ -180,15 +181,13 @@ function CustomCompanyPeriodRange({
         </Button>
       </div>
 
-      <div className="mt-3 flex flex-col gap-1 text-xs">
-        <p className="text-muted-foreground">
-          Aceita ano e trimestre nos formatos 2022, 2022T3 e 2022 3T.
-        </p>
-        <p className="text-muted-foreground/80">
-          O detalhe continua usando os anos cobertos pelo intervalo informado.
-        </p>
+      <div className="mt-3 flex items-center gap-2 text-xs">
+        <span className="text-muted-foreground">Aceita ano ou trimestre.</span>
+        <CompanyHelpTip>
+          Exemplos: 2022, 2022T3 e 2022 3T. A pagina continua usando os anos cobertos pelo intervalo informado.
+        </CompanyHelpTip>
         {errorMessage ? (
-          <p className="text-destructive" role="alert">
+          <p className="ml-auto text-destructive" role="alert">
             {errorMessage}
           </p>
         ) : null}
@@ -240,11 +239,14 @@ export function CompanyPeriodPreset({
     return (
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="rounded-full border border-border/60 bg-muted/18 px-3 py-2 text-xs text-muted-foreground">
+          <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-muted/18 px-3 py-2 text-xs text-muted-foreground">
             Periodo atual:{" "}
             <span className="font-medium text-foreground">
               {selectedYears.join(", ")}
             </span>
+            <CompanyHelpTip className="size-4 border-border/60">
+              O grafico, tabela e demonstracoes usam este recorte. Periodos com trimestre sao convertidos para os anos cobertos.
+            </CompanyHelpTip>
           </div>
         </div>
 

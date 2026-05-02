@@ -5,6 +5,7 @@ import { SearchIcon } from "lucide-react";
 
 import { IndicatorSelector } from "@/components/analysis/indicator-selector";
 import { CompanyAnalysisChart } from "@/components/company/company-analysis-chart";
+import { CompanyHelpTip } from "@/components/company/company-help-tip";
 import { SurfaceCard } from "@/components/shared/design-system-recipes";
 import { Input } from "@/components/ui/input";
 import {
@@ -79,20 +80,21 @@ export function CompanyAnalysisPanel({
 
   return (
     <SurfaceCard tone="default" padding="lg" className="space-y-6" data-testid="company-analysis-panel">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div className="space-y-2">
-          <p className="text-[0.72rem] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-            Analise de indicadores
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="text-[0.72rem] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+              Analise de indicadores
+            </p>
+            <CompanyHelpTip>
+              Escolha ate 5 indicadores para o grafico. O recorte anual usado aqui tambem vale para a pagina.
+            </CompanyHelpTip>
+          </div>
           <h2 className="font-heading text-[1.5rem] tracking-[-0.03em] text-foreground">
-            Visao anual em um unico painel
+            Visao anual
           </h2>
-          <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-            Escolha os indicadores que entram no grafico e compare o mesmo recorte
-            anual aplicado a esta pagina.
-          </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 xl:justify-end">
           <IndicatorSelector
             indicators={model.indicatorOptions}
             selected={effectiveSelectedIndicators}
@@ -111,14 +113,13 @@ export function CompanyAnalysisPanel({
 
       <div className="space-y-4 rounded-[1.35rem] border border-border/60 bg-muted/16 p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
+          <div className="flex items-center gap-2">
             <p className="text-[0.72rem] font-medium uppercase tracking-[0.2em] text-muted-foreground">
               Tabela anual
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Indicadores visiveis neste recorte. Os selecionados no grafico sobem
-              para o topo.
-            </p>
+            <CompanyHelpTip>
+              Indicadores selecionados sobem para o topo. Use o filtro para achar indicador ou categoria.
+            </CompanyHelpTip>
           </div>
           <div className="relative w-full max-w-sm">
             <SearchIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
