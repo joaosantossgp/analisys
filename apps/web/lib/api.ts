@@ -310,7 +310,7 @@ type ApiReadRequestInit = {
   };
 };
 
-export { isDesktopMode } from "./desktop-bridge";
+export { isDesktopMode } from "./desktop-bridge.ts";
 import {
   isDesktopMode,
   bridgeFetchCompanies,
@@ -326,7 +326,7 @@ import {
   bridgeFetchSectorDetail,
   bridgeFetchHealth,
   bridgeTrackCompanyView,
-} from "./desktop-bridge";
+} from "./desktop-bridge.ts";
 
 export type ApiErrorCode =
   | "network_error"
