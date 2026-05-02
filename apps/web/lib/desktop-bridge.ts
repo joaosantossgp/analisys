@@ -77,7 +77,9 @@ async function callBridge<T>(
   method: BridgeMethod,
   params: Record<string, unknown>,
 ): Promise<T> {
-  const api = window.pywebview?.api;
+  const pywebview =
+    typeof window !== "undefined" ? window.pywebview : undefined;
+  const api = pywebview?.api;
   if (!api) throw new BridgeError(method, "pywebview.api indisponível");
 
   const fn = api[method] as (p: Record<string, unknown>) => Promise<unknown>;
@@ -201,7 +203,6 @@ export async function bridgeFetchHealth(): Promise<HealthResponse> {
 
 export function bridgeTrackCompanyView(cdCvm: number): void {
   if (!isDesktopMode()) return;
-  window.pywebview!.api
-    .track_company_view({ cd_cvm: cdCvm })
-    .catch(() => undefined);
+  const api = typeof window !== "undefined" ? window.pywebview?.api : undefined;
+  api?.track_company_view({ cd_cvm: cdCvm }).catch(() => undefined);
 }
