@@ -225,6 +225,62 @@ python scripts/final_verification.py --xlsx output/reports/PETROBRAS_financials.
 
 ---
 
+## 9. Desktop pywebview (Fase 3)
+
+App nativo com janela pywebview + UI Next.js. O bridge Python responde
+diretamente, sem precisar do servidor FastAPI para leitura.
+
+### Modo dev (recomendado para desenvolvimento)
+
+Requer Next.js dev server e FastAPI rodando:
+
+```powershell
+# Terminal 1 — FastAPI
+uvicorn apps.api.app.main:app --reload
+
+# Terminal 2 — Next.js
+cd apps/web
+npm run dev
+
+# Terminal 3 — janela pywebview
+python -m desktop.app --dev
+```
+
+### Modo offline (static export)
+
+Gere o build estático uma vez e rode sem servidores auxiliares:
+
+```powershell
+# Build do static export (só precisa rodar quando a UI mudar)
+$env:NEXT_DESKTOP_BUILD = "true"
+npm --prefix apps/web run build
+
+# Abrir o app
+python -m desktop.app
+```
+
+### Flags
+
+| Flag | Efeito |
+|---|---|
+| `--dev` | Carrega `http://localhost:3000` (Next.js dev server) |
+| `--debug` | Abre DevTools no modo ativo |
+| (nenhuma) | Sobe servidor embutido e carrega `apps/web/out/` |
+
+### Teste de sanidade (com `--debug`)
+
+Abra o console do DevTools e execute:
+
+```javascript
+await window.pywebview.api.ping()
+// → {pong: true, ts: 1234567890.0}
+
+await window.pywebview.api.get_companies({page: 1, page_size: 5})
+// → {items: [...], pagination: {...}}
+```
+
+---
+
 ## Problemas comuns
 
 | O que aconteceu | O que fazer |
