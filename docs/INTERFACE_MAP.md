@@ -222,6 +222,26 @@ Defaults:
 
 ---
 
+### PG-11 - `/atualizar-base` (Atualizar Base Admin) `live`
+
+**Objetivo**: painel administrativo para acompanhar o estado da base empresarial
+e simular o fluxo de atualizacao em massa por tipo, filtros, confirmacao,
+progresso, logs, resultados e historico.
+
+**Status**: rota frontend entregue com dados simulados. Nao executa operacao
+real de backend nesta fase.
+
+**Endpoints consumidos**: nenhum.
+
+**Notas de implementacao**:
+- a pagina recria o handoff `Update Base.html` como componente React client;
+- os estados de fonte indisponivel, permissao insuficiente e operacao ja em
+  execucao sao simulados na propria tela;
+- quando houver backend dedicado, esta secao deve ser atualizada com os
+  contratos reais de status, start/cancel, progresso e historico.
+
+---
+
 ### `/design-system` - tooling interno
 
 **Status**: showcase interno de tokens e componentes. Nao aparece na navegacao
@@ -291,4 +311,4 @@ for entregue.
 
 ---
 
-_Ultima atualizacao: 2026-04-12 - LT-0001 (contrato anual-only explicitado)_
+_Ultima atualizacao: 2026-05-02 - PG-11 Atualizar Base Admin_
