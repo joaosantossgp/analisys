@@ -46,7 +46,7 @@ export function CompanyUrlTabs({
     >
       <TabsList
         variant="underline"
-        className="w-fit rounded-full border border-border/70 bg-background/88 p-1"
+        className="w-fit rounded-full border border-border/70 bg-background/88 p-1 [&_[data-slot=tab-indicator]]:hidden"
       >
         {options.map((option) => (
           <TabsTrigger
