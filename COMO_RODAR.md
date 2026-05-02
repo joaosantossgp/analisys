@@ -225,6 +225,65 @@ python scripts/final_verification.py --xlsx output/reports/PETROBRAS_financials.
 
 ---
 
+## 9. Desktop pywebview (Fase 3)
+
+App nativo com janela pywebview + UI Next.js. O bridge Python responde
+diretamente, sem precisar do servidor FastAPI para leitura.
+
+### Modo dev (recomendado para desenvolvimento)
+
+Requer Next.js dev server e FastAPI rodando:
+
+```powershell
+# Terminal 1 — FastAPI
+uvicorn apps.api.app.main:app --reload
+
+# Terminal 2 — Next.js
+cd apps/web
+npm run dev
+
+# Terminal 3 — janela pywebview
+python -m desktop.app --dev
+```
+
+### Modo standalone (sem npm run dev)
+
+Gere o build uma vez; o app sobe o servidor Node.js embutido automaticamente:
+
+```powershell
+# Build (so precisa rodar quando a UI mudar)
+npm --prefix apps/web run build
+# → gera .next/standalone/server.js
+
+# Abrir o app (sem npm run dev, sem FastAPI)
+python -m desktop.app
+```
+
+> O bridge Python responde diretamente no modo standalone; FastAPI nao e necessario
+> para leitura de dados.
+
+### Flags
+
+| Flag | Efeito |
+|---|---|
+| `--dev` | Carrega `http://localhost:3000` (Next.js dev server) |
+| `--debug` | Abre DevTools no modo ativo |
+| (nenhuma) | Inicia `.next/standalone/server.js` e carrega o app |
+
+### Teste de sanidade (com `--debug`)
+
+Abra o console do DevTools e execute:
+
+```javascript
+await window.pywebview.api.ping()
+// → {pong: true, ts: 1234567890.0}
+
+await window.pywebview.api.get_companies({page: 1, page_size: 5})
+// → {items: [...], pagination: {...}}
+```
+
+---
+
 ## Problemas comuns
 
 | O que aconteceu | O que fazer |
@@ -237,3 +296,5 @@ python scripts/final_verification.py --xlsx output/reports/PETROBRAS_financials.
 | API responde `503` | Valide o banco, tabelas obrigatorias e o `runtime_doctor.py`. |
 | Web app sem dados | Verifique `API_BASE_URL` e se `uvicorn apps.api.app.main:app --reload` esta rodando. |
 | Erro de permissao no PowerShell | Rode `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`. |
+| Standalone server nao encontrado | Execute `npm --prefix apps/web run build` para gerar `.next/standalone/server.js`. |
+| Servidor standalone nao respondeu | Verifique se `node` esta no PATH e se o build foi concluido com sucesso. |
