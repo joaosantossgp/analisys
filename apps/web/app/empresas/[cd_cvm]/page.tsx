@@ -41,7 +41,15 @@ type EmpresaDetailPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-// Static export: no pages pre-rendered; SPA fallback in desktop/app.py handles routing.
+// In server mode: force-dynamic (stays in Next.js route table, perf-guardrail passes).
+// In static export desktop build: auto (force-dynamic incompatible with output:'export').
+export const dynamic =
+  (process.env.NEXT_DESKTOP_BUILD === "true" ? "auto" : "force-dynamic") as
+    | "force-dynamic"
+    | "auto";
+
+// Required for output:'export'. In server mode force-dynamic above takes precedence;
+// SPA fallback in desktop/app.py handles runtime navigation to /empresas/[cd_cvm].
 export function generateStaticParams() { return []; }
 
 const DETAIL_PAGE_MUTABLE_API_READ = {
