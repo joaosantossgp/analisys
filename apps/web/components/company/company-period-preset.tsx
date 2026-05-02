@@ -246,25 +246,14 @@ export function CompanyPeriodPreset({
               {selectedYears.join(", ")}
             </span>
           </div>
-          <Button
-            type="button"
-            variant={customLocked ? "secondary" : "outline"}
-            size="sm"
-            className="rounded-full px-4"
-            onClick={() => setCustomLocked((current) => !current)}
-          >
-            Personalizado
-          </Button>
         </div>
 
-        {customLocked ? (
-          <CustomCompanyPeriodRange
-            key={selectedYears.join(",")}
-            pathname={pathname}
-            availableYears={availableYears}
-            selectedYears={selectedYears}
-          />
-        ) : null}
+        <CustomCompanyPeriodRange
+          key={selectedYears.join(",")}
+          pathname={pathname}
+          availableYears={availableYears}
+          selectedYears={selectedYears}
+        />
       </div>
     );
   }
