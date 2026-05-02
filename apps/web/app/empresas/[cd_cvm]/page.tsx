@@ -195,12 +195,6 @@ export default async function EmpresaDetailPage({
 
       <CompanyHeader company={company} selectedYears={selectedYears} />
 
-      <CompanyPeriodPreset
-        pathname={pathname}
-        availableYears={readableYears}
-        selectedYears={selectedYears}
-      />
-
       <CompanyUrlTabs
         pathname={pathname}
         currentValue={currentTab}
@@ -214,6 +208,8 @@ export default async function EmpresaDetailPage({
             company={company}
             bundle={bundle}
             cdCvm={cdCvm}
+            pathname={pathname}
+            availableYears={readableYears}
             selectedYears={selectedYears}
           />
         ) : (
@@ -243,6 +239,12 @@ export default async function EmpresaDetailPage({
               eventName="company_statement_changed"
             />
           </div>
+          <CompanyPeriodPreset
+            pathname={pathname}
+            availableYears={readableYears}
+            selectedYears={selectedYears}
+            variant="custom-only"
+          />
           {statement ? (
             <CompanyStatementsLazy matrix={statement} />
           ) : (

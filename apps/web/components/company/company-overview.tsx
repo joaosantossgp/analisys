@@ -1,7 +1,7 @@
 import { CompanyAnalysisPanelLazy } from "@/components/company/company-analysis-panel-lazy";
 import { CompanyContextCard } from "@/components/company/company-context-card";
 import { CompanyFreshnessCard } from "@/components/company/company-freshness-card";
-import { CompanyKpiRow } from "@/components/company/company-kpi-row";
+import { CompanyPeriodPreset } from "@/components/company/company-period-preset";
 import { SparklineChip } from "@/components/shared/sparkline-chip";
 import type { CompanyInfo, KPIBundle } from "@/lib/api";
 import { buildCompanyDashboardModel } from "@/lib/company-dashboard";
@@ -11,6 +11,8 @@ type CompanyOverviewProps = {
   company: CompanyInfo;
   bundle: KPIBundle;
   cdCvm: number;
+  pathname: string;
+  availableYears: number[];
   selectedYears: number[];
 };
 
@@ -18,6 +20,8 @@ export function CompanyOverview({
   company,
   bundle,
   cdCvm,
+  pathname,
+  availableYears,
   selectedYears,
 }: CompanyOverviewProps) {
   const model = buildCompanyDashboardModel(bundle);
@@ -25,8 +29,17 @@ export function CompanyOverview({
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
       <div className="flex flex-col gap-6 lg:col-span-8">
-        <CompanyKpiRow cards={model.summaryCards} />
-        <CompanyAnalysisPanelLazy model={model} />
+        <CompanyAnalysisPanelLazy
+          model={model}
+          periodControl={
+            <CompanyPeriodPreset
+              pathname={pathname}
+              availableYears={availableYears}
+              selectedYears={selectedYears}
+              variant="custom-only"
+            />
+          }
+        />
       </div>
 
       <div className="flex flex-col gap-4 lg:col-span-4">
