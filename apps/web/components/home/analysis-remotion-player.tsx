@@ -4,13 +4,14 @@ import { Player } from "@remotion/player";
 import {
   ActivityIcon,
   BarChart3Icon,
-  Building2Icon,
   DatabaseIcon,
   FileTextIcon,
+  GitCompareArrowsIcon,
+  LayersIcon,
   LineChartIcon,
   SearchIcon,
-  ShieldCheckIcon,
   TrendingUpIcon,
+  type LucideIcon,
 } from "lucide-react";
 import {
   AbsoluteFill,
@@ -20,40 +21,63 @@ import {
   useVideoConfig,
 } from "remotion";
 
-const metrics = [
-  { label: "Cobertura CVM", value: "100%", delay: 10 },
-  { label: "KPIs calculados", value: "60+", delay: 18 },
-  { label: "Comparacao", value: "4x", delay: 26 },
+type Capability = {
+  icon: LucideIcon;
+  title: string;
+  detail: string;
+  color: string;
+  delay: number;
+};
+
+const capabilities: Capability[] = [
+  {
+    icon: SearchIcon,
+    title: "Busca inteligente",
+    detail: "Nome, ticker ou codigo CVM",
+    color: "rgba(45, 212, 191, 0.96)",
+    delay: 18,
+  },
+  {
+    icon: FileTextIcon,
+    title: "DRE, BPA, BPP e DFC",
+    detail: "Tabelas anuais navegaveis",
+    color: "rgba(52, 211, 153, 0.94)",
+    delay: 26,
+  },
+  {
+    icon: BarChart3Icon,
+    title: "60+ KPIs",
+    detail: "Margens, ROE e liquidez",
+    color: "rgba(251, 113, 133, 0.94)",
+    delay: 34,
+  },
+  {
+    icon: GitCompareArrowsIcon,
+    title: "Comparacao side-by-side",
+    detail: "Ate 4 empresas sincronizadas",
+    color: "rgba(96, 165, 250, 0.96)",
+    delay: 42,
+  },
+  {
+    icon: LayersIcon,
+    title: "Setores organizados",
+    detail: "Contexto setorial conectado",
+    color: "rgba(251, 191, 36, 0.95)",
+    delay: 50,
+  },
+  {
+    icon: TrendingUpIcon,
+    title: "On-demand guiado",
+    detail: "Refresh acompanhado ponta a ponta",
+    color: "rgba(216, 180, 254, 0.96)",
+    delay: 58,
+  },
 ];
 
 const rows = [
   { label: "Receita liquida", value: "R$ 48.2B", trend: "+12.4%", width: 88 },
   { label: "Margem EBIT", value: "24.8%", trend: "+3.1 p.p.", width: 72 },
   { label: "ROE anual", value: "18.6%", trend: "+2.8 p.p.", width: 64 },
-];
-
-const insightCards = [
-  {
-    icon: SearchIcon,
-    label: "Busca ativa",
-    value: "PETR4",
-    color: "rgba(45, 212, 191, 0.92)",
-    delay: 24,
-  },
-  {
-    icon: FileTextIcon,
-    label: "Demonstracoes",
-    value: "DFP + ITR",
-    color: "rgba(251, 191, 36, 0.9)",
-    delay: 34,
-  },
-  {
-    icon: TrendingUpIcon,
-    label: "Modelo",
-    value: "Atualizado",
-    color: "rgba(74, 222, 128, 0.9)",
-    delay: 44,
-  },
 ];
 
 const streamItems = [
@@ -63,16 +87,10 @@ const streamItems = [
   "DFC",
   "ROE",
   "EBIT",
-  "Liquidez",
-  "Setores",
-  "Peers",
-  "Excel",
-];
-
-const floatingNotes = [
-  { label: "CVM filings", value: "2.3M rows", x: 7, y: 18, delay: 18 },
-  { label: "Sector lens", value: "Context on", x: 75, y: 13, delay: 32 },
-  { label: "Export ready", value: "Workbook", x: 76, y: 72, delay: 46 },
+  "LIQUIDEZ",
+  "SETORES",
+  "PEERS",
+  "EXCEL",
 ];
 
 function getSpring(frame: number, fps: number, delay = 0) {
@@ -93,166 +111,71 @@ function AnalysisRemotionVideo() {
   const intro = getSpring(frame, fps);
   const loop = frame % 180;
   const gridShift = interpolate(loop, [0, 180], [0, -64]);
-  const scanX = interpolate(loop, [0, 180], [-18, 118]);
-  const auroraA = oscillate(frame, 34, -10, 10);
-  const auroraB = oscillate(frame + 40, 42, -12, 12);
+  const scanX = interpolate(loop, [0, 180], [-16, 116]);
   const orbit = interpolate(loop, [0, 180], [0, 360]);
   const tickerX = interpolate(loop, [0, 180], [0, -50]);
+  const auroraA = oscillate(frame, 34, -12, 12);
+  const auroraB = oscillate(frame + 50, 43, -14, 14);
 
   return (
     <AbsoluteFill className="overflow-hidden rounded-[1.35rem] bg-[#050908] text-white">
       <div className="absolute inset-0 bg-[linear-gradient(135deg,#071511_0%,#08110f_42%,#050706_100%)]" />
       <div
-        className="absolute -left-28 -top-20 h-72 w-72 rounded-full bg-teal-400/22 blur-3xl"
+        className="absolute -left-32 -top-24 h-80 w-80 rounded-full bg-teal-400/22 blur-3xl"
         style={{ transform: `translate(${auroraA}px, ${auroraB}px)` }}
       />
       <div
-        className="absolute -right-16 top-8 h-64 w-64 rounded-full bg-amber-300/14 blur-3xl"
+        className="absolute right-[-4rem] top-8 h-72 w-72 rounded-full bg-amber-300/12 blur-3xl"
         style={{ transform: `translate(${-auroraB}px, ${auroraA}px)` }}
       />
       <div
-        className="absolute bottom-[-5rem] right-24 h-72 w-72 rounded-full bg-blue-400/12 blur-3xl"
+        className="absolute bottom-[-6rem] right-40 h-80 w-80 rounded-full bg-blue-400/12 blur-3xl"
         style={{ transform: `translate(${auroraB}px, ${-auroraA}px)` }}
       />
       <div
-        className="absolute inset-0 opacity-[0.16] [background-image:linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:64px_64px]"
+        className="absolute inset-0 opacity-[0.14] [background-image:linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:64px_64px]"
         style={{ backgroundPosition: `${gridShift}px ${gridShift}px` }}
       />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_44%,transparent_0%,rgba(0,0,0,0.34)_74%,rgba(0,0,0,0.58)_100%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_46%_44%,transparent_0%,rgba(0,0,0,0.22)_65%,rgba(0,0,0,0.62)_100%)]" />
 
       <div
-        className="absolute bottom-0 top-0 w-32 bg-white/10 blur-2xl"
+        className="absolute bottom-0 top-0 w-36 bg-white/10 blur-2xl"
         style={{ left: `${scanX}%` }}
+      />
+      <div className="absolute inset-5 rounded-[1.2rem] border border-white/10 bg-white/[0.026] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_30px_90px_rgba(0,0,0,0.36)]" />
+
+      <div
+        className="absolute left-[56%] top-[51%] h-[36rem] w-[36rem] rounded-full border border-teal-200/8"
+        style={{ transform: `translate(-50%, -50%) rotate(${orbit}deg)` }}
+      >
+        <span className="absolute -top-1 left-1/2 size-2 rounded-full bg-teal-200 shadow-[0_0_22px_rgba(94,234,212,0.8)]" />
+        <span className="absolute bottom-12 right-8 size-1.5 rounded-full bg-amber-200 shadow-[0_0_18px_rgba(253,230,138,0.75)]" />
+      </div>
+      <div
+        className="absolute left-[56%] top-[51%] h-[25rem] w-[25rem] rounded-full border border-white/7"
+        style={{ transform: `translate(-50%, -50%) rotate(${-orbit * 0.62}deg)` }}
       />
 
       <div
-        className="absolute left-[54%] top-[50%] h-[34rem] w-[34rem] rounded-full border border-teal-200/8"
-        style={{
-          transform: `translate(-50%, -50%) rotate(${orbit}deg)`,
-        }}
-      >
-        <div className="absolute -top-1 left-1/2 size-2 rounded-full bg-teal-200 shadow-[0_0_22px_rgba(94,234,212,0.8)]" />
-        <div className="absolute bottom-10 right-8 size-1.5 rounded-full bg-amber-200 shadow-[0_0_18px_rgba(253,230,138,0.75)]" />
-      </div>
-      <div
-        className="absolute left-[54%] top-[50%] h-[24rem] w-[24rem] rounded-full border border-white/7"
-        style={{
-          transform: `translate(-50%, -50%) rotate(${-orbit * 0.65}deg)`,
-        }}
-      >
-        <div className="absolute left-8 top-8 size-1.5 rounded-full bg-emerald-200 shadow-[0_0_18px_rgba(167,243,208,0.72)]" />
-      </div>
-
-      <div className="absolute inset-5 rounded-[1.2rem] border border-white/10 bg-white/[0.025] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_30px_90px_rgba(0,0,0,0.36)]" />
-
-      {floatingNotes.map((note) => {
-        const itemIn = getSpring(frame, fps, note.delay);
-        return (
-          <div
-            key={note.label}
-            className="absolute z-10 rounded-[0.9rem] border border-white/10 bg-[#0b1512]/76 px-3 py-2 shadow-[0_18px_42px_rgba(0,0,0,0.28)] backdrop-blur-md"
-            style={{
-              left: `${note.x}%`,
-              top: `${note.y}%`,
-              opacity: interpolate(itemIn, [0, 1], [0, 1]),
-              transform: `translateY(${interpolate(itemIn, [0, 1], [14, oscillate(frame + note.delay, 38, -3, 3)])}px)`,
-            }}
-          >
-            <div className="text-[0.62rem] uppercase text-white/40">
-              {note.label}
-            </div>
-            <div className="mt-0.5 font-heading text-[0.82rem] font-semibold">
-              {note.value}
-            </div>
-          </div>
-        );
-      })}
-
-      <div
-        className="relative z-20 grid h-full grid-cols-[0.78fr_1.22fr] gap-7 px-9 pb-12 pt-8"
+        className="relative z-20 grid h-full grid-cols-[0.58fr_0.42fr] gap-8 px-9 pb-16 pt-8"
         style={{
           opacity: interpolate(intro, [0, 1], [0, 1]),
           transform: `scale(${interpolate(intro, [0, 1], [0.985, 1])}) translateY(${interpolate(intro, [0, 1], [18, 0])}px)`,
         }}
       >
-        <section className="flex min-w-0 flex-col justify-between">
-          <div>
-            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-teal-300/18 bg-teal-200/10 px-3.5 py-1.5 text-[0.72rem] font-semibold uppercase text-teal-100/80">
-              <span
-                className="size-1.5 rounded-full bg-teal-300 shadow-[0_0_18px_rgba(94,234,212,0.8)]"
-                style={{ opacity: oscillate(frame, 9, 0.5, 1) }}
-              />
-              Analise guiada
-            </div>
-            <h3 className="font-heading text-[2.65rem] font-semibold leading-[0.96] text-white">
-              Financial intelligence for every CVM filing.
-            </h3>
-            <p className="mt-4 max-w-[24rem] text-[0.98rem] leading-6 text-white/66">
-              Search companies, compare fundamentals, and move from raw reports
-              to investment-grade context in one focused workspace.
-            </p>
-          </div>
-
-          <div className="space-y-3">
-            <div className="relative h-16 overflow-hidden rounded-[1rem] border border-white/10 bg-white/[0.05] p-3">
-              <div className="mb-2 flex items-center justify-between text-[0.68rem] uppercase text-white/45">
-                <span>Data pipeline</span>
-                <span>live sync</span>
-              </div>
-              <div className="relative h-5">
-                <div className="absolute left-2 right-2 top-1/2 h-px bg-gradient-to-r from-teal-200/0 via-teal-200/45 to-emerald-200/0" />
-                {[0, 1, 2, 3].map((item) => (
-                  <div
-                    key={item}
-                    className="absolute top-1/2 size-2.5 rounded-full border border-teal-100/45 bg-[#07110f] shadow-[0_0_18px_rgba(45,212,191,0.45)]"
-                    style={{
-                      left: `${12 + item * 25}%`,
-                      transform: `translateY(-50%) scale(${oscillate(frame + item * 12, 12, 0.82, 1.18)})`,
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
-              {metrics.map((metric) => {
-                const itemIn = getSpring(frame, fps, metric.delay);
-
-                return (
-                  <div
-                    key={metric.label}
-                    className="rounded-[1rem] border border-white/10 bg-white/[0.075] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur"
-                    style={{
-                      opacity: interpolate(itemIn, [0, 1], [0.25, 1]),
-                      transform: `translateY(${interpolate(itemIn, [0, 1], [12, 0])}px)`,
-                    }}
-                  >
-                    <div className="font-heading text-[1.38rem] font-semibold leading-none">
-                      {metric.value}
-                    </div>
-                    <div className="mt-1.5 text-[0.58rem] uppercase text-white/52">
-                      {metric.label}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-
         <section className="relative min-w-0">
-          <div className="absolute -left-5 top-16 h-px w-24 rotate-[-18deg] bg-gradient-to-r from-teal-200/0 via-teal-200/45 to-teal-200/0" />
-          <div className="absolute -bottom-2 right-10 h-px w-32 rotate-[14deg] bg-gradient-to-r from-amber-200/0 via-amber-200/30 to-amber-200/0" />
+          <div className="absolute -left-4 top-16 h-px w-28 rotate-[-16deg] bg-gradient-to-r from-teal-200/0 via-teal-200/45 to-teal-200/0" />
+          <div className="absolute bottom-10 right-6 h-px w-36 rotate-[13deg] bg-gradient-to-r from-amber-200/0 via-amber-200/28 to-amber-200/0" />
 
-          <div className="relative h-full rounded-[1.25rem] border border-white/12 bg-[#0a1311]/88 p-3 shadow-[0_28px_80px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur">
-            <div className="mb-3 flex items-center justify-between border-b border-white/8 pb-3">
+          <div className="relative h-full overflow-hidden rounded-[1.25rem] border border-white/12 bg-[#0a1311]/88 p-4 shadow-[0_28px_80px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur">
+            <div className="mb-4 flex items-center justify-between border-b border-white/8 pb-3">
               <div>
-                <div className="text-[0.72rem] uppercase text-white/42">
-                  Dashboard
+                <div className="text-[0.66rem] uppercase text-white/42">
+                  Analise guiada
                 </div>
-                <div className="mt-1 font-heading text-[1.25rem] font-semibold">
-                  Equity command center
-                </div>
+                <h3 className="mt-1 font-heading text-[2.3rem] font-semibold leading-[0.96]">
+                  Financial intelligence for every CVM filing.
+                </h3>
               </div>
               <div className="flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-[0.72rem] font-medium text-emerald-100">
                 <ActivityIcon className="size-3.5" />
@@ -260,12 +183,12 @@ function AnalysisRemotionVideo() {
               </div>
             </div>
 
-            <div className="grid grid-cols-[1.04fr_0.58fr] gap-4">
+            <div className="grid grid-cols-[1fr_0.58fr] gap-4">
               <div className="rounded-[1rem] border border-white/10 bg-white/[0.045] p-3">
                 <div className="mb-3 flex items-center justify-between">
                   <div>
                     <div className="text-[0.78rem] font-medium text-white/64">
-                      KPI performance
+                      Equity command center
                     </div>
                     <div className="mt-1 text-[0.68rem] text-white/38">
                       Annual view with peer signal
@@ -276,7 +199,9 @@ function AnalysisRemotionVideo() {
                 <div className="relative flex h-24 items-end gap-2 overflow-hidden rounded-[0.7rem] bg-black/12 px-2 pb-2">
                   <div
                     className="absolute inset-x-0 top-1/2 h-px bg-teal-200/18"
-                    style={{ transform: `translateY(${oscillate(frame, 16, -12, 12)}px)` }}
+                    style={{
+                      transform: `translateY(${oscillate(frame, 16, -12, 12)}px)`,
+                    }}
                   />
                   {[36, 58, 44, 70, 62, 86, 76, 94].map((height, index) => {
                     const bar = getSpring(frame, fps, 18 + index * 3);
@@ -295,58 +220,43 @@ function AnalysisRemotionVideo() {
               </div>
 
               <div className="space-y-3">
-                {insightCards.map((insight, index) => {
-                  const itemIn = getSpring(frame, fps, insight.delay);
-                  return (
-                    <div
-                      key={insight.label}
-                      className="rounded-[0.9rem] border border-white/10 bg-white/[0.05] p-2.5"
-                      style={{
-                        opacity: interpolate(itemIn, [0, 1], [0.25, 1]),
-                        transform: `translateX(${interpolate(itemIn, [0, 1], [14, oscillate(frame + index * 10, 34, -2, 2)])}px)`,
-                      }}
-                    >
-                      <div className="mb-2 flex items-center justify-between">
-                        <div
-                          className="flex size-7 items-center justify-center rounded-[0.65rem]"
-                          style={{
-                            background: insight.color
-                              .replace("0.9", "0.12")
-                              .replace("0.92", "0.12"),
-                            color: insight.color,
-                          }}
-                        >
-                          <insight.icon className="size-3.5" strokeWidth={1.8} />
-                        </div>
-                        <span className="size-1.5 rounded-full bg-emerald-200" />
-                      </div>
-                      <div className="text-[0.72rem] text-white/46">
-                        {insight.label}
-                      </div>
-                      <div className="mt-0.5 font-heading text-[0.84rem] font-semibold">
-                        {insight.value}
-                      </div>
+                {[
+                  { icon: DatabaseIcon, label: "Fonte", value: "CVM" },
+                  { icon: BarChart3Icon, label: "Universo", value: "800+" },
+                  { icon: TrendingUpIcon, label: "Status", value: "Ready" },
+                ].map((item, index) => (
+                  <div
+                    key={item.label}
+                    className="rounded-[0.9rem] border border-white/8 bg-white/[0.045] p-3"
+                    style={{
+                      transform: `translateY(${oscillate(frame + index * 18, 40, -2, 2)}px)`,
+                    }}
+                  >
+                    <item.icon className="mb-2 size-4 text-teal-200" />
+                    <div className="text-[0.68rem] text-white/48">{item.label}</div>
+                    <div className="font-heading text-[0.9rem] font-semibold">
+                      {item.value}
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             </div>
 
-            <div className="mt-4 grid grid-cols-[1fr_0.64fr] gap-4">
+            <div className="mt-3 grid grid-cols-[1fr_0.4fr] gap-4">
               <div className="space-y-3">
                 {rows.map((row, index) => (
                   <div
                     key={row.label}
-                  className="rounded-[0.9rem] border border-white/8 bg-white/[0.04] px-3.5 py-2"
+                    className="rounded-[0.9rem] border border-white/8 bg-white/[0.04] px-3.5 py-2"
                   >
                     <div className="mb-2 flex items-center justify-between gap-3">
-                      <span className="text-[0.8rem] text-white/58">
+                      <span className="text-[0.78rem] text-white/58">
                         {row.label}
                       </span>
-                    <span className="font-heading text-[0.88rem] font-semibold">
+                      <span className="font-heading text-[0.88rem] font-semibold">
                         {row.value}
                       </span>
-                      <span className="text-[0.74rem] font-medium text-emerald-200">
+                      <span className="text-[0.72rem] font-medium text-emerald-200">
                         {row.trend}
                       </span>
                     </div>
@@ -368,33 +278,112 @@ function AnalysisRemotionVideo() {
                 ))}
               </div>
 
-              <div className="grid gap-3">
-                {[
-                  { icon: DatabaseIcon, label: "Fonte", value: "CVM" },
-                  { icon: Building2Icon, label: "Universo", value: "800+" },
-                  { icon: ShieldCheckIcon, label: "Status", value: "Ready" },
-                ].map((item, index) => (
-                  <div
-                    key={item.label}
-                  className="rounded-[0.9rem] border border-white/8 bg-white/[0.045] p-2.5"
-                    style={{
-                      transform: `translateY(${oscillate(frame + index * 18, 40, -2, 2)}px)`,
-                    }}
-                  >
-                    <item.icon className="mb-1.5 size-4 text-teal-200" />
-                    <div className="text-[0.7rem] text-white/48">{item.label}</div>
-                    <div className="font-heading text-[0.82rem] font-semibold">
-                      {item.value}
-                    </div>
+              <div className="flex flex-col justify-between rounded-[0.95rem] border border-white/8 bg-white/[0.04] p-3">
+                <div>
+                  <div className="text-[0.66rem] uppercase text-white/42">
+                    Pipeline
                   </div>
-                ))}
+                  <div className="mt-1 font-heading text-[0.9rem] font-semibold">
+                    DFP -&gt; KPI
+                  </div>
+                </div>
+                <div className="relative h-14">
+                  <div className="absolute left-1/2 top-1 h-12 w-px bg-gradient-to-b from-teal-200/0 via-teal-200/40 to-teal-200/0" />
+                  {[0, 1, 2].map((item) => (
+                    <span
+                      key={item}
+                      className="absolute left-1/2 size-2.5 rounded-full border border-teal-100/45 bg-[#07110f] shadow-[0_0_18px_rgba(45,212,191,0.45)]"
+                      style={{
+                        top: `${8 + item * 32}%`,
+                        transform: `translateX(-50%) scale(${oscillate(frame + item * 12, 12, 0.82, 1.18)})`,
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
+
+            <div className="mt-3 flex items-center gap-2 border-t border-white/8 pt-3 text-[0.68rem] uppercase text-white/42">
+              <span className="size-1.5 rounded-full bg-teal-200 shadow-[0_0_14px_rgba(94,234,212,0.72)]" />
+              100% cobertura CVM
+              <span className="mx-1 text-white/18">/</span>
+              60+ KPIs
+              <span className="mx-1 text-white/18">/</span>
+              4x comparar
+            </div>
+          </div>
+        </section>
+
+        <section className="relative min-w-0 overflow-hidden rounded-[1.25rem] border border-white/10 bg-white/[0.032] px-6 py-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+          <div className="absolute inset-y-8 left-10 w-px bg-gradient-to-b from-teal-200/0 via-teal-200/28 to-teal-200/0" />
+          <div className="absolute left-10 top-[13%] h-[74%] w-[74%] rounded-full border border-white/7" />
+          <div
+            className="absolute left-10 top-[13%] h-[74%] w-[74%] rounded-full border border-teal-200/8"
+            style={{ transform: `rotate(${-orbit * 0.38}deg)` }}
+          />
+
+          <div className="relative z-10 mb-3">
+            <div className="text-[0.72rem] uppercase text-white/42">
+              Recursos em movimento
+            </div>
+            <h4 className="mt-2 max-w-[22rem] font-heading text-[1.95rem] font-semibold leading-[0.98]">
+              One flow from source data to decision.
+            </h4>
+            <p className="mt-2 max-w-[24rem] text-[0.84rem] leading-5 text-white/58">
+              Tudo fica dentro da mesma cena: busca, demonstracoes, KPIs,
+              comparacao, setores e refresh on-demand.
+            </p>
+          </div>
+
+          <div className="relative z-10 space-y-1.5">
+            {capabilities.map((feature, index) => {
+              const itemIn = getSpring(frame, fps, feature.delay);
+              const Icon = feature.icon;
+              const y = oscillate(frame + index * 10, 34, -2, 2);
+
+              return (
+                <div
+                  key={feature.title}
+                  className="relative flex items-center gap-3 py-1.5"
+                  style={{
+                    opacity: interpolate(itemIn, [0, 1], [0.18, 1]),
+                    transform: `translateX(${interpolate(itemIn, [0, 1], [22, 0])}px) translateY(${y}px)`,
+                  }}
+                >
+                  <div
+                    className="relative flex size-9 shrink-0 items-center justify-center rounded-full border"
+                    style={{
+                      borderColor: feature.color.replace("0.96", "0.28").replace("0.95", "0.28").replace("0.94", "0.28"),
+                      background: feature.color.replace("0.96", "0.12").replace("0.95", "0.12").replace("0.94", "0.12"),
+                      color: feature.color,
+                    }}
+                  >
+                    <span
+                      className="absolute inset-[-0.35rem] rounded-full border border-current opacity-20"
+                      style={{ transform: `scale(${oscillate(frame + index * 8, 18, 0.9, 1.08)})` }}
+                    />
+                    <Icon className="size-4.5" strokeWidth={1.8} />
+                  </div>
+                  <div className="min-w-0 flex-1 border-b border-white/8 pb-1.5">
+                    <div className="font-heading text-[0.96rem] font-semibold leading-tight">
+                      {feature.title}
+                    </div>
+                    <div className="mt-0.5 text-[0.76rem] leading-snug text-white/54">
+                      {feature.detail}
+                    </div>
+                  </div>
+                  <div
+                    className="h-px w-12 shrink-0 bg-gradient-to-r from-white/20 to-transparent"
+                    style={{ opacity: oscillate(frame + index * 9, 20, 0.32, 0.82) }}
+                  />
+                </div>
+              );
+            })}
           </div>
         </section>
       </div>
 
-      <div className="absolute inset-x-8 bottom-5 z-30 overflow-hidden rounded-full border border-white/8 bg-black/18 py-1.5 backdrop-blur">
+      <div className="absolute inset-x-8 bottom-4 z-30 overflow-hidden rounded-full border border-white/8 bg-black/18 py-1 backdrop-blur">
         <div
           className="flex w-[200%] gap-3 whitespace-nowrap text-[0.7rem] uppercase text-white/48"
           style={{ transform: `translateX(${tickerX}%)` }}
