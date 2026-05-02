@@ -225,72 +225,11 @@ python scripts/final_verification.py --xlsx output/reports/PETROBRAS_financials.
 
 ---
 
-## 9. Desktop pywebview (Fase 3)
-
-App nativo com janela pywebview + UI Next.js. O bridge Python responde
-diretamente, sem precisar do servidor FastAPI para leitura.
-
-### Modo dev (recomendado para desenvolvimento)
-
-Requer Next.js dev server e FastAPI rodando:
-
-```powershell
-# Terminal 1 — FastAPI
-uvicorn apps.api.app.main:app --reload
-
-# Terminal 2 — Next.js
-cd apps/web
-npm run dev
-
-# Terminal 3 — janela pywebview
-python -m desktop.app --dev
-```
-
-### Modo standalone (sem npm run dev)
-
-Gere o build uma vez; o app sobe o servidor Node.js embutido automaticamente:
-
-```powershell
-# Build (só precisa rodar quando a UI mudar)
-npm --prefix apps/web run build
-# → gera .next/standalone/server.js
-
-# Abrir o app (sem npm run dev, sem FastAPI)
-python -m desktop.app
-```
-
-> O bridge Python responde diretamente no modo standalone; FastAPI não é necessário
-> para leitura de dados.
-
-### Flags
-
-| Flag | Efeito |
-|---|---|
-| `--dev` | Carrega `http://localhost:3000` (Next.js dev server) |
-| `--debug` | Abre DevTools no modo ativo |
-| (nenhuma) | Inicia `.next/standalone/server.js` e carrega o app |
-
-### Teste de sanidade (com `--debug`)
-
-Abra o console do DevTools e execute:
-
-```javascript
-await window.pywebview.api.ping()
-// → {pong: true, ts: 1234567890.0}
-
-await window.pywebview.api.get_companies({page: 1, page_size: 5})
-// → {items: [...], pagination: {...}}
-```
-
----
-
 ## Problemas comuns
 
 | O que aconteceu | O que fazer |
 |---|---|
 | `ModuleNotFoundError` ao abrir o desktop | Prefira `python -m desktop.cvm_pyqt_app`; o entrypoint por arquivo tambem deve funcionar no estado atual. |
-| `Standalone server nao encontrado` ao rodar `python -m desktop.app` | Execute `npm --prefix apps/web run build` para gerar `.next/standalone/server.js`. |
-| `Servidor standalone nao respondeu` | Verifique se `node` esta no PATH e se o build foi concluido com sucesso. |
 | `python` nao reconhecido | Instale o Python e coloque no `PATH`. |
 | `runtime_doctor.py` falha com `venv-broken` | Recrie a `.venv` com `python -m venv .venv`. |
 | App desktop abre sem empresas | Rode `setup_db.py`, `setup_companies_table.py` e atualize dados. |
