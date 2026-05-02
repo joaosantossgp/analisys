@@ -2,7 +2,7 @@
 # Spike stub — Fase 1. Pipeline completo vem na Fase 4.
 #
 # Usage:
-#   .\scripts\build_desktop.ps1
+#   .\desktop\build_desktop.ps1
 #
 # Phases (Fase 4 will automate all steps):
 #   1. next build (static export)
