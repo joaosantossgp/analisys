@@ -28,10 +28,8 @@ export function BentoFeatures() {
         </p>
       </div>
 
-      <div className="overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#080d0c] p-3 shadow-[0_34px_110px_-50px_rgba(7,18,15,0.72)]">
-        <div className="aspect-video w-full overflow-hidden rounded-[1.35rem] border border-white/10 bg-[#07110f] shadow-[0_24px_70px_rgba(0,0,0,0.34)]">
-          <AnalysisRemotionPlayer />
-        </div>
+      <div className="aspect-video w-full overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#07110f] shadow-[0_34px_110px_-50px_rgba(7,18,15,0.72)]">
+        <AnalysisRemotionPlayer />
       </div>
     </section>
   );
