@@ -1,4 +1,5 @@
 import { CompanyRequestRefreshLazy } from "@/components/company/company-request-refresh-lazy";
+import { CompanyHelpTip } from "@/components/company/company-help-tip";
 import { SurfaceCard } from "@/components/shared/design-system-recipes";
 import {
   fetchCompanyFreshness,
@@ -132,15 +133,15 @@ export async function CompanyFreshnessCard({
           </span>
         </div>
         <div className="space-y-2">
-          <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-            Estado da leitura
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+              Estado da leitura
+            </p>
+            <CompanyHelpTip>{summary.description}</CompanyHelpTip>
+          </div>
           <h3 className="font-heading text-xl tracking-[-0.02em] text-foreground">
             {summary.title}
           </h3>
-          <p className="text-sm leading-6 text-muted-foreground">
-            {summary.description}
-          </p>
         </div>
       </div>
 

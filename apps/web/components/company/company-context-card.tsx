@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { CompanyHelpTip } from "@/components/company/company-help-tip";
 import { SurfaceCard } from "@/components/shared/design-system-recipes";
 import { buttonVariants } from "@/components/ui/button";
 import type { CompanyInfo } from "@/lib/api";
@@ -23,16 +24,17 @@ export function CompanyContextCard({
   return (
     <SurfaceCard tone="subtle" padding="md" className="space-y-4">
       <div className="space-y-2">
-        <p className="text-[0.72rem] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          Contexto de navegação
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="text-[0.72rem] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            Contexto
+          </p>
+          <CompanyHelpTip>
+            Use o mesmo recorte anual para comparar esta empresa com o setor ou outras companhias.
+          </CompanyHelpTip>
+        </div>
         <h3 className="font-heading text-xl tracking-[-0.02em] text-foreground">
           Continue a leitura
         </h3>
-        <p className="text-sm leading-6 text-muted-foreground">
-          Use o mesmo recorte anual para cruzar esta empresa com seu setor ou com
-          outras companhias prontas.
-        </p>
       </div>
 
       <dl className="grid gap-2.5 text-sm">
