@@ -3,17 +3,16 @@ CVM Analytics — entry point pywebview.
 
 Uso:
   python -m desktop.app --dev    # Next.js dev server em :3000 + FastAPI em :8000
-  python -m desktop.app          # static export em apps/web/out/
+  python -m desktop.app          # standalone server em .next/standalone/server.js
   python -m desktop.app --debug  # abre DevTools no modo que estiver ativo
 """
 
 from __future__ import annotations
 
-import functools
-import http.server
 import socket
+import subprocess
 import sys
-import threading
+import time
 from pathlib import Path
 
 import webview
@@ -21,35 +20,49 @@ import webview
 from desktop.bridge import CVMBridge
 
 _DEV_URL = "http://localhost:3000"
-_OUT_DIR = Path(__file__).parent.parent / "apps" / "web" / "out"
+_STANDALONE = Path(__file__).parent.parent / "apps" / "web" / ".next" / "standalone" / "server.js"
+_STATIC_DIR = Path(__file__).parent.parent / "apps" / "web" / ".next" / "standalone"
 _WIDTH, _HEIGHT = 1280, 820
 _BG = "#0a0a0a"
+_STARTUP_TIMEOUT = 10  # seconds to wait for the standalone server to be ready
 
 
-class _SPAHandler(http.server.SimpleHTTPRequestHandler):
-    """Serve apps/web/out/ com fallback para index.html (SPA client-side routing)."""
-
-    def do_GET(self) -> None:
-        candidate = Path(self.directory) / self.path.lstrip("/")
-        if not candidate.exists() or candidate.is_dir():
-            self.path = "/index.html"
-        super().do_GET()
-
-    def log_message(self, *_args: object) -> None:
-        pass  # silencia logs do servidor embutido
+def _free_port() -> int:
+    """Devolve uma porta TCP livre em 127.0.0.1."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
 
 
-def _start_spa_server(directory: Path) -> int:
-    """Sobe HTTPServer numa porta aleatória e retorna o número da porta."""
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind(("127.0.0.1", 0))
-    port: int = sock.getsockname()[1]
-    sock.close()
+def _wait_for_port(port: int, timeout: float = _STARTUP_TIMEOUT) -> bool:
+    """Aguarda até o servidor responder em 127.0.0.1:<port>."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=0.5):
+                return True
+        except OSError:
+            time.sleep(0.2)
+    return False
 
-    handler = functools.partial(_SPAHandler, directory=str(directory))
-    server = http.server.HTTPServer(("127.0.0.1", port), handler)
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-    return port
+
+def _start_standalone_server() -> tuple[subprocess.Popen[bytes], int]:
+    """
+    Inicia .next/standalone/server.js em uma porta aleatória.
+    Retorna (processo, porta).
+    """
+    port = _free_port()
+    proc = subprocess.Popen(
+        ["node", str(_STANDALONE)],
+        env={
+            **__import__("os").environ,
+            "PORT": str(port),
+            "HOSTNAME": "127.0.0.1",
+        },
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return proc, port
 
 
 def main() -> None:
@@ -58,19 +71,25 @@ def main() -> None:
     debug_mode = "--debug" in args
 
     bridge = CVMBridge()
+    server_proc: subprocess.Popen[bytes] | None = None
 
     if dev_mode:
         url = _DEV_URL
     else:
-        index = _OUT_DIR / "index.html"
-        if not index.exists():
+        if not _STANDALONE.exists():
             sys.exit(
-                f"[desktop] Static export não encontrado em {_OUT_DIR}.\n"
+                f"[desktop] Standalone server não encontrado em {_STANDALONE}.\n"
                 "Execute primeiro:\n"
-                "  $env:NEXT_DESKTOP_BUILD = 'true'\n"
-                "  npm --prefix apps/web run build"
+                "  npm --prefix apps/web run build\n"
+                "O build gera .next/standalone/server.js automaticamente."
             )
-        port = _start_spa_server(_OUT_DIR)
+        server_proc, port = _start_standalone_server()
+        if not _wait_for_port(port):
+            server_proc.terminate()
+            sys.exit(
+                f"[desktop] Servidor standalone não respondeu na porta {port} "
+                f"após {_STARTUP_TIMEOUT}s."
+            )
         url = f"http://127.0.0.1:{port}"
 
     webview.create_window(
@@ -83,6 +102,9 @@ def main() -> None:
         min_size=(800, 600),
     )
     webview.start(debug=debug_mode)
+
+    if server_proc is not None:
+        server_proc.terminate()
 
 
 if __name__ == "__main__":

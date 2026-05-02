@@ -246,18 +246,21 @@ npm run dev
 python -m desktop.app --dev
 ```
 
-### Modo offline (static export)
+### Modo standalone (sem npm run dev)
 
-Gere o build estático uma vez e rode sem servidores auxiliares:
+Gere o build uma vez; o app sobe o servidor Node.js embutido automaticamente:
 
 ```powershell
-# Build do static export (só precisa rodar quando a UI mudar)
-$env:NEXT_DESKTOP_BUILD = "true"
+# Build (só precisa rodar quando a UI mudar)
 npm --prefix apps/web run build
+# → gera .next/standalone/server.js
 
-# Abrir o app
+# Abrir o app (sem npm run dev, sem FastAPI)
 python -m desktop.app
 ```
+
+> O bridge Python responde diretamente no modo standalone; FastAPI não é necessário
+> para leitura de dados.
 
 ### Flags
 
@@ -265,7 +268,7 @@ python -m desktop.app
 |---|---|
 | `--dev` | Carrega `http://localhost:3000` (Next.js dev server) |
 | `--debug` | Abre DevTools no modo ativo |
-| (nenhuma) | Sobe servidor embutido e carrega `apps/web/out/` |
+| (nenhuma) | Inicia `.next/standalone/server.js` e carrega o app |
 
 ### Teste de sanidade (com `--debug`)
 
@@ -286,6 +289,8 @@ await window.pywebview.api.get_companies({page: 1, page_size: 5})
 | O que aconteceu | O que fazer |
 |---|---|
 | `ModuleNotFoundError` ao abrir o desktop | Prefira `python -m desktop.cvm_pyqt_app`; o entrypoint por arquivo tambem deve funcionar no estado atual. |
+| `Standalone server nao encontrado` ao rodar `python -m desktop.app` | Execute `npm --prefix apps/web run build` para gerar `.next/standalone/server.js`. |
+| `Servidor standalone nao respondeu` | Verifique se `node` esta no PATH e se o build foi concluido com sucesso. |
 | `python` nao reconhecido | Instale o Python e coloque no `PATH`. |
 | `runtime_doctor.py` falha com `venv-broken` | Recrie a `.venv` com `python -m venv .venv`. |
 | App desktop abre sem empresas | Rode `setup_db.py`, `setup_companies_table.py` e atualize dados. |
