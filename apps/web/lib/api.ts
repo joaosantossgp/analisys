@@ -310,6 +310,24 @@ type ApiReadRequestInit = {
   };
 };
 
+export { isDesktopMode } from "./desktop-bridge";
+import {
+  isDesktopMode,
+  bridgeFetchCompanies,
+  bridgeFetchPopulares,
+  bridgeFetchEmDestaque,
+  bridgeFetchCompanyFilters,
+  bridgeFetchCompanySuggestions,
+  bridgeFetchCompanyInfo,
+  bridgeFetchCompanyYears,
+  bridgeFetchCompanyKpis,
+  bridgeFetchCompanyStatement,
+  bridgeFetchSectors,
+  bridgeFetchSectorDetail,
+  bridgeFetchHealth,
+  bridgeTrackCompanyView,
+} from "./desktop-bridge";
+
 export type ApiErrorCode =
   | "network_error"
   | "upstream_unavailable"
@@ -969,6 +987,7 @@ function buildQuery(
 }
 
 export async function fetchHealth(): Promise<HealthResponse> {
+  if (isDesktopMode()) return bridgeFetchHealth();
   return (await apiFetch<HealthResponse>("/health", {
     request: UNCACHED_API_READ,
     validate: isHealthResponse,
@@ -990,6 +1009,7 @@ export async function fetchCompanies(params: {
   page?: number;
   pageSize?: number;
 }): Promise<CompanyDirectoryPage> {
+  if (isDesktopMode()) return bridgeFetchCompanies(params);
   return (await apiFetch<CompanyDirectoryPage>(
     `/companies${buildQuery({
       search: params.search,
@@ -1006,6 +1026,7 @@ export async function fetchCompanies(params: {
 }
 
 export async function fetchPopularesCompanies(): Promise<CompanyDirectoryPage> {
+  if (isDesktopMode()) return bridgeFetchPopulares();
   return (await apiFetch<CompanyDirectoryPage>("/companies/populares", {
     request: COMPANY_POPULARES_API_READ,
     validate: isCompanyDirectoryPage,
@@ -1014,6 +1035,7 @@ export async function fetchPopularesCompanies(): Promise<CompanyDirectoryPage> {
 }
 
 export async function fetchEmDestaqueCompanies(): Promise<CompanyDirectoryPage> {
+  if (isDesktopMode()) return bridgeFetchEmDestaque();
   return (await apiFetch<CompanyDirectoryPage>("/companies/em-destaque", {
     request: COMPANY_DESTAQUE_API_READ,
     validate: isCompanyDirectoryPage,
@@ -1026,6 +1048,7 @@ export async function fetchEmDestaqueCompanies(): Promise<CompanyDirectoryPage> 
  * Never throws — analytics must never block or break navigation.
  */
 export function trackCompanyView(cdCvm: number): void {
+  if (isDesktopMode()) { bridgeTrackCompanyView(cdCvm); return; }
   fetch("/api/company-view", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -1037,6 +1060,7 @@ export function trackCompanyView(cdCvm: number): void {
 }
 
 export async function fetchCompanyFilters(): Promise<CompanyFiltersResponse> {
+  if (isDesktopMode()) return bridgeFetchCompanyFilters();
   return (await apiFetch<CompanyFiltersResponse>(
     "/companies/filters",
     {
@@ -1052,6 +1076,7 @@ export async function fetchCompanySuggestions(
   limit = 6,
   options?: { readyOnly?: boolean },
 ): Promise<CompanySuggestionsResponse> {
+  if (isDesktopMode()) return bridgeFetchCompanySuggestions(q, limit, options);
   return (await apiFetch<CompanySuggestionsResponse>(
     `/companies/suggestions${buildQuery({
       q,
@@ -1071,6 +1096,7 @@ export async function fetchCompanySuggestionsRoute(
   limit = 6,
   options?: { readyOnly?: boolean },
 ): Promise<CompanySuggestionsResponse> {
+  if (isDesktopMode()) return bridgeFetchCompanySuggestions(q, limit, options);
   return (await routeFetch<CompanySuggestionsResponse>(
     `/api/company-search${buildQuery({
       q,
@@ -1087,6 +1113,7 @@ export async function fetchCompanySuggestionsRoute(
 }
 
 export async function fetchSectorDirectory(): Promise<SectorDirectory> {
+  if (isDesktopMode()) return bridgeFetchSectors();
   return (await apiFetch<SectorDirectory>("/sectors", {
     request: SECTOR_DIRECTORY_API_READ,
     validate: isSectorDirectory,
@@ -1098,6 +1125,7 @@ export async function fetchSectorDetail(
   sectorSlug: string,
   year?: number,
 ): Promise<SectorDetail | null> {
+  if (isDesktopMode()) return bridgeFetchSectorDetail(sectorSlug, year);
   return apiFetch<SectorDetail>(
     `/sectors/${sectorSlug}${buildQuery({ year })}`,
     {
@@ -1113,6 +1141,7 @@ export async function fetchCompanyInfo(
   cdCvm: number,
   options?: { request?: ApiReadRequestInit },
 ): Promise<CompanyInfo | null> {
+  if (isDesktopMode()) return bridgeFetchCompanyInfo(cdCvm);
   const company = await apiFetch<RawCompanyInfo>(`/companies/${cdCvm}`, {
     allowNotFound: true,
     request: options?.request ?? COMPANY_INFO_API_READ,
@@ -1127,6 +1156,7 @@ export async function fetchCompanyYears(
   cdCvm: number,
   options?: { request?: ApiReadRequestInit },
 ): Promise<number[]> {
+  if (isDesktopMode()) return bridgeFetchCompanyYears(cdCvm);
   return (await apiFetch<number[]>(`/companies/${cdCvm}/years`, {
     request: options?.request ?? COMPANY_YEARS_API_READ,
     validate: isNumberArray,
@@ -1139,6 +1169,7 @@ export async function fetchCompanyKpis(
   years: number[],
   options?: { request?: ApiReadRequestInit },
 ): Promise<KPIBundle> {
+  if (isDesktopMode()) return bridgeFetchCompanyKpis(cdCvm, years);
   return (await apiFetch<KPIBundle>(
     `/companies/${cdCvm}/kpis${buildQuery({
       years: years.join(","),
@@ -1157,6 +1188,7 @@ export async function fetchCompanyStatement(
   statementType: string,
   options?: { request?: ApiReadRequestInit },
 ): Promise<StatementMatrix> {
+  if (isDesktopMode()) return bridgeFetchCompanyStatement(cdCvm, years, statementType);
   return (await apiFetch<StatementMatrix>(
     `/companies/${cdCvm}/statements${buildQuery({
       stmt: statementType,
