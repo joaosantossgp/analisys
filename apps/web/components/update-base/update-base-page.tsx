@@ -27,6 +27,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import {
+  cancelBatchJob,
+  fetchBatchJobStatus,
+  fetchBatchRefresh,
+} from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 type AppState =
@@ -63,78 +68,15 @@ type NavItem = {
   icon: LucideIcon;
 };
 
-const DEMO_COMPANIES = [
-  "PETROBRAS S.A.",
-  "VALE S.A.",
-  "ITAU UNIBANCO",
-  "BRADESCO S.A.",
-  "WEG S.A.",
-  "AMBEV S.A.",
-  "LOCALIZA S.A.",
-  "TIM S.A.",
-  "BANCO DO BRASIL",
-  "ELETROBRAS",
-  "EMBRAER S.A.",
-  "GERDAU S.A.",
-  "SUZANO S.A.",
-  "JBS S.A.",
-  "HYPERA PHARMA",
-  "RENNER S.A.",
-  "HAPVIDA S.A.",
-  "FLEURY S.A.",
-  "EZTEC S.A.",
-  "CYRELA S.A.",
+const HISTORY: HistoryItem[] = [];
+
+const REFRESH_STAGES = [
+  "planning",
+  "download_extract",
+  "process_data",
+  "persist_reports",
+  "finalizing",
 ] as const;
-
-const DEMO_STEPS = ["Baixando", "Analisando", "Validando", "Salvando", "Indexando"] as const;
-
-const HISTORY: HistoryItem[] = [
-  {
-    date: "01/05/2026 14:32",
-    type: "full",
-    trigger: "Sistema",
-    status: "success",
-    duration: "1h 18m",
-    processed: 449,
-    failures: 0,
-  },
-  {
-    date: "28/04/2026 09:15",
-    type: "outdated",
-    trigger: "admin",
-    status: "partial",
-    duration: "34m",
-    processed: 182,
-    failures: 7,
-  },
-  {
-    date: "21/04/2026 18:00",
-    type: "missing",
-    trigger: "Sistema",
-    status: "success",
-    duration: "12m",
-    processed: 23,
-    failures: 0,
-  },
-  {
-    date: "14/04/2026 11:45",
-    type: "failed",
-    trigger: "admin",
-    status: "failed",
-    duration: "3m",
-    processed: 12,
-    failures: 12,
-  },
-  {
-    date: "07/04/2026 08:00",
-    type: "full",
-    trigger: "Sistema",
-    status: "success",
-    duration: "1h 22m",
-    processed: 449,
-    failures: 2,
-  },
-];
 
 const UPDATE_TYPE_META: Record<
   UpdateType,
@@ -508,13 +450,16 @@ export function UpdateBasePage() {
   const [elapsed, setElapsed] = useState(0);
   const [logs, setLogs] = useState<LogLine[]>([]);
   const [activeSection, setActiveSection] = useState("status");
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [totalFromJob, setTotalFromJob] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const logRef = useRef<HTMLDivElement | null>(null);
+  const lastLogCountRef = useRef(0);
 
-  const isRunning = appState === "running";
+  const isRunning = appState === "running" || appState === "already_running";
   const isCompleted = appState === "completed";
   const canRun = appState === "idle";
-  const total = UPDATE_TYPE_META[updateType].affected;
+  const total = totalFromJob || UPDATE_TYPE_META[updateType].affected;
 
   const activeFilters = useMemo(() => {
     const filters: string[] = [];
@@ -549,8 +494,9 @@ export function UpdateBasePage() {
     }
   }
 
-  function handleConfirm() {
+  async function handleConfirm() {
     clearTimer();
+    lastLogCountRef.current = 0;
     setAppState("running");
     setProgress(0);
     setProcessed(0);
@@ -560,46 +506,97 @@ export function UpdateBasePage() {
     setCurrentCompany("");
     setCurrentStep("");
     setLogs([]);
+    setJobId(null);
+    setTotalFromJob(0);
 
-    const startedAt = Date.now();
-    const runTotal = UPDATE_TYPE_META[updateType].affected;
-    let index = 0;
+    addLog("Iniciando atualizacao em lote...", "info");
+    addLog(`Tipo: ${UPDATE_TYPE_META[updateType].shortLabel}`, "dim");
 
-    setTimeout(() => {
-      addLog("Iniciando atualizacao em lote...", "info");
-      addLog(`Tipo: ${UPDATE_TYPE_META[updateType].shortLabel} | Total previsto: ${runTotal} empresas`, "dim");
-    }, 0);
+    let dispatch: Awaited<ReturnType<typeof fetchBatchRefresh>>;
+    try {
+      dispatch = await fetchBatchRefresh({
+        mode: updateType,
+        sector: filterSector !== "Todos os setores" ? filterSector : null,
+        statusFilter: filterStatus !== "all" ? filterStatus : null,
+        cvmFrom: filterCvmFrom ? parseInt(filterCvmFrom, 10) : null,
+        cvmTo: filterCvmTo ? parseInt(filterCvmTo, 10) : null,
+      });
+    } catch {
+      setAppState("source_unavailable");
+      addLog("Falha ao conectar ao servico de atualizacao.", "error");
+      return;
+    }
 
+    if (dispatch.status === "already_running") {
+      setAppState("already_running");
+      addLog("Ja existe uma atualizacao em andamento.", "warning");
+      if (dispatch.job_id) {
+        setJobId(dispatch.job_id);
+        startPolling(dispatch.job_id, Date.now());
+      }
+      return;
+    }
+
+    if (dispatch.status === "already_current") {
+      setAppState("completed");
+      addLog(dispatch.message, "success");
+      return;
+    }
+
+    if (dispatch.status === "error") {
+      setAppState("source_unavailable");
+      addLog(dispatch.message ?? "Erro ao iniciar atualizacao.", "error");
+      return;
+    }
+
+    const jid = dispatch.job_id ?? "";
+    const queuedCount = dispatch.queued ?? UPDATE_TYPE_META[updateType].affected;
+    setJobId(jid);
+    setTotalFromJob(queuedCount);
+    addLog(`Job ${jid.slice(0, 8)} enfileirado (${queuedCount} empresas).`, "dim");
+    startPolling(jid, Date.now());
+  }
+
+  function startPolling(jid: string, startedAt: number) {
     intervalRef.current = setInterval(() => {
-      index += 1;
-      const company = DEMO_COMPANIES[index % DEMO_COMPANIES.length];
-      const step = DEMO_STEPS[index % DEMO_STEPS.length];
-      const pct = Math.min(Math.round((index / runTotal) * 100), 99);
-      const failed = index % 23 === 0;
-
-      setCurrentCompany(company);
-      setCurrentStep(step);
-      setProgress(pct);
-      setProcessed(index);
-      setElapsed(Math.floor((Date.now() - startedAt) / 1000));
-
-      if (failed) {
-        setFailCount((current) => current + 1);
-        addLog(`${company} - falha ao ${step.toLowerCase()}`, "error");
-      } else {
-        setSuccessCount((current) => current + 1);
-        if (index % 5 === 0) {
-          addLog(`${company} - ${step.toLowerCase()} concluido`, "success");
+      void (async () => {
+        let status: Awaited<ReturnType<typeof fetchBatchJobStatus>>;
+        try {
+          status = await fetchBatchJobStatus(jid);
+        } catch {
+          return;
         }
-      }
 
-      if (index >= runTotal) {
-        clearTimer();
-        setProgress(100);
-        setAppState("completed");
-        addLog(`Atualizacao concluida: ${runTotal} processadas`, "success");
-      }
-    }, 120);
+        const queued = status.queued || 1;
+        const pct = Math.min(Math.round((status.processed / queued) * 100), 99);
+
+        setProcessed(status.processed);
+        setProgress(pct);
+        setFailCount(status.failures);
+        setSuccessCount(Math.max(0, status.processed - status.failures));
+        setElapsed(Math.floor((Date.now() - startedAt) / 1000));
+        if (status.current_cvm != null) setCurrentCompany(String(status.current_cvm));
+        if (status.stage) setCurrentStep(status.stage);
+
+        const logLines = status.log_lines ?? [];
+        const newLines = logLines.slice(lastLogCountRef.current);
+        lastLogCountRef.current = logLines.length;
+        newLines.forEach((line) => addLog(line, "info"));
+
+        const TERMINAL = new Set(["success", "error", "cancelled", "interrupted"]);
+        if (TERMINAL.has(status.state)) {
+          clearTimer();
+          setProgress(status.state === "success" ? 100 : pct);
+          setAppState(status.state === "cancelled" ? "idle" : "completed");
+          addLog(
+            status.state === "success"
+              ? `Atualizacao concluida: ${status.processed} processadas.`
+              : (status.error ?? `Atualizacao finalizada com estado: ${status.state}.`),
+            status.state === "success" ? "success" : "warning",
+          );
+        }
+      })();
+    }, 2500);
   }
 
   function handleCancel() {
@@ -608,10 +605,13 @@ export function UpdateBasePage() {
       return;
     }
 
-    if (appState === "running") {
+    if (appState === "running" || appState === "already_running") {
       clearTimer();
       setAppState("idle");
       addLog("Operacao cancelada pelo usuario.", "warning");
+      if (jobId) {
+        void cancelBatchJob(jobId).catch(() => undefined);
+      }
     }
   }
 
@@ -948,7 +948,7 @@ export function UpdateBasePage() {
                       <div>
                         <Eyebrow className="mb-2">Etapa</Eyebrow>
                         <div className="flex flex-wrap gap-1.5">
-                          {DEMO_STEPS.map((step) => (
+                          {REFRESH_STAGES.map((step) => (
                             <span
                               key={step}
                               className={cn(
