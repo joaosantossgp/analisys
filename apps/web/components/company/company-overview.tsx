@@ -1,16 +1,12 @@
 import { CompanyAnalysisPanelLazy } from "@/components/company/company-analysis-panel-lazy";
-import { CompanyContextCard } from "@/components/company/company-context-card";
-import { CompanyFreshnessCard } from "@/components/company/company-freshness-card";
+import { CompanyMarketSidebar } from "@/components/company/company-market-sidebar";
 import { CompanyPeriodPreset } from "@/components/company/company-period-preset";
-import { SparklineChip } from "@/components/shared/sparkline-chip";
 import type { CompanyInfo, KPIBundle } from "@/lib/api";
 import { buildCompanyDashboardModel } from "@/lib/company-dashboard";
-import { formatKpiValue } from "@/lib/formatters";
 
 type CompanyOverviewProps = {
   company: CompanyInfo;
   bundle: KPIBundle;
-  cdCvm: number;
   pathname: string;
   availableYears: number[];
   selectedYears: number[];
@@ -19,7 +15,6 @@ type CompanyOverviewProps = {
 export function CompanyOverview({
   company,
   bundle,
-  cdCvm,
   pathname,
   availableYears,
   selectedYears,
@@ -42,24 +37,8 @@ export function CompanyOverview({
         />
       </div>
 
-      <div className="flex flex-col gap-4 lg:col-span-4">
-        {model.spotlightMetrics.map((metric) => (
-          <SparklineChip
-            key={metric.id}
-            label={metric.label}
-            value={formatKpiValue(metric.value, metric.formatType)}
-            delta={metric.delta}
-            formatType={metric.formatType}
-            values={metric.values}
-          />
-        ))}
-
-        <CompanyFreshnessCard cdCvm={cdCvm} />
-        <CompanyContextCard
-          company={company}
-          selectedYears={selectedYears}
-          availableYears={model.years}
-        />
+      <div className="lg:col-span-4">
+        <CompanyMarketSidebar company={company} />
       </div>
     </div>
   );
