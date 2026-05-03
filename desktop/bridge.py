@@ -15,12 +15,20 @@ from typing import Any
 class CVMBridge:
     def __init__(self) -> None:
         self._service = None
+        self._refresh_manager = None
 
     def _svc(self):
         if self._service is None:
             from src.read_service import CVMReadService  # noqa: PLC0415
             self._service = CVMReadService()
         return self._service
+
+    def _refresh(self):
+        if self._refresh_manager is None:
+            from desktop.services import DesktopRefreshJobManager  # noqa: PLC0415
+
+            self._refresh_manager = DesktopRefreshJobManager(read_service=self._svc())
+        return self._refresh_manager
 
     # ------------------------------------------------------------------
     # Utilitários
@@ -173,33 +181,43 @@ class CVMBridge:
             return {"error": str(exc)}
 
     # ------------------------------------------------------------------
-    # Refresh (stub — desktop não tem scraper ativo)
+    # Refresh
     # ------------------------------------------------------------------
 
     def get_refresh_status(self, params=None) -> dict:
-        # Desktop viewer tem dados estáticos; nenhum job de refresh ativo.
-        return {"items": []}
+        try:
+            return self._refresh().get_refresh_status(params or {})
+        except Exception as exc:
+            return {
+                "state": "error",
+                "processed": 0,
+                "failures": 1,
+                "current_cvm": None,
+                "log_lines": [str(exc)],
+                "error": str(exc),
+            }
 
     def request_refresh(self, params=None) -> dict:
-        p = params or {}
-        cd_cvm = int(p.get("cd_cvm", 0))
-        # "already_current" evita que a UI entre em loop de polling.
-        return {
-            "status": "already_current",
-            "cd_cvm": cd_cvm,
-            "job_id": None,
-            "accepted_at": "",
-            "message": (
-                "Atualizacao de dados nao disponivel no modo desktop. "
-                "Use o app de atualizacao (cvm_pyqt_app.py)."
-            ),
-            "status_reason_code": "desktop_viewer",
-            "status_reason_message": None,
-            "is_retry_allowed": False,
-        }
+        try:
+            return self._refresh().request_refresh(params or {})
+        except Exception as exc:
+            return {
+                "status": "error",
+                "job_id": None,
+                "message": str(exc),
+                "status_reason_code": "desktop_refresh_error",
+                "status_reason_message": str(exc),
+                "is_retry_allowed": True,
+            }
+
+    def cancel_refresh(self, params=None) -> dict:
+        try:
+            return self._refresh().cancel_job(params or {})
+        except Exception as exc:
+            return {"ok": False, "message": str(exc)}
 
     # ------------------------------------------------------------------
-    # Health / diagnóstico
+    # Health / diagnostico
     # ------------------------------------------------------------------
 
     def get_health(self, params=None) -> dict:

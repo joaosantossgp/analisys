@@ -10,11 +10,13 @@ import io
 import json
 import os
 import sqlite3
+import threading
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import pandas as pd
 import requests
@@ -26,6 +28,8 @@ except ImportError:
     _YF_AVAILABLE = False
 
 from src.ticker_map import TICKER_MAP
+from src.contracts import RefreshPolicy, RefreshProgressUpdate, RefreshRequest
+from src.refresh_service import HeadlessRefreshService
 from src.settings import AppSettings, build_settings
 
 
@@ -1310,3 +1314,447 @@ class IntelligentSelectorService:
         self._save_market_cache(cache)
         top = ranked[: max(1, target_count)]
         return [item.to_row() for item in top]
+
+
+class DesktopRefreshJobManager:
+    """Local background refresh queue used by the pywebview bridge."""
+
+    VALID_MODES = {"full", "missing", "outdated", "failed"}
+    TERMINAL_STATES = {"success", "error", "cancelled", "interrupted"}
+    DEFAULT_START_YEAR = 2010
+    MAX_LOG_LINES = 200
+
+    def __init__(
+        self,
+        *,
+        settings: AppSettings | None = None,
+        read_service: Any | None = None,
+        refresh_service: HeadlessRefreshService | None = None,
+        jobs_path: Path | None = None,
+        autostart: bool = True,
+    ) -> None:
+        self.settings = settings or build_settings()
+        self.read_service = read_service
+        self.refresh_service = refresh_service or HeadlessRefreshService(
+            settings=self.settings,
+        )
+        self.jobs_path = jobs_path or (self.settings.paths.data_dir / "refresh_jobs.json")
+        self.autostart = bool(autostart)
+        self._lock = threading.RLock()
+        self._threads: dict[str, threading.Thread] = {}
+        self._cancel_events: dict[str, threading.Event] = {}
+        self._jobs = self._load_jobs()
+        self._mark_unfinished_jobs_interrupted()
+
+    def request_refresh(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        p = dict(params or {})
+        mode = str(p.get("mode") or "missing").strip().lower()
+        if mode not in self.VALID_MODES:
+            return {
+                "status": "error",
+                "job_id": None,
+                "message": f"Modo de refresh invalido: {mode}",
+                "status_reason_code": "invalid_mode",
+                "is_retry_allowed": True,
+            }
+
+        try:
+            companies = self._resolve_companies(p, mode=mode)
+            start_year, end_year = self._resolve_year_range(p)
+        except Exception as exc:
+            return {
+                "status": "error",
+                "job_id": None,
+                "message": str(exc),
+                "status_reason_code": "invalid_request",
+                "is_retry_allowed": True,
+            }
+
+        if not companies:
+            now = self._now_iso()
+            return {
+                "status": "already_current",
+                "job_id": None,
+                "accepted_at": now,
+                "queued": 0,
+                "message": "Nenhuma empresa elegivel para refresh.",
+                "status_reason_code": "empty_scope",
+                "is_retry_allowed": False,
+            }
+
+        active_job = self._find_active_job()
+        if active_job is not None:
+            return {
+                "status": "already_running",
+                "job_id": active_job["job_id"],
+                "accepted_at": active_job.get("accepted_at") or "",
+                "queued": int(active_job.get("queued") or 0),
+                "message": "Ja existe um refresh em andamento.",
+                "status_reason_code": "already_running",
+                "is_retry_allowed": False,
+            }
+
+        job_id = uuid4().hex
+        now = self._now_iso()
+        job = {
+            "job_id": job_id,
+            "state": "queued",
+            "mode": mode,
+            "accepted_at": now,
+            "created_at": now,
+            "updated_at": now,
+            "started_at": None,
+            "finished_at": None,
+            "queued": len(companies),
+            "processed": 0,
+            "failures": 0,
+            "current_cvm": None,
+            "log_lines": ["Refresh enfileirado."],
+            "params": p,
+            "request": {
+                "companies": [str(company) for company in companies],
+                "start_year": int(start_year),
+                "end_year": int(end_year),
+            },
+            "error": None,
+            "result": None,
+        }
+        with self._lock:
+            self._jobs[job_id] = job
+            self._save_jobs()
+
+        if self.autostart:
+            self._start_job(job_id)
+
+        return {
+            "status": "running" if self.autostart else "queued",
+            "job_id": job_id,
+            "accepted_at": now,
+            "queued": len(companies),
+            "message": "Refresh iniciado em background.",
+            "status_reason_code": "refresh_started",
+            "is_retry_allowed": False,
+        }
+
+    def get_refresh_status(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        p = dict(params or {})
+        job_id = p.get("job_id")
+        with self._lock:
+            if job_id:
+                job = self._jobs.get(str(job_id))
+                if job is None:
+                    return {
+                        "state": "not_found",
+                        "job_id": str(job_id),
+                        "processed": 0,
+                        "failures": 0,
+                        "current_cvm": None,
+                        "log_lines": [],
+                    }
+                return self._public_job(job)
+
+            jobs = [self._public_job(job) for job in self._jobs.values()]
+        jobs.sort(key=lambda row: str(row.get("updated_at") or ""), reverse=True)
+        return {"items": jobs}
+
+    def cancel_job(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        job_id = str((params or {}).get("job_id") or "")
+        if not job_id:
+            return {"ok": False, "message": "job_id obrigatorio."}
+        event = self._cancel_events.get(job_id)
+        if event is None:
+            return {"ok": False, "message": "Job nao esta em execucao."}
+        event.set()
+        self._append_log(job_id, "Cancelamento solicitado.")
+        return {"ok": True}
+
+    def _start_job(self, job_id: str) -> None:
+        cancel_event = threading.Event()
+        thread = threading.Thread(
+            target=self._run_job,
+            args=(job_id, cancel_event),
+            name=f"desktop-refresh-{job_id[:8]}",
+            daemon=True,
+        )
+        self._cancel_events[job_id] = cancel_event
+        self._threads[job_id] = thread
+        thread.start()
+
+    def _run_job(self, job_id: str, cancel_event: threading.Event) -> None:
+        self._update_job(
+            job_id,
+            state="running",
+            started_at=self._now_iso(),
+            log_line="Refresh em execucao.",
+        )
+        try:
+            job = self._jobs[job_id]
+            request_payload = job["request"]
+            mode = str(job.get("mode") or "missing")
+            request = RefreshRequest(
+                companies=tuple(str(item) for item in request_payload["companies"]),
+                start_year=int(request_payload["start_year"]),
+                end_year=int(request_payload["end_year"]),
+                policy=RefreshPolicy(
+                    skip_complete_company_years=mode != "full",
+                    enable_fast_lane=mode == "missing",
+                    force_refresh=mode == "full",
+                ),
+            )
+            result = self.refresh_service.execute(
+                request,
+                progress_callback=lambda current, total, message: self._handle_progress(
+                    job_id,
+                    current=current,
+                    total=total,
+                    message=message,
+                ),
+                stage_callback=lambda update: self._handle_stage(job_id, update),
+                should_cancel=cancel_event.is_set,
+            )
+        except Exception as exc:
+            self._update_job(
+                job_id,
+                state="error",
+                finished_at=self._now_iso(),
+                error=f"{exc.__class__.__name__}: {exc}",
+                log_line=f"Falha no refresh: {exc}",
+            )
+            self._cleanup_job_runtime(job_id)
+            return
+
+        state = "cancelled" if result.cancelled else "success"
+        failures = int(result.error_count)
+        if failures and not result.cancelled:
+            state = "error"
+        self._update_job(
+            job_id,
+            state=state,
+            processed=len(result.companies),
+            failures=failures,
+            finished_at=self._now_iso(),
+            result=result.to_dict(),
+            log_line="Refresh finalizado.",
+        )
+        self._cleanup_job_runtime(job_id)
+
+    def _cleanup_job_runtime(self, job_id: str) -> None:
+        self._threads.pop(job_id, None)
+        self._cancel_events.pop(job_id, None)
+
+    def _resolve_companies(self, params: dict[str, Any], *, mode: str) -> list[str]:
+        cd_cvm = params.get("cd_cvm")
+        if cd_cvm not in (None, ""):
+            return [str(int(cd_cvm))]
+
+        service = self._read_service()
+        sector_slug = params.get("sector_slug") or params.get("sector")
+        page = service.list_companies(
+            search=str(params.get("search") or ""),
+            sector_slug=str(sector_slug) if sector_slug else None,
+            page=1,
+            page_size=int(params.get("limit") or 10000),
+        )
+        companies = [str(item.cd_cvm) for item in page.items]
+        companies = self._filter_cvm_range(companies, params.get("cvm_range"))
+
+        status_filter = params.get("status_filter")
+        if mode == "failed" and not status_filter:
+            status_filter = "failed"
+        if status_filter:
+            companies = self._filter_by_status(companies, str(status_filter))
+        return companies
+
+    def _read_service(self):
+        if self.read_service is None:
+            from src.read_service import CVMReadService  # noqa: PLC0415
+
+            self.read_service = CVMReadService(settings=self.settings)
+        return self.read_service
+
+    def _filter_by_status(self, companies: list[str], status_filter: str) -> list[str]:
+        normalized = status_filter.strip().lower()
+        if not normalized or normalized in {"all", "todos"}:
+            return companies
+        failed_states = {"failed", "error", "dispatch_failed"}
+        statuses = {
+            int(item.cd_cvm): str(
+                item.tracking_state or item.last_status or item.latest_attempt_outcome or ""
+            ).strip().lower()
+            for item in self._read_service().list_refresh_status()
+        }
+        selected: list[str] = []
+        for raw_code in companies:
+            code = int(raw_code)
+            state = statuses.get(code, "")
+            if normalized == "failed":
+                if state in failed_states:
+                    selected.append(raw_code)
+            elif state == normalized:
+                selected.append(raw_code)
+        return selected
+
+    @staticmethod
+    def _filter_cvm_range(companies: list[str], raw_range: Any) -> list[str]:
+        if raw_range in (None, ""):
+            return companies
+        start: int | None = None
+        end: int | None = None
+        if isinstance(raw_range, dict):
+            start = raw_range.get("start") or raw_range.get("from")
+            end = raw_range.get("end") or raw_range.get("to")
+        elif isinstance(raw_range, (list, tuple)) and len(raw_range) >= 2:
+            start, end = raw_range[0], raw_range[1]
+        elif isinstance(raw_range, str) and "-" in raw_range:
+            left, right = raw_range.split("-", 1)
+            start, end = left.strip(), right.strip()
+        if start in (None, "") and end in (None, ""):
+            return companies
+        start_int = int(start) if start not in (None, "") else -1
+        end_int = int(end) if end not in (None, "") else 10**9
+        return [
+            raw_code
+            for raw_code in companies
+            if start_int <= int(raw_code) <= end_int
+        ]
+
+    @classmethod
+    def _resolve_year_range(cls, params: dict[str, Any]) -> tuple[int, int]:
+        end_year = int(params.get("end_year") or datetime.now().year - 1)
+        start_year = int(params.get("start_year") or cls.DEFAULT_START_YEAR)
+        if start_year > end_year:
+            raise ValueError("start_year nao pode ser maior que end_year.")
+        return start_year, end_year
+
+    def _find_active_job(self) -> dict[str, Any] | None:
+        with self._lock:
+            for job in self._jobs.values():
+                if str(job.get("state")) in {"queued", "running"}:
+                    return self._public_job(job)
+        return None
+
+    def _handle_stage(self, job_id: str, update: RefreshProgressUpdate) -> None:
+        self._update_job(
+            job_id,
+            stage=update.stage,
+            progress_current=int(update.current),
+            progress_total=max(1, int(update.total)),
+            log_line=update.message,
+        )
+
+    def _handle_progress(
+        self,
+        job_id: str,
+        *,
+        current: int,
+        total: int,
+        message: str,
+    ) -> None:
+        current_cvm = self._extract_current_cvm(message)
+        self._update_job(
+            job_id,
+            processed=max(0, int(current) - 1),
+            progress_current=int(current),
+            progress_total=max(1, int(total)),
+            current_cvm=current_cvm,
+            log_line=message,
+        )
+
+    @staticmethod
+    def _extract_current_cvm(message: str) -> int | None:
+        for token in str(message or "").replace("=", " ").split():
+            if token.isdigit():
+                return int(token)
+        return None
+
+    def _update_job(self, job_id: str, **changes: Any) -> None:
+        log_line = changes.pop("log_line", None)
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if job is None:
+                return
+            for key, value in changes.items():
+                if value is not None or key in {"current_cvm", "error", "finished_at"}:
+                    job[key] = value
+            job["updated_at"] = self._now_iso()
+            if log_line:
+                self._append_log_locked(job, str(log_line))
+            self._save_jobs()
+
+    def _append_log(self, job_id: str, message: str) -> None:
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if job is None:
+                return
+            self._append_log_locked(job, message)
+            job["updated_at"] = self._now_iso()
+            self._save_jobs()
+
+    def _append_log_locked(self, job: dict[str, Any], message: str) -> None:
+        log_lines = list(job.get("log_lines") or [])
+        log_lines.append(message)
+        job["log_lines"] = log_lines[-self.MAX_LOG_LINES :]
+
+    def _load_jobs(self) -> dict[str, dict[str, Any]]:
+        if not self.jobs_path.exists():
+            return {}
+        try:
+            payload = json.loads(self.jobs_path.read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+        if isinstance(payload, dict) and isinstance(payload.get("jobs"), list):
+            return {
+                str(job.get("job_id")): dict(job)
+                for job in payload["jobs"]
+                if isinstance(job, dict) and job.get("job_id")
+            }
+        return {}
+
+    def _save_jobs(self) -> None:
+        self.jobs_path.parent.mkdir(parents=True, exist_ok=True)
+        jobs = sorted(
+            self._jobs.values(),
+            key=lambda row: str(row.get("created_at") or ""),
+            reverse=True,
+        )
+        self.jobs_path.write_text(
+            json.dumps({"jobs": jobs}, ensure_ascii=True, indent=2, default=str),
+            encoding="utf-8",
+        )
+
+    def _mark_unfinished_jobs_interrupted(self) -> None:
+        changed = False
+        for job in self._jobs.values():
+            if str(job.get("state")) in {"queued", "running"}:
+                job["state"] = "interrupted"
+                job["finished_at"] = self._now_iso()
+                job["updated_at"] = job["finished_at"]
+                job["error"] = "O app foi encerrado antes do refresh terminar."
+                self._append_log_locked(job, job["error"])
+                changed = True
+        if changed:
+            self._save_jobs()
+
+    @staticmethod
+    def _public_job(job: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "job_id": job.get("job_id"),
+            "state": job.get("state"),
+            "status": job.get("state"),
+            "stage": job.get("stage"),
+            "queued": int(job.get("queued") or 0),
+            "processed": int(job.get("processed") or 0),
+            "failures": int(job.get("failures") or 0),
+            "current_cvm": job.get("current_cvm"),
+            "log_lines": list(job.get("log_lines") or []),
+            "accepted_at": job.get("accepted_at"),
+            "started_at": job.get("started_at"),
+            "finished_at": job.get("finished_at"),
+            "updated_at": job.get("updated_at"),
+            "error": job.get("error"),
+            "result": job.get("result"),
+        }
+
+    @staticmethod
+    def _now_iso() -> str:
+        return datetime.now().replace(microsecond=0).isoformat()
