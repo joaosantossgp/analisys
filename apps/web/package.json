@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test:unit": "node --experimental-strip-types --experimental-specifier-resolution=node --test tests/api-client.test.ts tests/companies-page-data.test.ts tests/company-dashboard.test.ts tests/company-detail-handoff.test.ts tests/company-discovery.test.ts tests/company-period-range.test.ts tests/company-refresh-state.test.ts tests/compare-utils.test.ts tests/compare-page-data.test.ts tests/sectors-page-data.test.ts tests/desktop-bridge.test.ts",
+    "test:unit": "node --experimental-strip-types --experimental-specifier-resolution=node --test tests/api-client.test.ts tests/companies-page-data.test.ts tests/company-dashboard.test.ts tests/company-detail-handoff.test.ts tests/company-discovery.test.ts tests/company-period-range.test.ts tests/company-refresh-state.test.ts tests/compare-utils.test.ts tests/compare-page-data.test.ts tests/sectors-page-data.test.ts tests/desktop-bridge.test.ts tests/update-base.test.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {

@@ -217,6 +217,29 @@ type RawRefreshStatusItem = Omit<
   source_label?: string | null;
 };
 
+export type BatchDispatchResponse = {
+  status: "queued" | "running" | "already_running" | "already_current" | "error";
+  job_id: string | null;
+  queued?: number;
+  message: string;
+  status_reason_code?: string | null;
+  is_retry_allowed: boolean;
+};
+
+export type BatchJobStatus = {
+  job_id: string;
+  state: "queued" | "running" | "success" | "error" | "cancelled" | "interrupted";
+  stage?: string | null;
+  queued: number;
+  processed: number;
+  failures: number;
+  current_cvm?: number | null;
+  log_lines?: string[];
+  started_at?: string | null;
+  finished_at?: string | null;
+  error?: string | null;
+};
+
 export type TabularDataRow = Record<string, string | number | boolean | null>;
 
 export type TabularData = {
@@ -328,6 +351,9 @@ import {
   bridgeTrackCompanyView,
   bridgeFetchRefreshStatus,
   bridgeRequestRefresh,
+  bridgeRequestBatchRefresh,
+  bridgeFetchBatchStatus,
+  bridgeCancelRefresh,
 } from "./desktop-bridge.ts";
 
 export type ApiErrorCode =
@@ -1252,4 +1278,46 @@ export async function fetchCompanyFreshness(
   )) as RawRefreshStatusItem[];
 
   return items[0] ? normalizeRefreshStatusItem(items[0]) : null;
+}
+
+export async function fetchBatchRefresh(params: {
+  mode: "full" | "missing" | "outdated" | "failed";
+  sector?: string | null;
+  statusFilter?: string | null;
+  cvmFrom?: number | null;
+  cvmTo?: number | null;
+}): Promise<BatchDispatchResponse> {
+  if (isDesktopMode()) return bridgeRequestBatchRefresh(params);
+  return (await routeFetch<BatchDispatchResponse>(
+    "/api/refresh-batch",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mode: params.mode,
+        ...(params.sector != null ? { sector: params.sector } : {}),
+        ...(params.statusFilter != null ? { status_filter: params.statusFilter } : {}),
+        ...(params.cvmFrom != null ? { cvm_from: params.cvmFrom } : {}),
+        ...(params.cvmTo != null ? { cvm_to: params.cvmTo } : {}),
+      }),
+    },
+    { invalidResponseMessage: "A rota interna retornou um payload invalido para o batch refresh." },
+  )) as BatchDispatchResponse;
+}
+
+export async function fetchBatchJobStatus(jobId: string): Promise<BatchJobStatus> {
+  if (isDesktopMode()) return bridgeFetchBatchStatus(jobId);
+  return (await routeFetch<BatchJobStatus>(
+    `/api/refresh-jobs/${encodeURIComponent(jobId)}`,
+    undefined,
+    { invalidResponseMessage: "A rota interna retornou um status invalido para o batch job." },
+  )) as BatchJobStatus;
+}
+
+export async function cancelBatchJob(
+  jobId: string,
+): Promise<{ ok: boolean; message: string }> {
+  if (isDesktopMode()) return bridgeCancelRefresh(jobId);
+  // Web mode: no cancel endpoint in current API; best-effort no-op
+  return { ok: true, message: "" };
 }
