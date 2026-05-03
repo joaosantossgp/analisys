@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { startTransition, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -141,7 +141,7 @@ function CustomCompanyPeriodRange({
     >
       <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
         <label className="space-y-2">
-          <span className="text-[0.72rem] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          <span className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
             De:
           </span>
           <Input
@@ -159,8 +159,8 @@ function CustomCompanyPeriodRange({
         </label>
 
         <label className="space-y-2">
-          <span className="text-[0.72rem] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-            Até:
+          <span className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            AtÃ©:
           </span>
           <Input
             value={toInput}

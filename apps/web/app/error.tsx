@@ -30,7 +30,7 @@ export default function GlobalError({
       <SurfaceCard tone="hero" padding="hero" className="space-y-6">
         <InfoChip tone="muted">Erro de servico</InfoChip>
         <SectionHeading title={copy.title} titleAs="h1" />
-        <Alert className="rounded-[1.75rem] border border-destructive/25 bg-destructive/6 px-5 py-5 text-left">
+        <Alert variant="destructive-soft">
           <AlertTitle>Falha controlada da camada web</AlertTitle>
           <AlertDescription>{copy.message}</AlertDescription>
         </Alert>

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import dynamic from "next/dynamic";
 import type { ReactNode } from "react";
@@ -295,7 +295,7 @@ export default function DesignSystemPage() {
             <nav className="space-y-5">
               {NAV.map((group) => (
                 <div key={group.group}>
-                  <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground/70">
+                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground/70">
                     {group.group}
                   </p>
                   <ul className="space-y-0.5">

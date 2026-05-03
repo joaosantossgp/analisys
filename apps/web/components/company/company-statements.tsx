@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { startTransition, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -91,14 +91,14 @@ function StatementRow({
               "leading-tight",
               isSubtotal
                 ? "font-semibold text-sm text-foreground"
-                : "text-[0.82rem] text-muted-foreground",
+                : "text-sm text-muted-foreground",
             )}
           >
             {accountCode ? `${accountCode} ` : ""}
             {String(row.DS_CONTA ?? "Conta")}
           </p>
           {row.STANDARD_NAME && row.STANDARD_NAME !== row.DS_CONTA ? (
-            <p className="text-[0.68rem] uppercase tracking-[0.1em] text-muted-foreground/60">
+            <p className="text-xs uppercase tracking-[0.1em] text-muted-foreground/60">
               {String(row.STANDARD_NAME)}
             </p>
           ) : null}
@@ -115,21 +115,21 @@ function StatementRow({
           <td
             key={col}
             className={cn(
-              "py-2.5 px-3 text-right font-mono text-[0.82rem] tnum tabular-nums",
+              "py-2.5 px-3 text-right font-mono text-sm tnum tabular-nums",
               isNeg ? "text-destructive" : "text-foreground",
               isSubtotal ? "font-semibold" : "",
               isLastYear(col) ? "font-medium text-foreground" : "",
             )}
           >
-            {numericValue === null || isNaN(numericValue) ? "—" : fmtMM(numericValue)}
+            {numericValue === null || isNaN(numericValue) ? "â€”" : fmtMM(numericValue)}
           </td>
         );
       })}
 
       {showYoY ? (
-        <td className="py-2.5 px-3 text-right text-[0.82rem] tabular-nums">
+        <td className="py-2.5 px-3 text-right text-sm tabular-nums">
           {delta === null ? (
-            <span className="text-muted-foreground/50">—</span>
+            <span className="text-muted-foreground/50">â€”</span>
           ) : (
             <span
               className={isDeltaPos ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"}
@@ -176,10 +176,10 @@ export function CompanyStatements({ matrix }: CompanyStatementsProps) {
   if (rows.length === 0) {
     return (
       <SurfaceCard tone="muted" padding="hero" className="items-center text-center">
-        <p className="font-heading text-2xl text-foreground">Sem demonstração disponível.</p>
+        <p className="font-heading text-2xl text-foreground">Sem demonstraÃ§Ã£o disponÃ­vel.</p>
         <p className="max-w-2xl text-sm leading-7 text-muted-foreground">
-          Ajuste o período selecionado ou troque o tipo de demonstração para consultar outra
-          visão disponível.
+          Ajuste o perÃ­odo selecionado ou troque o tipo de demonstraÃ§Ã£o para consultar outra
+          visÃ£o disponÃ­vel.
         </p>
       </SurfaceCard>
     );
@@ -195,7 +195,7 @@ export function CompanyStatements({ matrix }: CompanyStatementsProps) {
             type="button"
             onClick={() => navigateTo(opt.value)}
             className={cn(
-              "rounded-[0.85rem_0.85rem_0_0] border border-b-0 px-4 py-2 text-[0.82rem] font-medium -mb-px transition-colors",
+              "rounded-[0.85rem_0.85rem_0_0] border border-b-0 px-4 py-2 text-sm font-medium -mb-px transition-colors",
               currentStmt === opt.value
                 ? "border-border/60 bg-card text-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground",
@@ -214,22 +214,22 @@ export function CompanyStatements({ matrix }: CompanyStatementsProps) {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Filtrar linha…"
+            placeholder="Filtrar linhaâ€¦"
             className="h-auto w-44 border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0"
           />
         </div>
-        <label className="flex cursor-pointer items-center gap-2 text-[0.82rem] text-muted-foreground">
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
           <Checkbox
             checked={showYoY}
             onCheckedChange={(checked) => setShowYoY(Boolean(checked))}
           />
-          Mostrar variação YoY
+          Mostrar variaÃ§Ã£o YoY
           <CompanyHelpTip>
             Mostra a variacao percentual contra o periodo anterior disponivel na tabela.
           </CompanyHelpTip>
         </label>
-        <span className="ml-auto text-[0.72rem] text-muted-foreground tabular-nums">
-          {filteredRows.length} linhas · R$ milhões
+        <span className="ml-auto text-xs text-muted-foreground tabular-nums">
+          {filteredRows.length} linhas Â· R$ milhÃµes
         </span>
       </div>
 
@@ -254,7 +254,7 @@ export function CompanyStatements({ matrix }: CompanyStatementsProps) {
               ))}
               {showYoY ? (
                 <th className="px-3 py-3 text-right font-medium text-muted-foreground">
-                  Δ YoY
+                  Î” YoY
                 </th>
               ) : null}
             </tr>
@@ -275,7 +275,7 @@ export function CompanyStatements({ matrix }: CompanyStatementsProps) {
       </div>
 
       <div className="flex items-center gap-2 pt-3 text-xs text-muted-foreground">
-        <span>Fonte: CVM · R$ milhoes</span>
+        <span>Fonte: CVM Â· R$ milhoes</span>
         <CompanyHelpTip>
           DFP/ITR consolidados. Linhas em destaque sao totalizadoras. Valores sem ajuste de inflacao.
         </CompanyHelpTip>

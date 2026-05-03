@@ -1,4 +1,4 @@
-import { Badge } from "@/components/ui/badge";
+﻿import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -49,7 +49,7 @@ export function SectorOverview({ detail }: SectorOverviewProps) {
                   <p className="text-sm text-muted-foreground">{metric.label}</p>
                   <Badge
                     variant="outline"
-                    className="rounded-full border-border/75 bg-background/70 text-[0.68rem] uppercase tracking-[0.16em] text-muted-foreground"
+                    className="rounded-full border-border/75 bg-background/70 text-xs uppercase tracking-[0.16em] text-muted-foreground"
                   >
                     {detail.selected_year}
                   </Badge>

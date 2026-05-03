@@ -1,4 +1,4 @@
-import type { ComponentPropsWithoutRef, ElementType, ReactNode } from "react";
+﻿import type { ComponentPropsWithoutRef, ElementType, ReactNode } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
@@ -72,7 +72,7 @@ export function SurfaceCard({
 }
 
 export const infoChipVariants = cva(
-  "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[0.68rem] font-medium uppercase tracking-[0.18em]",
+  "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium uppercase tracking-[0.18em]",
   {
     variants: {
       tone: {

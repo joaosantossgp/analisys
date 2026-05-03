@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import type { JSX } from 'react';
@@ -49,9 +49,9 @@ const TIME_PERIOD_OPTIONS = [
 ] as const;
 
 const SERIES_META = [
-  { key: 'DLP', color: '#5B14C5' },
-  { key: 'Threat Intel', color: '#DAC5F9' },
-  { key: 'SysLog', color: '#B58BF3' },
+  { key: 'DLP', color: 'var(--chart-3)' },
+  { key: 'Threat Intel', color: 'var(--chart-5)' },
+  { key: 'SysLog', color: 'var(--chart-4)' },
 ] as const;
 
 const CHART_DATA_BY_PERIOD = {
@@ -104,7 +104,7 @@ const INCIDENT_STATS: IncidentStat[] = [
 
 function DiamondAlertIcon({
   className,
-  fill = '#E84045',
+  fill = 'var(--destructive)',
 }: {
   className?: string;
   fill?: string;
@@ -120,7 +120,7 @@ function DiamondAlertIcon({
 
 function CircleAlertIcon({
   className,
-  fill = '#E84045',
+  fill = 'var(--destructive)',
 }: {
   className?: string;
   fill?: string;
@@ -136,7 +136,7 @@ function CircleAlertIcon({
 
 function TriangleAlertIcon({
   className,
-  fill = '#40E5D1',
+  fill = 'var(--chart-1)',
 }: {
   className?: string;
   fill?: string;
@@ -144,8 +144,8 @@ function TriangleAlertIcon({
   return (
     <svg className={className} width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
       <path d="M10 2.5 18 17H2L10 2.5Z" fill={fill} />
-      <rect x="9.2" y="7" width="1.6" height="5.8" rx="0.8" fill="#05211D" />
-      <circle cx="10" cy="14.8" r="1" fill="#05211D" />
+      <rect x="9.2" y="7" width="1.6" height="5.8" rx="0.8" fill="var(--background)" />
+      <circle cx="10" cy="14.8" r="1" fill="var(--background)" />
     </svg>
   );
 }
@@ -187,7 +187,7 @@ const DETAILED_METRICS: DetailedMetric[] = [
     tooltip: 'Mean Time to Respond',
     value: '6 Hours',
     trend: 'up',
-    trendColor: '#F08083',
+    trendColor: 'var(--destructive)',
     delay: 0,
   },
   {
@@ -197,7 +197,7 @@ const DETAILED_METRICS: DetailedMetric[] = [
     tooltip: 'Incident Response Time',
     value: '4 Hours',
     trend: 'up',
-    trendColor: '#F08083',
+    trendColor: 'var(--destructive)',
     delay: 0.05,
   },
   {
@@ -207,7 +207,7 @@ const DETAILED_METRICS: DetailedMetric[] = [
     tooltip: 'Incident Escalation Rate',
     value: '10%',
     trend: 'down',
-    trendColor: '#40E5D1',
+    trendColor: 'var(--chart-1)',
     delay: 0.1,
   },
 ];
@@ -358,7 +358,7 @@ function IncidentAreaChart({ period }: { period: PeriodKey }) {
             y={height - 8}
             textAnchor="middle"
             fontSize="11"
-            fill="#9A9AAF"
+            fill="var(--muted-foreground)"
           >
             {formatShortDate(point.date)}
           </text>
@@ -380,7 +380,7 @@ const AdvancedIncidentReportCard = () => {
         <select
           value={selectedTimePeriod}
           onChange={(event) => setSelectedTimePeriod(event.target.value as PeriodKey)}
-          className="rounded-md bg-gray-100 p-3 pt-2 pb-2 text-gray-800 outline-none transition-colors duration-300 focus:ring-2 focus:ring-blue-500 dark:bg-[#262631] dark:text-white"
+          className="rounded-md bg-gray-100 p-3 pt-2 pb-2 text-gray-800 outline-none transition-colors duration-300 focus:ring-2 focus:ring-blue-500 dark:bg-[var(--muted)] dark:text-white"
           aria-label="Select time period for incident report"
         >
           {TIME_PERIOD_OPTIONS.map((option) => (
@@ -404,7 +404,7 @@ const AdvancedIncidentReportCard = () => {
 
       <div className="flex w-full flex-col justify-between gap-4 px-8 pt-8 pb-2 sm:flex-row sm:gap-8">
         {INCIDENT_STATS.map((stat) => {
-          const trendColor = stat.trend === 'up' ? '#F08083' : '#40E5D1';
+          const trendColor = stat.trend === 'up' ? 'var(--destructive)' : 'var(--chart-1)';
 
           return (
             <div key={stat.id} className="flex w-full flex-col gap-2 sm:w-1/2">
@@ -437,7 +437,7 @@ const AdvancedIncidentReportCard = () => {
         })}
       </div>
 
-      <div className="mt-4 flex flex-col divide-y divide-gray-200 px-8 font-mono transition-colors duration-300 dark:divide-[#262631]">
+      <div className="mt-4 flex flex-col divide-y divide-gray-200 px-8 font-mono transition-colors duration-300 dark:divide-[var(--muted)]">
         {DETAILED_METRICS.map((metric) => (
           <motion.div
             key={metric.id}
@@ -447,7 +447,7 @@ const AdvancedIncidentReportCard = () => {
             className="flex w-full items-center gap-2 py-4"
           >
             <div className="flex w-1/2 items-center gap-2 text-base text-gray-500 transition-colors duration-300 dark:text-gray-400">
-              <metric.icon fill={metric.trend === 'down' ? '#40E5D1' : '#E84045'} />
+              <metric.icon fill={metric.trend === 'down' ? 'var(--chart-1)' : 'var(--destructive)'} />
               <span className="truncate" title={metric.tooltip}>
                 {metric.label}
               </span>

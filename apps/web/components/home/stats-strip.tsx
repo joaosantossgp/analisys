@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -60,7 +60,7 @@ function StatItem({ value, suffix, label }: StatItemProps) {
       <span className="font-heading text-[clamp(2rem,5vw,3rem)] font-semibold tracking-tight text-foreground">
         <AnimatedNumber value={value} suffix={suffix} />
       </span>
-      <span className="text-[0.78rem] uppercase tracking-[0.15em] text-muted-foreground">
+      <span className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
         {label}
       </span>
     </div>

@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 
 import { CompanyHelpTip } from "@/components/company/company-help-tip";
 import { SurfaceCard } from "@/components/shared/design-system-recipes";
@@ -25,7 +25,7 @@ export function CompanyContextCard({
     <SurfaceCard tone="subtle" padding="md" className="space-y-4">
       <div className="space-y-2">
         <div className="flex items-center gap-2">
-          <p className="text-[0.72rem] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
             Contexto
           </p>
           <CompanyHelpTip>

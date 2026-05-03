@@ -9,7 +9,7 @@ export default function EmpresasLoading() {
         <Skeleton className="h-6 w-full max-w-3xl" />
       </div>
       <Skeleton className="h-20 rounded-[1.5rem]" />
-      <div className="rounded-[1.75rem] border border-border/60 bg-background/70 p-4">
+      <div className="rounded-xl border border-border/60 bg-background/70 p-4">
         <div className="space-y-4">
           <Skeleton className="h-20 rounded-2xl" />
           <Skeleton className="h-20 rounded-2xl" />

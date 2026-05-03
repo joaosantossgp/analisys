@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -10,6 +10,8 @@ import {
   ExternalLink,
 } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
+
 // Data
 
 const PROJECTS = [
@@ -18,7 +20,7 @@ const PROJECTS = [
     title: "Brazilian Company Financial Dashboard",
     category: "Financial Dashboard",
     description:
-      "A dashboard for exploring financial data from Brazilian public companies — DRE, balance sheet, KPIs, and market data in one place.",
+      "A dashboard for exploring financial data from Brazilian public companies â€” DRE, balance sheet, KPIs, and market data in one place.",
     financeRelevance:
       "Company analysis, financial statements, indicators, and market data.",
     tools: ["React", "Financial APIs", "AI-assisted coding"],
@@ -57,9 +59,9 @@ const PROJECTS = [
 const RESEARCH = [
   {
     id: "cfa",
-    title: "CFA Research Challenge — Local Brazil",
+    title: "CFA Research Challenge â€” Local Brazil",
     institution: "CFA Institute",
-    date: "Sep. 2024 – Jan. 2025",
+    date: "Sep. 2024 â€“ Jan. 2025",
     company: "Vibra (VBBR3)",
     result: "Vice-Champion",
     resultType: "top" as const,
@@ -70,7 +72,7 @@ const RESEARCH = [
     id: "constellation",
     title: "Constellation Challenge 2024",
     institution: "Constellation Asset Management",
-    date: "Mar. 2024 – Apr. 2024",
+    date: "Mar. 2024 â€“ Apr. 2024",
     company: "Mercado Libre (MELI)",
     result: "Semi-Finalist",
     resultType: "mid" as const,
@@ -81,7 +83,7 @@ const RESEARCH = [
     id: "btg",
     title: "BTG Pactual Experience 2023",
     institution: "BTG Pactual",
-    date: "Oct. 2023 – Dec. 2023",
+    date: "Oct. 2023 â€“ Dec. 2023",
     company: "Mater Dei (MATD3) / Madero",
     result: "Finalist",
     resultType: "mid" as const,
@@ -92,7 +94,7 @@ const RESEARCH = [
     id: "apex",
     title: "Internal Research Challenge",
     institution: "Mentored by Apex Capital",
-    date: "Mar. 2023 – Sep. 2023",
+    date: "Mar. 2023 â€“ Sep. 2023",
     company: "Mater Dei (MATD3)",
     result: null as string | null,
     resultType: null as "top" | "mid" | null,
@@ -104,9 +106,9 @@ const RESEARCH = [
 const EXPERIENCE = [
   {
     id: "gmf",
-    title: "Member — GMF",
+    title: "Member â€” GMF",
     org: "Grupo de Mercado Financeiro da Unicamp",
-    date: "Feb. 2023 – Jan. 2025",
+    date: "Feb. 2023 â€“ Jan. 2025",
     description:
       "Participated in the financial market league at UNICAMP, contributing to education initiatives, accounting classes, financial education projects, research activities, and the 2024 member selection process.",
     placeholder: false,
@@ -115,7 +117,7 @@ const EXPERIENCE = [
     id: "internship",
     title: "Internship Experience",
     org: "To be added",
-    date: "—",
+    date: "â€”",
     description: "Placeholder for recent internship experience.",
     placeholder: true,
   },
@@ -125,9 +127,9 @@ const EDUCATION = [
   {
     id: "unicamp",
     degree: "Bachelor's Degree in Economic Sciences",
-    institution: "Universidade Estadual de Campinas — UNICAMP",
+    institution: "Universidade Estadual de Campinas â€” UNICAMP",
     detail: "Institute of Economics",
-    date: "2022 – 2026",
+    date: "2022 â€“ 2026",
     current: true,
   },
   {
@@ -135,7 +137,7 @@ const EDUCATION = [
     degree: "High School + Technical Education in Business Administration",
     institution: "ETEC Prefeito Braz Paschoalin",
     detail: null as string | null,
-    date: "2019 – 2021",
+    date: "2019 â€“ 2021",
     current: false,
   },
 ];
@@ -180,7 +182,7 @@ const SKILLS = [
   },
 ];
 
-// ─── SUB-COMPONENTS ────────────────────────────────────────────────────────────
+// â”€â”€â”€ SUB-COMPONENTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function StatusBadge({ status }: { status: string }) {
   const cls =
@@ -190,11 +192,9 @@ function StatusBadge({ status }: { status: string }) {
         ? "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400"
         : "border-border/80 bg-muted text-muted-foreground";
   return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[0.62rem] font-semibold uppercase tracking-[0.13em] whitespace-nowrap ${cls}`}
-    >
+    <Badge className={`font-semibold uppercase tracking-[0.13em] ${cls}`}>
       {status}
-    </span>
+    </Badge>
   );
 }
 
@@ -210,21 +210,19 @@ function ResultBadge({
       ? "border-primary/30 bg-primary/10 text-primary/90"
       : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400";
   return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[0.62rem] font-semibold uppercase tracking-[0.13em] whitespace-nowrap ${cls}`}
-    >
+    <Badge className={`font-semibold uppercase tracking-[0.13em] ${cls}`}>
       {result}
-    </span>
+    </Badge>
   );
 }
 
-// ─── SECTIONS ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€ SECTIONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function Hero() {
   const metrics = [
-    { label: "CFA Challenge", value: "Vice-Champion", sub: "2024–2025" },
+    { label: "CFA Challenge", value: "Vice-Champion", sub: "2024â€“2025" },
     { label: "BTG Experience", value: "Finalist", sub: "2023" },
-    { label: "Research Challenges", value: "4 total", sub: "2023–2025" },
+    { label: "Research Challenges", value: "4 total", sub: "2023â€“2025" },
     { label: "Focus", value: "Equity Research", sub: "& Valuation" },
   ];
 
@@ -233,13 +231,13 @@ function Hero() {
       <div className="mx-auto w-full max-w-4xl px-6">
         {/* Meta row */}
         <div className="mb-8 flex items-center gap-3">
-          <span className="text-[0.68rem] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
-            UNICAMP · Economics · Class of 2026
+          <span className="text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+            UNICAMP Â· Economics Â· Class of 2026
           </span>
           <span className="inline-block h-1 w-1 rounded-full bg-muted-foreground/40" />
-          <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[0.58rem] font-semibold uppercase tracking-[0.13em] text-primary/90">
+          <Badge className="border-primary/30 bg-primary/10 font-semibold uppercase tracking-[0.13em] text-primary/90">
             Open to opportunities
-          </span>
+          </Badge>
         </div>
 
         {/* Headline */}
@@ -252,8 +250,8 @@ function Hero() {
         </h1>
 
         {/* Subline */}
-        <p className="mb-10 max-w-[560px] text-[1.0625rem] leading-relaxed text-muted-foreground">
-          I study economics and build practical tools for financial analysis —
+        <p className="mb-10 max-w-[560px] text-lg leading-relaxed text-muted-foreground">
+          I study economics and build practical tools for financial analysis â€”
           combining market research, valuation, data workflows, and AI-assisted
           development.
         </p>
@@ -287,13 +285,13 @@ function Hero() {
               key={m.label}
               className="rounded-[0.7rem] border border-border/50 bg-card/90 px-4 py-3 backdrop-blur-sm"
             >
-              <div className="mb-1 text-[0.62rem] font-semibold uppercase tracking-[0.13em] text-muted-foreground">
+              <div className="mb-1 text-xs font-semibold uppercase tracking-[0.13em] text-muted-foreground">
                 {m.label}
               </div>
-              <div className="mb-0.5 font-heading text-[0.95rem] font-semibold tracking-[-0.01em] text-foreground">
+              <div className="mb-0.5 font-heading text-base font-semibold tracking-[-0.01em] text-foreground">
                 {m.value}
               </div>
-              <div className="font-mono text-[0.65rem] text-muted-foreground">
+              <div className="font-mono text-xs text-muted-foreground">
                 {m.sub}
               </div>
             </div>
@@ -315,14 +313,14 @@ function Projects() {
       <div className="mx-auto w-full max-w-4xl px-6">
         {/* Header */}
         <div className="mb-10">
-          <span className="mb-3 block text-[0.68rem] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+          <span className="mb-3 block text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">
             AI-Assisted Development
           </span>
           <h2 className="mb-3 font-heading text-[clamp(1.75rem,4vw,2.5rem)] font-medium leading-[1.1] tracking-[-0.035em] text-foreground">
             Featured Projects
           </h2>
-          <p className="mb-6 max-w-[540px] text-[0.95rem] leading-relaxed text-muted-foreground">
-            Practical tools and experiments built with AI assistance — focused
+          <p className="mb-6 max-w-[540px] text-base leading-relaxed text-muted-foreground">
+            Practical tools and experiments built with AI assistance â€” focused
             on financial analysis, data workflows, and market research.
           </p>
           {/* Filter pills */}
@@ -331,7 +329,8 @@ function Projects() {
               <button
                 key={s}
                 onClick={() => setFilter(s)}
-                className={`rounded-full border px-3.5 py-1 text-[0.72rem] font-medium transition-all ${
+                aria-label={`Filtrar projetos por ${s}`}
+                className={`rounded-full border px-3.5 py-1 text-xs font-medium transition-all ${
                   filter === s
                     ? "border-primary/45 bg-primary/10 text-primary"
                     : "border-border/70 text-muted-foreground hover:border-border hover:text-foreground"
@@ -352,7 +351,7 @@ function Projects() {
             >
               {/* Header row */}
               <div className="flex items-start justify-between gap-2">
-                <span className="text-[0.64rem] font-semibold uppercase tracking-[0.13em] text-muted-foreground">
+                <span className="text-xs font-semibold uppercase tracking-[0.13em] text-muted-foreground">
                   {project.category}
                 </span>
                 <StatusBadge status={project.status} />
@@ -360,7 +359,7 @@ function Projects() {
 
               {/* Title + desc */}
               <div>
-                <h3 className="mb-2 font-heading text-[0.95rem] font-semibold leading-[1.3] tracking-[-0.01em] text-foreground">
+                <h3 className="mb-2 font-heading text-base font-semibold leading-[1.3] tracking-[-0.01em] text-foreground">
                   {project.title}
                 </h3>
                 <p className="text-sm leading-relaxed text-muted-foreground">
@@ -370,8 +369,8 @@ function Projects() {
 
               {/* Finance relevance */}
               <div className="rounded-[0.7rem] border border-primary/15 bg-primary/5 px-4 py-3 text-xs leading-[1.5] text-primary/80">
-                <span className="text-[0.6rem] font-semibold uppercase tracking-[0.1em] opacity-70">
-                  Finance relevance ·{" "}
+                <span className="text-xs font-semibold uppercase tracking-[0.1em] opacity-70">
+                  Finance relevance Â·{" "}
                 </span>
                 {project.financeRelevance}
               </div>
@@ -381,7 +380,7 @@ function Projects() {
                 {project.tools.map((t) => (
                   <span
                     key={t}
-                    className="rounded-[0.4rem] bg-muted px-2.5 py-1 font-mono text-[0.7rem] font-medium text-muted-foreground"
+                    className="rounded-[0.4rem] bg-muted px-2.5 py-1 font-mono text-xs font-medium text-muted-foreground"
                   >
                     {t}
                   </span>
@@ -392,14 +391,14 @@ function Projects() {
               <div className="mt-auto flex gap-2 border-t border-border/60 pt-3">
                 <a
                   href={project.github}
-                  className="inline-flex items-center gap-1.5 rounded-[0.6rem] border border-border/70 px-3 py-1.5 text-[0.72rem] font-medium text-muted-foreground transition-all hover:border-primary/35 hover:bg-primary/5 hover:text-primary"
+                  className="inline-flex items-center gap-1.5 rounded-[0.6rem] border border-border/70 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-all hover:border-primary/35 hover:bg-primary/5 hover:text-primary"
                 >
                   <Code2Icon className="size-3.5" /> GitHub
                 </a>
                 {project.demo && (
                   <a
                     href={project.demo}
-                    className="inline-flex items-center gap-1.5 rounded-[0.6rem] border border-border/70 px-3 py-1.5 text-[0.72rem] font-medium text-muted-foreground transition-all hover:border-primary/35 hover:bg-primary/5 hover:text-primary"
+                    className="inline-flex items-center gap-1.5 rounded-[0.6rem] border border-border/70 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-all hover:border-primary/35 hover:bg-primary/5 hover:text-primary"
                   >
                     <ExternalLink className="size-3.5" /> Live demo
                   </a>
@@ -418,13 +417,13 @@ function Research() {
     <section className="border-b border-border/60 py-20" id="research">
       <div className="mx-auto w-full max-w-4xl px-6">
         <div className="mb-10">
-          <span className="mb-3 block text-[0.68rem] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+          <span className="mb-3 block text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">
             Equity Research
           </span>
           <h2 className="mb-3 font-heading text-[clamp(1.75rem,4vw,2.5rem)] font-medium leading-[1.1] tracking-[-0.035em] text-foreground">
             Research &amp; Finance Experience
           </h2>
-          <p className="max-w-[520px] text-[0.95rem] leading-relaxed text-muted-foreground">
+          <p className="max-w-[520px] text-base leading-relaxed text-muted-foreground">
             Competitive research challenges and structured equity analysis
             programs.
           </p>
@@ -438,7 +437,7 @@ function Research() {
           {RESEARCH.map((item, i) => (
             <div key={item.id} className="flex items-start gap-5">
               {/* Dot */}
-              <div className="relative z-10 flex size-[31px] shrink-0 items-center justify-center rounded-full border-2 border-primary/40 bg-[color-mix(in_oklch,var(--primary)_10%,var(--background))] font-heading text-[0.8rem] font-bold text-primary">
+              <div className="relative z-10 flex size-[31px] shrink-0 items-center justify-center rounded-full border-2 border-primary/40 bg-[color-mix(in_oklch,var(--primary)_10%,var(--background))] font-heading text-sm font-bold text-primary">
                 {["01", "02", "03", "04"][i]}
               </div>
 
@@ -448,7 +447,7 @@ function Research() {
                   {/* Top row */}
                   <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
                     <div>
-                      <div className="mb-1 font-heading text-[0.95rem] font-semibold leading-snug tracking-[-0.01em] text-foreground">
+                      <div className="mb-1 font-heading text-base font-semibold leading-snug tracking-[-0.01em] text-foreground">
                         {item.title}
                       </div>
                       <div className="text-sm text-muted-foreground">
@@ -456,7 +455,7 @@ function Research() {
                       </div>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-2">
-                      <span className="font-mono text-[0.68rem] text-muted-foreground">
+                      <span className="font-mono text-xs text-muted-foreground">
                         {item.date}
                       </span>
                       {item.result && item.resultType && (
@@ -471,10 +470,10 @@ function Research() {
                   {/* Company chip */}
                   <div className="mb-4 flex flex-wrap gap-3">
                     <div className="flex items-center gap-2">
-                      <span className="text-[0.6rem] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                      <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                         Company
                       </span>
-                      <span className="rounded-[5px] border border-primary/20 bg-primary/10 px-2 py-0.5 font-mono text-[0.72rem] font-medium text-primary">
+                      <span className="rounded-[5px] border border-primary/20 bg-primary/10 px-2 py-0.5 font-mono text-xs font-medium text-primary">
                         {item.company}
                       </span>
                     </div>
@@ -498,7 +497,7 @@ function Experience() {
     <section className="border-b border-border/60 py-20" id="experience">
       <div className="mx-auto w-full max-w-4xl px-6">
         <div className="mb-10">
-          <span className="mb-3 block text-[0.68rem] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+          <span className="mb-3 block text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">
             Professional
           </span>
           <h2 className="font-heading text-[clamp(1.75rem,4vw,2.5rem)] font-medium leading-[1.1] tracking-[-0.035em] text-foreground">
@@ -518,19 +517,19 @@ function Experience() {
             >
               <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <div className="mb-1 flex items-center gap-2 font-heading text-[0.95rem] font-semibold leading-snug tracking-[-0.01em] text-foreground">
+                  <div className="mb-1 flex items-center gap-2 font-heading text-base font-semibold leading-snug tracking-[-0.01em] text-foreground">
                     {exp.title}
                     {exp.placeholder && (
-                      <span className="inline-flex items-center rounded-full border border-border/80 bg-muted px-2.5 py-0.5 text-[0.62rem] font-semibold uppercase tracking-[0.13em] text-muted-foreground">
+                      <Badge className="border-border/80 bg-muted font-semibold uppercase tracking-[0.13em] text-muted-foreground">
                         To be added
-                      </span>
+                      </Badge>
                     )}
                   </div>
                   <div className="text-sm font-medium text-muted-foreground">
                     {exp.org}
                   </div>
                 </div>
-                <span className="shrink-0 font-mono text-[0.68rem] text-muted-foreground">
+                <span className="shrink-0 font-mono text-xs text-muted-foreground">
                   {exp.date}
                 </span>
               </div>
@@ -550,7 +549,7 @@ function Education() {
     <section className="border-b border-border/60 py-20" id="education">
       <div className="mx-auto w-full max-w-4xl px-6">
         <div className="mb-10">
-          <span className="mb-3 block text-[0.68rem] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+          <span className="mb-3 block text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">
             Academic Background
           </span>
           <h2 className="font-heading text-[clamp(1.75rem,4vw,2.5rem)] font-medium leading-[1.1] tracking-[-0.035em] text-foreground">
@@ -566,17 +565,17 @@ function Education() {
             >
               <div className="mb-4 flex items-start justify-between">
                 {edu.current ? (
-                  <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[0.62rem] font-semibold uppercase tracking-[0.13em] text-primary/90">
+                  <Badge className="border-primary/30 bg-primary/10 font-semibold uppercase tracking-[0.13em] text-primary/90">
                     Current
-                  </span>
+                  </Badge>
                 ) : (
                   <span />
                 )}
-                <span className="font-mono text-[0.68rem] text-muted-foreground">
+                <span className="font-mono text-xs text-muted-foreground">
                   {edu.date}
                 </span>
               </div>
-              <div className="mb-2 font-heading text-[0.95rem] font-semibold leading-[1.35] tracking-[-0.01em] text-foreground">
+              <div className="mb-2 font-heading text-base font-semibold leading-[1.35] tracking-[-0.01em] text-foreground">
                 {edu.degree}
               </div>
               <div className="mb-1 text-sm font-medium text-muted-foreground">
@@ -600,7 +599,7 @@ function Skills() {
     <section className="border-b border-border/60 py-20" id="skills">
       <div className="mx-auto w-full max-w-4xl px-6">
         <div className="mb-10">
-          <span className="mb-3 block text-[0.68rem] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+          <span className="mb-3 block text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">
             Competencies
           </span>
           <h2 className="font-heading text-[clamp(1.75rem,4vw,2.5rem)] font-medium leading-[1.1] tracking-[-0.035em] text-foreground">
@@ -641,13 +640,13 @@ function Contact() {
       <div className="mx-auto w-full max-w-4xl px-6">
         <div className="flex flex-col items-center gap-6 rounded-[1.6rem] border border-border/60 bg-card px-10 py-12 text-center">
           <div>
-            <span className="mb-3 block text-[0.68rem] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+            <span className="mb-3 block text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">
               Get in touch
             </span>
             <h2 className="mb-4 font-heading text-[clamp(1.75rem,4vw,2.5rem)] font-medium leading-[1.1] tracking-[-0.035em] text-foreground">
               Let&apos;s connect
             </h2>
-            <p className="mx-auto max-w-[420px] text-[0.95rem] leading-relaxed text-muted-foreground">
+            <p className="mx-auto max-w-[420px] text-base leading-relaxed text-muted-foreground">
               I&apos;m open to conversations about equity research, financial
               analysis, data tools, or internship and collaboration
               opportunities.
@@ -684,7 +683,7 @@ function Contact() {
   );
 }
 
-// ─── PAGE ─────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ PAGE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default function PortfolioPage() {
   return (

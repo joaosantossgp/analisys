@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
@@ -159,7 +159,7 @@ export function FinancialTable({
     if (!resolvedTheme) {
       const isPositive = value >= 0;
       return {
-        color: isPositive ? "#22c55e" : "#f87171",
+        color: isPositive ? "var(--chart-1)" : "var(--destructive)",
         bgColor: isPositive ? "bg-green-500/10" : "bg-red-500/10",
         borderColor: isPositive ? "border-green-500/30" : "border-red-500/30",
         textColor: isPositive ? "text-green-400" : "text-red-400"
@@ -168,8 +168,8 @@ export function FinancialTable({
     
     const isPositive = value >= 0;
     const color = isPositive 
-      ? (isDark ? "#22c55e" : "#16a34a")
-      : (isDark ? "#f87171" : "#dc2626");
+      ? (isDark ? "var(--chart-1)" : "var(--chart-1)")
+      : (isDark ? "var(--destructive)" : "var(--destructive)");
     const bgColor = isPositive 
       ? (isDark ? "bg-green-500/10" : "bg-green-50")
       : (isDark ? "bg-red-500/10" : "bg-red-50");
@@ -188,56 +188,56 @@ export function FinancialTable({
       case "US":
         return (
           <svg width="32" height="32" viewBox="0 0 130 120" fill="none" className="scale-125">
-            <rect y="0" fill="#DC4437" width="130" height="13.3"/>
-            <rect y="26.7" fill="#DC4437" width="130" height="13.3"/>
-            <rect y="80" fill="#DC4437" width="130" height="13.3"/>
-            <rect y="106.7" fill="#DC4437" width="130" height="13.3"/>
-            <rect y="53.3" fill="#DC4437" width="130" height="13.3"/>
-            <rect y="13.3" fill="#FFFFFF" width="130" height="13.3"/>
-            <rect y="40" fill="#FFFFFF" width="130" height="13.3"/>
-            <rect y="93.3" fill="#FFFFFF" width="130" height="13.3"/>
-            <rect y="66.7" fill="#FFFFFF" width="130" height="13.3"/>
-            <rect y="0" fill="#2A66B7" width="70" height="66.7"/>
-            <polygon fill="#FFFFFF" points="13.5,4 15.8,8.9 21,9.7 17.2,13.6 18.1,19 13.5,16.4 8.9,19 9.8,13.6 6,9.7 11.2,8.9"/>
-            <polygon fill="#FFFFFF" points="34,4 36.3,8.9 41.5,9.7 37.8,13.6 38.6,19 34,16.4 29.4,19 30.2,13.6 26.5,9.7 31.7,8.9"/>
-            <polygon fill="#FFFFFF" points="54.5,4 56.8,8.9 62,9.7 58.2,13.6 59.1,19 54.5,16.4 49.9,19 50.8,13.6 47,9.7 52.2,8.9"/>
-            <polygon fill="#FFFFFF" points="24,24 26.3,28.9 31.5,29.7 27.8,33.6 28.6,39 24,36.4 19.4,39 20.2,33.6 16.5,29.7 21.7,28.9"/>
-            <polygon fill="#FFFFFF" points="44.5,24 46.8,28.9 52,29.7 48.2,33.6 49.1,39 44.5,36.4 39.9,39 40.8,33.6 37,29.7 42.2,28.9"/>
-            <polygon fill="#FFFFFF" points="13.5,45.2 15.8,50.1 21,50.9 17.2,54.7 18.1,60.2 13.5,57.6 8.9,60.2 9.8,54.7 6,50.9 11.2,50.1"/>
-            <polygon fill="#FFFFFF" points="34,45.2 36.3,50.1 41.5,50.9 37.8,54.7 38.6,60.2 34,57.6 29.4,60.2 30.2,54.7 26.5,50.9 31.7,50.1"/>
-            <polygon fill="#FFFFFF" points="54.5,45.2 56.8,50.1 62,50.9 58.2,54.7 59.1,60.2 54.5,57.6 49.9,60.2 50.8,54.7 47,50.9 52.2,50.1"/>
+            <rect y="0" fill="var(--destructive)" width="130" height="13.3"/>
+            <rect y="26.7" fill="var(--destructive)" width="130" height="13.3"/>
+            <rect y="80" fill="var(--destructive)" width="130" height="13.3"/>
+            <rect y="106.7" fill="var(--destructive)" width="130" height="13.3"/>
+            <rect y="53.3" fill="var(--destructive)" width="130" height="13.3"/>
+            <rect y="13.3" fill="var(--primary-foreground)" width="130" height="13.3"/>
+            <rect y="40" fill="var(--primary-foreground)" width="130" height="13.3"/>
+            <rect y="93.3" fill="var(--primary-foreground)" width="130" height="13.3"/>
+            <rect y="66.7" fill="var(--primary-foreground)" width="130" height="13.3"/>
+            <rect y="0" fill="var(--chart-3)" width="70" height="66.7"/>
+            <polygon fill="var(--primary-foreground)" points="13.5,4 15.8,8.9 21,9.7 17.2,13.6 18.1,19 13.5,16.4 8.9,19 9.8,13.6 6,9.7 11.2,8.9"/>
+            <polygon fill="var(--primary-foreground)" points="34,4 36.3,8.9 41.5,9.7 37.8,13.6 38.6,19 34,16.4 29.4,19 30.2,13.6 26.5,9.7 31.7,8.9"/>
+            <polygon fill="var(--primary-foreground)" points="54.5,4 56.8,8.9 62,9.7 58.2,13.6 59.1,19 54.5,16.4 49.9,19 50.8,13.6 47,9.7 52.2,8.9"/>
+            <polygon fill="var(--primary-foreground)" points="24,24 26.3,28.9 31.5,29.7 27.8,33.6 28.6,39 24,36.4 19.4,39 20.2,33.6 16.5,29.7 21.7,28.9"/>
+            <polygon fill="var(--primary-foreground)" points="44.5,24 46.8,28.9 52,29.7 48.2,33.6 49.1,39 44.5,36.4 39.9,39 40.8,33.6 37,29.7 42.2,28.9"/>
+            <polygon fill="var(--primary-foreground)" points="13.5,45.2 15.8,50.1 21,50.9 17.2,54.7 18.1,60.2 13.5,57.6 8.9,60.2 9.8,54.7 6,50.9 11.2,50.1"/>
+            <polygon fill="var(--primary-foreground)" points="34,45.2 36.3,50.1 41.5,50.9 37.8,54.7 38.6,60.2 34,57.6 29.4,60.2 30.2,54.7 26.5,50.9 31.7,50.1"/>
+            <polygon fill="var(--primary-foreground)" points="54.5,45.2 56.8,50.1 62,50.9 58.2,54.7 59.1,60.2 54.5,57.6 49.9,60.2 50.8,54.7 47,50.9 52.2,50.1"/>
           </svg>
         );
       case "CA":
         return (
           <svg width="32" height="32" viewBox="0 0 90 60" fill="none" className="scale-150">
-            <rect width="90" height="60" fill="#FF0000"/>
-            <rect x="30" width="30" height="60" fill="#FFFFFF"/>
-            <polygon fill="#FF0000" points="45,15 50,20 45,25 40,20"/>
-            <polygon fill="#FF0000" points="45,35 50,40 45,45 40,40"/>
+            <rect width="90" height="60" fill="var(--destructive)"/>
+            <rect x="30" width="30" height="60" fill="var(--primary-foreground)"/>
+            <polygon fill="var(--destructive)" points="45,15 50,20 45,25 40,20"/>
+            <polygon fill="var(--destructive)" points="45,35 50,40 45,45 40,40"/>
           </svg>
         );
       case "MX":
         return (
           <svg width="32" height="32" viewBox="0 0 90 60" fill="none" className="scale-150">
-            <rect width="30" height="60" fill="#006847"/>
-            <rect x="30" width="30" height="60" fill="#FFFFFF"/>
-            <rect x="60" width="30" height="60" fill="#CE1126"/>
+            <rect width="30" height="60" fill="var(--chart-1)"/>
+            <rect x="30" width="30" height="60" fill="var(--primary-foreground)"/>
+            <rect x="60" width="30" height="60" fill="var(--destructive)"/>
           </svg>
         );
       case "BR":
         return (
           <svg width="32" height="32" viewBox="0 0 90 60" fill="none" className="scale-150">
-            <rect width="90" height="60" fill="#009639"/>
-            <polygon fill="#FEDD00" points="45,30 20,15 20,45"/>
-            <circle cx="45" cy="30" r="8" fill="#002776"/>
+            <rect width="90" height="60" fill="var(--chart-1)"/>
+            <polygon fill="var(--chart-2)" points="45,30 20,15 20,45"/>
+            <circle cx="45" cy="30" r="8" fill="var(--chart-3)"/>
           </svg>
         );
       default:
         return (
           <svg width="32" height="32" viewBox="0 0 32 32" fill="none" className="scale-125">
-            <rect width="32" height="32" fill="#E5E7EB" rx="4"/>
-            <text x="16" y="20" textAnchor="middle" fontSize="12" fill="#6B7280">?</text>
+            <rect width="32" height="32" fill="var(--muted)" rx="4"/>
+            <text x="16" y="20" textAnchor="middle" fontSize="12" fill="var(--muted-foreground)">?</text>
           </svg>
         );
     }

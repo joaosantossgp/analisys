@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { PlusIcon, SearchIcon, XIcon } from "lucide-react";
@@ -306,7 +306,7 @@ export function CompareSelector({
                   onClick={() => addCompany(company)}
                 >
                   <span className="max-w-[14rem] truncate">{company.company_name}</span>
-                  <span className="rounded-full border border-emerald-500/20 bg-emerald-500/8 px-1.5 py-0.5 text-[0.58rem] uppercase tracking-[0.14em] text-emerald-700 dark:text-emerald-300">
+                  <span className="rounded-full border border-emerald-500/20 bg-emerald-500/8 px-1.5 py-0.5 text-xs uppercase tracking-[0.14em] text-emerald-700 dark:text-emerald-300">
                     Pronta
                   </span>
                 </button>
