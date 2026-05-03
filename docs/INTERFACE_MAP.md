@@ -228,17 +228,23 @@ Defaults:
 e simular o fluxo de atualizacao em massa por tipo, filtros, confirmacao,
 progresso, logs, resultados e historico.
 
-**Status**: rota frontend entregue com dados simulados. Nao executa operacao
-real de backend nesta fase.
+**Status**: rota frontend entregue com dados simulados. Backend de refresh em
+lote disponivel para consumo.
 
-**Endpoints consumidos**: nenhum.
+**Endpoints disponiveis para consumo**:
+
+| Endpoint | Params | Para que serve |
+|---|---|---|
+| `POST /refresh/batch` | body `{mode, sector_slug?, cvm_range?, status_filter?}` | Dispara refresh em lote com os filtros do painel |
+| `GET /refresh/jobs` | - | Lista jobs ativos do refresh em lote |
+| `GET /refresh/jobs/{job_id}` | - | Polling de progresso, falhas, CVM atual e logs |
 
 **Notas de implementacao**:
 - a pagina recria o handoff `Update Base.html` como componente React client;
-- os estados de fonte indisponivel, permissao insuficiente e operacao ja em
-  execucao sao simulados na propria tela;
-- quando houver backend dedicado, esta secao deve ser atualizada com os
-  contratos reais de status, start/cancel, progresso e historico.
+- os estados de fonte indisponivel e permissao insuficiente seguem simulados
+  na propria tela ate existir contrato dedicado de auth/roles;
+- a API de batch exposta nesta fase cobre start, lista de jobs ativos e polling
+  de progresso; cancelamento e historico ficam para contrato futuro.
 
 ---
 
@@ -267,6 +273,9 @@ de produto. Nao consome endpoints de API.
 | `GET /sectors` | `/setores` |
 | `GET /sectors/{slug}` | `/setores/[slug]` |
 | `GET /refresh-status` | `/empresas/[cd_cvm]` |
+| `POST /refresh/batch` | `/atualizar-base` |
+| `GET /refresh/jobs` | `/atualizar-base` |
+| `GET /refresh/jobs/{job_id}` | `/atualizar-base` |
 | `GET /base-health` | `/` (parcialmente, se trust strip expandir) |
 
 ---
@@ -311,4 +320,4 @@ for entregue.
 
 ---
 
-_Ultima atualizacao: 2026-05-02 - PG-11 Atualizar Base Admin_
+_Ultima atualizacao: 2026-05-03 - API batch de atualizacao da base_

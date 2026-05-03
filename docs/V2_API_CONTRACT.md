@@ -185,6 +185,87 @@ Regras do endpoint:
 - `job_id` so vem preenchido quando `status = queued`
 - o clique do usuario nao dispara mais GitHub Actions; a execucao publica usa fila interna com worker dedicado
 
+### `POST /refresh/batch`
+
+Uso:
+- dispara um refresh em lote em background para o painel administrativo de atualizacao da base
+- reaproveita o mesmo contrato de parametros do bridge desktop
+- o endpoint e aditivo e nao altera o comportamento de `POST /companies/{cd_cvm}/request-refresh`
+
+Body:
+
+```json
+{
+  "mode": "missing",
+  "sector_slug": "energia",
+  "cvm_range": {"start": 4000, "end": 12000},
+  "status_filter": "failed",
+  "start_year": 2023,
+  "end_year": 2024
+}
+```
+
+Resposta exemplo:
+
+```json
+{
+  "job_id": "9d2e08f7bb8e4ef6a9918d859b5ccf5d",
+  "status": "running",
+  "accepted_at": "2026-05-03T10:00:00",
+  "queued": 12,
+  "message": "Refresh em lote iniciado em background.",
+  "status_reason_code": "refresh_started",
+  "is_retry_allowed": false
+}
+```
+
+Regras do endpoint:
+- `202` quando o lote foi aceito, ja esta em execucao, ou nao encontrou empresas elegiveis
+- `mode` aceita `full`, `missing`, `outdated` e `failed`
+- `sector_slug`, `cvm_range`, `status_filter`, `search`, `cd_cvm`, `start_year`, `end_year` e `limit` sao filtros opcionais
+- `mode = failed` aplica `status_filter = failed` quando nenhum filtro de status foi informado
+- `cvm_range` aceita objeto `{start, end}`, objeto `{from, to}`, lista `[start, end]` ou string `"start-end"`
+- a API permite um job de batch ativo por processo; novo disparo durante execucao retorna `already_running` com o `job_id` ativo
+- `job_id` pode vir `null` quando `status = already_current`
+
+### `GET /refresh/jobs`
+
+Uso:
+- lista jobs ativos de refresh em lote (`queued` ou `running`)
+
+Resposta exemplo:
+
+```json
+{
+  "items": [
+    {
+      "job_id": "9d2e08f7bb8e4ef6a9918d859b5ccf5d",
+      "state": "running",
+      "status": "running",
+      "stage": "download_extract",
+      "queued": 12,
+      "processed": 3,
+      "failures": 0,
+      "current_cvm": 9512,
+      "progress_current": 3,
+      "progress_total": 12,
+      "log_lines": ["Refresh em lote em execucao."]
+    }
+  ]
+}
+```
+
+### `GET /refresh/jobs/{job_id}`
+
+Uso:
+- retorna o progresso de um job de refresh em lote
+
+Regras do endpoint:
+- `200` para job conhecido, inclusive em estado final
+- `404` quando o `job_id` nao existe no processo atual
+- campos minimos de progresso: `state`, `processed`, `failures`, `current_cvm`, `log_lines`
+- `state` usa `queued | running | success | error | cancelled`
+
 ### `GET /sectors`
 
 Uso:
