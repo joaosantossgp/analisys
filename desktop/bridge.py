@@ -8,6 +8,7 @@ não como kwargs. Use sempre `def method(self, params=None)` + `params.get(...)`
 from __future__ import annotations
 
 import dataclasses
+import threading
 import time
 from typing import Any
 
@@ -16,6 +17,9 @@ class CVMBridge:
     def __init__(self) -> None:
         self._service = None
         self._refresh_manager = None
+        self._company_info_cache: dict[int, dict[str, Any]] = {}
+        self._company_info_pending: set[int] = set()
+        self._company_info_lock = threading.RLock()
 
     def _svc(self):
         if self._service is None:
@@ -34,6 +38,20 @@ class CVMBridge:
     # Utilitários
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _bounded_int(
+        value: Any,
+        *,
+        default: int,
+        minimum: int = 1,
+        maximum: int = 100,
+    ) -> int:
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            parsed = int(default)
+        return max(int(minimum), min(int(maximum), parsed))
+
     def ping(self, params=None) -> dict:
         return {"pong": True, "ts": time.time()}
 
@@ -48,8 +66,12 @@ class CVMBridge:
             result = self._svc().list_companies(
                 search=str(p.get("search", "")),
                 sector_slug=p.get("sector_slug") or p.get("sector") or None,
-                page=int(p.get("page", 1)),
-                page_size=int(p.get("page_size", p.get("pageSize", 20))),
+                page=self._bounded_int(p.get("page", 1), default=1, maximum=10_000),
+                page_size=self._bounded_int(
+                    p.get("page_size", p.get("pageSize", 20)),
+                    default=20,
+                    maximum=100,
+                ),
             )
             payload = dataclasses.asdict(result)
             payload["_bridge_ms"] = round((time.perf_counter() - t0) * 1000, 3)
@@ -69,7 +91,7 @@ class CVMBridge:
         try:
             items = self._svc().suggest_companies(
                 query=str(p.get("q", "")),
-                limit=int(p.get("limit", 6)),
+                limit=self._bounded_int(p.get("limit", 6), default=6, maximum=100),
                 ready_only=bool(p.get("ready_only", False)),
             )
             return {"items": [dataclasses.asdict(i) for i in items]}
@@ -111,12 +133,48 @@ class CVMBridge:
         p = params or {}
         try:
             cd_cvm = int(p.get("cd_cvm", 0))
-            result = self._svc().get_company_info(cd_cvm)
+            result = self._svc().get_company_info(
+                cd_cvm,
+                allow_catalog_lookup=False,
+            )
             if result is None:
-                return {"not_found": True}
+                cached = self._get_cached_company_info(cd_cvm)
+                if cached is not None:
+                    return cached
+                self._queue_company_info_lookup(cd_cvm)
+                return {"not_found": True, "catalog_lookup_pending": True}
             return dataclasses.asdict(result)
         except Exception as exc:
             return {"error": str(exc)}
+
+    def _get_cached_company_info(self, cd_cvm: int) -> dict[str, Any] | None:
+        with self._company_info_lock:
+            cached = self._company_info_cache.get(int(cd_cvm))
+            return dict(cached) if cached is not None else None
+
+    def _queue_company_info_lookup(self, cd_cvm: int) -> None:
+        code = int(cd_cvm)
+        with self._company_info_lock:
+            if code in self._company_info_pending:
+                return
+            self._company_info_pending.add(code)
+
+        def worker() -> None:
+            try:
+                result = self._svc().get_company_info(code)
+                payload = dataclasses.asdict(result) if result is not None else None
+                with self._company_info_lock:
+                    if payload is not None:
+                        self._company_info_cache[code] = payload
+            finally:
+                with self._company_info_lock:
+                    self._company_info_pending.discard(code)
+
+        threading.Thread(
+            target=worker,
+            name=f"desktop-company-catalog-{code}",
+            daemon=True,
+        ).start()
 
     def get_company_years(self, params=None) -> dict:
         p = params or {}

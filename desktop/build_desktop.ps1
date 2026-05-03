@@ -63,6 +63,7 @@ if (-not (Test-Path $StandaloneDir)) {
 }
 if (Test-Path $PublicSrc) {
     Copy-Item -Recurse -Force $PublicSrc $PublicDst
+    Get-ChildItem $PublicDst -Recurse -Include *.mp4 -ErrorAction SilentlyContinue | Remove-Item -Force
     Write-Host "  OK: public/ copiado" -ForegroundColor Green
 } else {
     Write-Host "  (sem public/ para copiar)" -ForegroundColor Gray
