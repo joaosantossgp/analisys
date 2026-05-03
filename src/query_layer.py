@@ -24,14 +24,23 @@ import json
 import logging
 import re
 import time
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
-import pandas as pd
 from sqlalchemy import Engine, inspect, text
 
 from src.db import get_engine
 
+if TYPE_CHECKING:
+    import pandas as pd
+
 _logger = logging.getLogger(__name__)
+
+
+@functools.lru_cache(maxsize=1)
+def _pd():
+    import pandas as pd
+
+    return pd
 
 
 def slow_query_warn(threshold_ms: float = 200.0):
@@ -123,7 +132,7 @@ class CVMQueryLayer:
     def __init__(self, engine: Optional[Engine] = None):
         self.engine = engine or get_engine()
 
-    def get_companies(self, search: str = "") -> pd.DataFrame:
+    def get_companies(self, search: str = "") -> _pd().DataFrame:
         rows_df, _ = self.get_companies_directory_page(
             search=search,
             sector_name=None,
@@ -149,7 +158,7 @@ class CVMQueryLayer:
         sector_name: str | None = None,
         page: int = 1,
         page_size: int | None = 20,
-    ) -> tuple[pd.DataFrame, int]:
+    ) -> tuple[_pd().DataFrame, int]:
         where_sql, params = self._company_directory_filters(search=search, sector_name=sector_name)
 
         count_sql = text(
@@ -164,7 +173,7 @@ class CVMQueryLayer:
             ) company_rows
             """
         )
-        total_items = int(pd.read_sql(count_sql, self.engine, params=params).iloc[0]["total_items"])
+        total_items = int(_pd().read_sql(count_sql, self.engine, params=params).iloc[0]["total_items"])
 
         paging_sql = ""
         paged_params = dict(params)
@@ -198,10 +207,10 @@ class CVMQueryLayer:
             {paging_sql}
             """
         )
-        rows_df = pd.read_sql(rows_sql, self.engine, params=paged_params)
+        rows_df = _pd().read_sql(rows_sql, self.engine, params=paged_params)
         return rows_df.reset_index(drop=True), total_items
 
-    def get_available_company_sectors(self) -> pd.DataFrame:
+    def get_available_company_sectors(self) -> _pd().DataFrame:
         sql = text(
             f"""
             SELECT
@@ -213,7 +222,7 @@ class CVMQueryLayer:
             ORDER BY sector_name ASC
             """
         )
-        return pd.read_sql(sql, self.engine).reset_index(drop=True)
+        return _pd().read_sql(sql, self.engine).reset_index(drop=True)
 
     def get_sector_available_years(self, sector_name: str) -> list[int]:
         sql = text(
@@ -226,11 +235,12 @@ class CVMQueryLayer:
             ORDER BY fr."REPORT_YEAR"
             """
         )
-        df = pd.read_sql(sql, self.engine, params={"sector_name": str(sector_name)})
+        df = _pd().read_sql(sql, self.engine, params={"sector_name": str(sector_name)})
         return [int(year) for year in df["REPORT_YEAR"].tolist()]
 
+    @functools.lru_cache(maxsize=10)
     def get_sector_years_map(self) -> dict[str, list[int]]:
-        """Returns sector_name → sorted list of years with annual data, for all sectors at once."""
+        """Returns sector_name -> sorted list of years with annual data, for all sectors at once."""
         sql = text(
             f"""
             SELECT DISTINCT {_CANONICAL_SECTOR_SQL} AS sector_name, fr."REPORT_YEAR"
@@ -240,7 +250,7 @@ class CVMQueryLayer:
             ORDER BY sector_name, fr."REPORT_YEAR"
             """
         )
-        df = pd.read_sql(sql, self.engine)
+        df = _pd().read_sql(sql, self.engine)
         result: dict[str, list[int]] = {}
         for _, row in df.iterrows():
             result.setdefault(str(row["sector_name"]), []).append(int(row["REPORT_YEAR"]))
@@ -252,7 +262,7 @@ class CVMQueryLayer:
         limit: int,
         *,
         ready_only: bool = False,
-    ) -> pd.DataFrame:
+    ) -> _pd().DataFrame:
         """Returns up to `limit` companies ranked by relevance to query `q`.
 
         Ranking: exact ticker > name prefix > ticker prefix > contains match.
@@ -272,7 +282,7 @@ class CVMQueryLayer:
                 LIMIT :limit
                 """
             )
-            return pd.read_sql(sql, self.engine, params={"limit": int(limit)}).reset_index(drop=True)
+            return _pd().read_sql(sql, self.engine, params={"limit": int(limit)}).reset_index(drop=True)
 
         search_filters = """
                 LOWER(c.company_name) LIKE :contains
@@ -301,14 +311,14 @@ class CVMQueryLayer:
             LIMIT :limit
             """
         )
-        return pd.read_sql(sql, self.engine, params={
+        return _pd().read_sql(sql, self.engine, params={
             "contains": f"%{normalized}%",
             "prefix": f"{normalized}%",
             "exact": normalized,
             "limit": int(limit),
         }).reset_index(drop=True)
 
-    def get_sector_companies(self, sector_name: str) -> tuple[pd.DataFrame, int]:
+    def get_sector_companies(self, sector_name: str) -> tuple[_pd().DataFrame, int]:
         """Returns (df[cd_cvm, company_name, ticker_b3], total_count) for a sector.
 
         Lighter than get_companies_directory_page(page_size=None): no LEFT JOIN to
@@ -319,7 +329,7 @@ class CVMQueryLayer:
             f"SELECT COUNT(*) AS total_items FROM companies c WHERE {_CANONICAL_SECTOR_SQL} = :sector_name"
         )
         total_items = int(
-            pd.read_sql(count_sql, self.engine, params=params).iloc[0]["total_items"]
+            _pd().read_sql(count_sql, self.engine, params=params).iloc[0]["total_items"]
         )
         rows_sql = text(
             f"""
@@ -329,7 +339,7 @@ class CVMQueryLayer:
             ORDER BY c.company_name ASC
             """
         )
-        df = pd.read_sql(rows_sql, self.engine, params=params)
+        df = _pd().read_sql(rows_sql, self.engine, params=params)
         return df.reset_index(drop=True), total_items
 
     @slow_query_warn(threshold_ms=200)
@@ -338,7 +348,7 @@ class CVMQueryLayer:
         *,
         sector_name: str | None = None,
         years: list[int] | None = None,
-    ) -> pd.DataFrame:
+    ) -> _pd().DataFrame:
         where_parts = [
             'fr."PERIOD_LABEL" = CAST(fr."REPORT_YEAR" AS TEXT)',
             'fr."QA_CONFLICT" = false',
@@ -378,9 +388,9 @@ class CVMQueryLayer:
                 fr."CD_CONTA"
             """
         )
-        df = pd.read_sql(sql, self.engine, params=params)
+        df = _pd().read_sql(sql, self.engine, params=params)
         if df.empty:
-            return pd.DataFrame(
+            return _pd().DataFrame(
                 columns=[
                     "cd_cvm",
                     "company_name",
@@ -412,12 +422,12 @@ class CVMQueryLayer:
 
         for column in ("receita", "ebit", "lucro_liq", "pl"):
             if column not in pivot.columns:
-                pivot[column] = pd.NA
+                pivot[column] = _pd().NA
 
-        receita = pd.to_numeric(pivot["receita"], errors="coerce")
-        ebit = pd.to_numeric(pivot["ebit"], errors="coerce")
-        lucro_liq = pd.to_numeric(pivot["lucro_liq"], errors="coerce")
-        pl = pd.to_numeric(pivot["pl"], errors="coerce")
+        receita = _pd().to_numeric(pivot["receita"], errors="coerce")
+        ebit = _pd().to_numeric(pivot["ebit"], errors="coerce")
+        lucro_liq = _pd().to_numeric(pivot["lucro_liq"], errors="coerce")
+        pl = _pd().to_numeric(pivot["pl"], errors="coerce")
 
         pivot["mg_ebit"] = ebit.divide(receita.where(receita != 0))
         pivot["mg_liq"] = lucro_liq.divide(receita.where(receita != 0))
@@ -438,7 +448,7 @@ class CVMQueryLayer:
 
     @slow_query_warn(threshold_ms=200)
     def get_company_years_map(self, cd_cvms: list[int]) -> dict[int, tuple[int, ...]]:
-        """Retorna mapa cd_cvm → anos com dados anuais completos (DFP).
+        """Retorna mapa cd_cvm -> anos com dados anuais completos (DFP).
 
         Filtra por PERIOD_LABEL = REPORT_YEAR (ex: '2024') para excluir anos que
         possuam apenas dados trimestrais ITR, mantendo consistencia com
@@ -464,14 +474,14 @@ class CVMQueryLayer:
             ORDER BY "CD_CVM", "REPORT_YEAR"
             """
         )
-        df = pd.read_sql(sql, self.engine, params=params)
+        df = _pd().read_sql(sql, self.engine, params=params)
         years_map: dict[int, list[int]] = {int(cd_cvm): [] for cd_cvm in unique_ids}
         for _, row in df.iterrows():
             years_map.setdefault(int(row["CD_CVM"]), []).append(int(row["REPORT_YEAR"]))
         return {cd_cvm: tuple(years) for cd_cvm, years in years_map.items()}
 
     @slow_query_warn(threshold_ms=200)
-    def get_companies_by_cvm_ids(self, cvm_ids: list[int]) -> pd.DataFrame:
+    def get_companies_by_cvm_ids(self, cvm_ids: list[int]) -> _pd().DataFrame:
         """Returns directory rows for a specific ordered set of cd_cvm values.
 
         Result rows are returned in database order; callers are responsible for
@@ -479,7 +489,7 @@ class CVMQueryLayer:
         Returns an empty DataFrame when cvm_ids is empty.
         """
         if not cvm_ids:
-            return pd.DataFrame()
+            return _pd().DataFrame()
         unique_ids = [int(cd) for cd in cvm_ids]
         placeholders = ", ".join(f":id_{i}" for i in range(len(unique_ids)))
         params: dict[str, object] = {f"id_{i}": cd for i, cd in enumerate(unique_ids)}
@@ -502,10 +512,10 @@ class CVMQueryLayer:
                      c.setor_analitico, c.setor_cvm, c.coverage_rank
             """
         )
-        return pd.read_sql(sql, self.engine, params=params).reset_index(drop=True)
+        return _pd().read_sql(sql, self.engine, params=params).reset_index(drop=True)
 
     @slow_query_warn(threshold_ms=200)
-    def get_top_viewed_companies(self, limit: int = 10) -> pd.DataFrame:
+    def get_top_viewed_companies(self, limit: int = 10) -> _pd().DataFrame:
         """Returns top-N companies ordered by view_count DESC.
 
         Falls back to coverage_rank ASC when view_count values are equal (or when
@@ -536,7 +546,7 @@ class CVMQueryLayer:
             LIMIT :limit
             """
         )
-        return pd.read_sql(sql, self.engine, params={"limit": int(limit)}).reset_index(drop=True)
+        return _pd().read_sql(sql, self.engine, params={"limit": int(limit)}).reset_index(drop=True)
 
     def _company_directory_filters(
         self,
@@ -588,7 +598,83 @@ class CVMQueryLayer:
             LIMIT 1
             """
         )
-        row = pd.read_sql(sql, self.engine, params={"cd_cvm": int(cd_cvm)})
+        row = _pd().read_sql(sql, self.engine, params={"cd_cvm": int(cd_cvm)})
+        if row.empty:
+            return {}
+        return row.iloc[0].to_dict()
+
+    def get_company_info_with_read_model_state(self, cd_cvm: int) -> dict:
+        inspector = inspect(self.engine)
+        has_financial_reports = inspector.has_table("financial_reports")
+        has_refresh_status = inspector.has_table("company_refresh_status")
+        has_status_read_model = False
+        if has_refresh_status:
+            status_columns = {
+                str(column.get("name") or "").lower()
+                for column in inspector.get_columns("company_refresh_status")
+            }
+            has_status_read_model = "read_model_updated_at" in status_columns
+
+        annual_join = ""
+        readable_years_count = "0"
+        latest_readable_year = "NULL"
+        if has_financial_reports:
+            annual_join = """
+            LEFT JOIN (
+                SELECT
+                    "CD_CVM" AS cd_cvm,
+                    COUNT(DISTINCT "REPORT_YEAR") AS readable_years_count,
+                    MAX("REPORT_YEAR") AS latest_readable_year
+                FROM financial_reports
+                WHERE "CD_CVM" = :cd_cvm
+                  AND "PERIOD_LABEL" = CAST("REPORT_YEAR" AS TEXT)
+                GROUP BY "CD_CVM"
+            ) annual ON annual.cd_cvm = c.cd_cvm
+            """
+            readable_years_count = "COALESCE(annual.readable_years_count, 0)"
+            latest_readable_year = "annual.latest_readable_year"
+
+        status_join = ""
+        read_model_updated_at = (
+            f"CASE WHEN {latest_readable_year} IS NOT NULL THEN c.updated_at ELSE NULL END"
+        )
+        if has_status_read_model:
+            status_join = """
+            LEFT JOIN company_refresh_status crs ON crs.cd_cvm = c.cd_cvm
+            """
+            read_model_updated_at = (
+                "COALESCE(crs.read_model_updated_at, "
+                f"CASE WHEN {latest_readable_year} IS NOT NULL THEN c.updated_at ELSE NULL END)"
+            )
+
+        sql = text(
+            f"""
+            SELECT
+                c.cd_cvm,
+                c.company_name,
+                c.nome_comercial,
+                c.cnpj,
+                c.setor_cvm,
+                c.setor_analitico,
+                COALESCE(
+                    NULLIF(TRIM(c.setor_analitico), ''),
+                    NULLIF(TRIM(c.setor_cvm), ''),
+                    'Nao classificado'
+                ) AS sector_name,
+                c.company_type,
+                c.ticker_b3,
+                CASE WHEN {latest_readable_year} IS NOT NULL THEN 1 ELSE 0 END AS has_readable_current_data,
+                {readable_years_count} AS readable_years_count,
+                {latest_readable_year} AS latest_readable_year,
+                {read_model_updated_at} AS read_model_updated_at
+            FROM companies c
+            {annual_join}
+            {status_join}
+            WHERE c.cd_cvm = :cd_cvm
+            LIMIT 1
+            """
+        )
+        row = _pd().read_sql(sql, self.engine, params={"cd_cvm": int(cd_cvm)})
         if row.empty:
             return {}
         return row.iloc[0].to_dict()
@@ -612,7 +698,7 @@ class CVMQueryLayer:
             ORDER BY "REPORT_YEAR"
             """
         )
-        df = pd.read_sql(sql, self.engine, params={"cd_cvm": int(cd_cvm)})
+        df = _pd().read_sql(sql, self.engine, params={"cd_cvm": int(cd_cvm)})
         return [int(year) for year in df["REPORT_YEAR"].tolist()]
 
     def get_available_statements(self, cd_cvm: int) -> list[str]:
@@ -624,7 +710,7 @@ class CVMQueryLayer:
             ORDER BY "STATEMENT_TYPE"
             """
         )
-        df = pd.read_sql(sql, self.engine, params={"cd_cvm": int(cd_cvm)})
+        df = _pd().read_sql(sql, self.engine, params={"cd_cvm": int(cd_cvm)})
         return df["STATEMENT_TYPE"].tolist()
 
     @slow_query_warn(threshold_ms=200)
@@ -634,9 +720,9 @@ class CVMQueryLayer:
         years: list[int],
         stmt_type: str,
         exclude_conflicts: bool = True,
-    ) -> pd.DataFrame:
+    ) -> _pd().DataFrame:
         if not years:
-            return pd.DataFrame()
+            return _pd().DataFrame()
 
         years_int = [int(year) for year in years]
         placeholders = ", ".join(f":y{i}" for i in range(len(years_int)))
@@ -657,7 +743,7 @@ class CVMQueryLayer:
             """
         )
 
-        df = pd.read_sql(sql, self.engine, params=params)
+        df = _pd().read_sql(sql, self.engine, params=params)
         if df.empty:
             return df
 
@@ -683,9 +769,9 @@ class CVMQueryLayer:
         return result
 
     @slow_query_warn(threshold_ms=200)
-    def get_kpi_accounts(self, cd_cvm: int, years: list[int]) -> pd.DataFrame:
+    def get_kpi_accounts(self, cd_cvm: int, years: list[int]) -> _pd().DataFrame:
         if not years:
-            return pd.DataFrame()
+            return _pd().DataFrame()
 
         years_int = [int(year) for year in years]
         cd_contas = list(_KPI_ACCOUNTS.values())
@@ -708,9 +794,9 @@ class CVMQueryLayer:
             """
         )
 
-        df = pd.read_sql(sql, self.engine, params=params)
+        df = _pd().read_sql(sql, self.engine, params=params)
         if df.empty:
-            return pd.DataFrame()
+            return _pd().DataFrame()
 
         df = df[df["PERIOD_LABEL"] == df["REPORT_YEAR"].astype(str)].copy()
         pivot = df.pivot_table(
@@ -725,9 +811,9 @@ class CVMQueryLayer:
         pivot = pivot.rename(columns=inv_map)
         return pivot.sort_values("REPORT_YEAR").reset_index(drop=True)
 
-    def get_kpi_accounts_all_periods(self, cd_cvm: int, years: list[int]) -> pd.DataFrame:
+    def get_kpi_accounts_all_periods(self, cd_cvm: int, years: list[int]) -> _pd().DataFrame:
         if not years:
-            return pd.DataFrame()
+            return _pd().DataFrame()
 
         years_int = [int(year) for year in years]
         cd_contas = list(_KPI_ACCOUNTS.values())
@@ -750,9 +836,9 @@ class CVMQueryLayer:
             """
         )
 
-        df = pd.read_sql(sql, self.engine, params=params)
+        df = _pd().read_sql(sql, self.engine, params=params)
         if df.empty:
-            return pd.DataFrame()
+            return _pd().DataFrame()
 
         pivot = df.pivot_table(
             index=["REPORT_YEAR", "PERIOD_LABEL"],
@@ -767,9 +853,9 @@ class CVMQueryLayer:
         pivot["_sort"] = pivot["PERIOD_LABEL"].apply(_period_sort_key)
         return pivot.sort_values("_sort").drop(columns="_sort").reset_index(drop=True)
 
-    def get_da_all_periods(self, cd_cvm: int, years: list[int]) -> pd.DataFrame:
+    def get_da_all_periods(self, cd_cvm: int, years: list[int]) -> _pd().DataFrame:
         if not years:
-            return pd.DataFrame()
+            return _pd().DataFrame()
 
         years_int = [int(year) for year in years]
         placeholders = ", ".join(f":y{i}" for i in range(len(years_int)))
@@ -790,11 +876,11 @@ class CVMQueryLayer:
             """
         )
 
-        return pd.read_sql(sql, self.engine, params=params)
+        return _pd().read_sql(sql, self.engine, params=params)
 
-    def get_da_from_dfc(self, cd_cvm: int, years: list[int]) -> pd.Series:
+    def get_da_from_dfc(self, cd_cvm: int, years: list[int]) -> _pd().Series:
         if not years:
-            return pd.Series(dtype=float)
+            return _pd().Series(dtype=float)
 
         years_int = [int(year) for year in years]
         placeholders = ", ".join(f":y{i}" for i in range(len(years_int)))
@@ -815,9 +901,9 @@ class CVMQueryLayer:
             """
         )
 
-        df = pd.read_sql(sql, self.engine, params=params)
+        df = _pd().read_sql(sql, self.engine, params=params)
         if df.empty:
-            return pd.Series(dtype=float)
+            return _pd().Series(dtype=float)
 
         df = df[df["PERIOD_LABEL"] == df["REPORT_YEAR"].astype(str)]
         return df.set_index("REPORT_YEAR")["da_value"]

@@ -35,13 +35,13 @@ MAX_EXCEL_LOCK_RETRIES = 10
 COMPANY_LIST_TIMEOUT = 30
 DOWNLOAD_TIMEOUT = 60
 
-# DFC validation tolerance (BRL Milhões)
+# DFC validation tolerance (BRL Milhoes)
 DFC_VALIDATION_TOLERANCE = 0.01
 
 COMPANY_DB_MAX_RETRIES = 3
 COMPANY_DB_RETRY_BACKOFF_SECONDS = 1.2
 
-# Year interpretation: dois dígitos < Y2K_PIVOT → século 21, >= → século 20
+# Year interpretation: dois digitos < Y2K_PIVOT -> seculo 21, >= -> seculo 20
 Y2K_PIVOT = 50
 
 # ============================================================================
@@ -55,15 +55,14 @@ import time
 import traceback
 import requests
 import zipfile
-import pandas as pd
-import polars as pl
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import lru_cache
 import io
 import argparse
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 from sqlalchemy.exc import OperationalError
 from src.contracts import RefreshProgressUpdate
 from src.utils import (
@@ -73,6 +72,10 @@ from src.utils import (
 from src.standardizer import AccountStandardizer
 from src.database import CVMDatabase
 from src.settings import AppSettings, get_settings
+
+if TYPE_CHECKING:
+    import pandas as pd
+    import polars as pl
 
 # Ensure project root is in path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -84,6 +87,20 @@ _CSV_USECOLS = frozenset([
     "CD_CVM", "CD_CONTA", "DS_CONTA", "VL_CONTA", "DT_REFER",
     "DT_INI_EXERC", "DT_FIM_EXERC", "ORDEM_EXERC", "ESCALA_MOEDA",
 ])
+
+
+@lru_cache(maxsize=1)
+def _pd():
+    import pandas as pd
+
+    return pd
+
+
+@lru_cache(maxsize=1)
+def _pl():
+    import polars as pl
+
+    return pl
 
 
 class CVMScraper:
@@ -110,7 +127,8 @@ class CVMScraper:
         self.company_db_retry_backoff_seconds = self.settings.company_db_retry_backoff_seconds
         self.force_refresh = os.getenv("CVM_FORCE_REFRESH", "0") == "1"
         self._print_lock = threading.Lock()
-        self._csv_cache: dict[str, "pl.DataFrame"] = {}
+        self._http_state = threading.local()
+        self._csv_cache: dict[str, "_pl().DataFrame"] = {}
 
         if self.report_type == "consolidated":
             self.suffix = "con"
@@ -137,13 +155,34 @@ class CVMScraper:
         db_path = str(self.settings.paths.db_path)
         self.db = CVMDatabase(db_path)
 
+    def _http_session(self) -> requests.Session:
+        session = getattr(self._http_state, "session", None)
+        if session is None:
+            session = requests.Session()
+            self._http_state.session = session
+        return session
+
+    @staticmethod
+    def _is_mocked_request(func) -> bool:
+        return type(func).__module__.startswith("unittest.mock")
+
+    def _http_get(self, *args, **kwargs):
+        if self._is_mocked_request(requests.get):
+            return requests.get(*args, **kwargs)
+        return self._http_session().get(*args, **kwargs)
+
+    def _http_head(self, *args, **kwargs):
+        if self._is_mocked_request(requests.head):
+            return requests.head(*args, **kwargs)
+        return self._http_session().head(*args, **kwargs)
+
     def fetch_company_list(self):
         print("Fetching company list...")
         url = "https://dados.cvm.gov.br/dados/CIA_ABERTA/CAD/DADOS/cad_cia_aberta.csv"
         try:
-            response = requests.get(url, timeout=self.company_list_timeout)
+            response = self._http_get(url, timeout=self.company_list_timeout)
             response.raise_for_status()
-            df = pd.read_csv(io.BytesIO(response.content), sep=";", encoding="latin1")
+            df = _pd().read_csv(io.BytesIO(response.content), sep=";", encoding="latin1")
             
             social = df[df['DENOM_SOCIAL'].notna()].set_index(df[df['DENOM_SOCIAL'].notna()]['DENOM_SOCIAL'].str.upper().str.strip())['CD_CVM']
             comerc = df[df['DENOM_COMERC'].notna()].set_index(df[df['DENOM_COMERC'].notna()]['DENOM_COMERC'].str.upper().str.strip())['CD_CVM']
@@ -186,7 +225,7 @@ class CVMScraper:
 
     def _fetch_remote_zip_metadata(self, url: str) -> dict[str, object]:
         try:
-            response = requests.head(url, allow_redirects=True, timeout=self.download_timeout)
+            response = self._http_head(url, allow_redirects=True, timeout=self.download_timeout)
         except Exception as exc:
             print(f"  Warning: could not fetch remote metadata for {url}: {exc}")
             return {}
@@ -263,7 +302,7 @@ class CVMScraper:
             downloaded = False
             for attempt in range(3):
                 try:
-                    response = requests.get(url, stream=True, timeout=self.download_timeout)
+                    response = self._http_get(url, stream=True, timeout=self.download_timeout)
                     if response.status_code != 200:
                         return False
                     with open(tmp_zip_path, 'wb') as f:
@@ -309,9 +348,11 @@ class CVMScraper:
         df.loc[mask_milhao, 'VL_CONTA'] = df.loc[mask_milhao, 'VL_CONTA'] * 1000
         return df
 
-    def _read_csv_cached(self, filepath: str) -> "pl.DataFrame":
+    def _read_csv_cached(self, filepath: str) -> "_pl().DataFrame":
         if filepath not in self._csv_cache:
+            pl = None
             try:
+                pl = _pl()
                 df = pl.read_csv(
                     filepath,
                     separator=";",
@@ -323,9 +364,15 @@ class CVMScraper:
                 if wanted:
                     df = df.select(wanted)
             except Exception:
-                pd_df = pd.read_csv(filepath, sep=";", encoding="latin1",
-                                    dtype={"CD_CVM": "Int64"})
-                df = pl.from_pandas(pd_df)
+                df = _pd().read_csv(
+                    filepath,
+                    sep=";",
+                    encoding="latin1",
+                    dtype={"CD_CVM": "Int64"},
+                    usecols=lambda column: column in _CSV_USECOLS,
+                )
+                if pl is not None:
+                    df = pl.from_pandas(df)
             self._csv_cache[filepath] = df
         return self._csv_cache[filepath]
 
@@ -340,12 +387,20 @@ class CVMScraper:
                     if os.path.exists(filepath):
                         try:
                             df = self._read_csv_cached(filepath)
-                            df_company_pl = df.filter(pl.col('CD_CVM') == int(cvm_code))
-                            if 'ORDEM_EXERC' in df_company_pl.columns:
-                                df_company_pl = df_company_pl.filter(pl.col('ORDEM_EXERC') == 'ÚLTIMO')
-                            if df_company_pl.is_empty():
-                                continue
-                            df_company = df_company_pl.to_pandas()
+                            if hasattr(df, "filter") and hasattr(df, "is_empty"):
+                                pl = _pl()
+                                df_company_pl = df.filter(pl.col('CD_CVM') == int(cvm_code))
+                                if 'ORDEM_EXERC' in df_company_pl.columns:
+                                    df_company_pl = df_company_pl.filter(pl.col('ORDEM_EXERC') == 'ÚLTIMO')
+                                if df_company_pl.is_empty():
+                                    continue
+                                df_company = df_company_pl.to_pandas()
+                            else:
+                                df_company = df[df['CD_CVM'].astype('Int64') == int(cvm_code)].copy()
+                                if 'ORDEM_EXERC' in df_company.columns:
+                                    df_company = df_company[df_company['ORDEM_EXERC'] == 'ÚLTIMO'].copy()
+                                if df_company.empty:
+                                    continue
                             stmt_map = {'BPA':'BPA', 'BPP':'BPP', 'DRE':'DRE', 'DFC_MD':'DFC', 'DFC_MI':'DFC', 'DVA':'DVA', 'DMPL':'DMPL'}
                             stmt_type = stmt_map.get(pattern, 'OTHER')
                             df_company['DS_CONTA_norm'] = normalize_account_names(df_company['DS_CONTA'])
@@ -358,17 +413,17 @@ class CVMScraper:
                             df_company['COMPANY_TYPE'] = 'financeira' if any(k in setor for k in ['banc', 'financ']) else 'comercial'
                             all_data.append(df_company)
                         except Exception: continue
-        return pd.concat(all_data, ignore_index=True) if all_data else None
+        return _pd().concat(all_data, ignore_index=True) if all_data else None
 
     def calculate_quarters(self, df, report_type):
-        if df.empty: return pd.DataFrame()
+        if df.empty: return _pd().DataFrame()
         df = df.copy()
         for col in ['DT_REFER', 'DT_INI_EXERC', 'DT_FIM_EXERC']:
-            if col in df.columns: df[col] = pd.to_datetime(df[col], errors='coerce')
+            if col in df.columns: df[col] = _pd().to_datetime(df[col], errors='coerce')
 
-        labels = pd.Series(None, index=df.index, dtype=object)
+        labels = _pd().Series(None, index=df.index, dtype=object)
         if report_type in ['BPA', 'BPP']:
-            dt = df['DT_REFER'] if 'DT_REFER' in df.columns else pd.Series(pd.NaT, index=df.index)
+            dt = df['DT_REFER'] if 'DT_REFER' in df.columns else _pd().Series(_pd().NaT, index=df.index)
             year_int = dt.dt.year.fillna(0).astype(int)
             yy = (year_int % 100).astype(str).str.zfill(2)
             m = dt.dt.month
@@ -377,8 +432,8 @@ class CVMScraper:
             labels = labels.mask(m == 9, '3Q' + yy)
             labels = labels.mask(m == 12, year_int.astype(str))
         else:
-            ini = df['DT_INI_EXERC'] if 'DT_INI_EXERC' in df.columns else pd.Series(pd.NaT, index=df.index)
-            fim = df['DT_FIM_EXERC'] if 'DT_FIM_EXERC' in df.columns else pd.Series(pd.NaT, index=df.index)
+            ini = df['DT_INI_EXERC'] if 'DT_INI_EXERC' in df.columns else _pd().Series(_pd().NaT, index=df.index)
+            fim = df['DT_FIM_EXERC'] if 'DT_FIM_EXERC' in df.columns else _pd().Series(_pd().NaT, index=df.index)
             fim_year_int = fim.dt.year.fillna(0).astype(int)
             yy = (fim_year_int % 100).astype(str).str.zfill(2)
             ini_m, ini_d, fim_m = ini.dt.month, ini.dt.day, fim.dt.month
@@ -392,7 +447,7 @@ class CVMScraper:
             labels = labels.mask((ini_m == 10) & (fim_m == 12), '4Q' + yy)
         df['PERIOD_LABEL'] = labels
         df = df[df['PERIOD_LABEL'].notna()]
-        if df.empty: return pd.DataFrame()
+        if df.empty: return _pd().DataFrame()
 
         index_cols = ['LINE_ID_BASE', 'CD_CONTA', 'DS_CONTA']
         df_wide = df.pivot_table(index=index_cols, columns='PERIOD_LABEL', values='VL_CONTA', aggfunc='first').reset_index()
@@ -416,7 +471,7 @@ class CVMScraper:
     def _create_period_label(self, row, report_type):
         if report_type in ['BPA', 'BPP']:
             dt = row.get('DT_REFER')
-            if pd.isna(dt): return None
+            if _pd().isna(dt): return None
             yy = str(dt.year)[2:]
             if dt.month == 3: return f'1Q{yy}'
             if dt.month == 6: return f'2Q{yy}'
@@ -424,7 +479,7 @@ class CVMScraper:
             if dt.month == 12: return str(dt.year)
         else:
             dt_ini, dt_fim = row.get('DT_INI_EXERC'), row.get('DT_FIM_EXERC')
-            if pd.isna(dt_ini) or pd.isna(dt_fim): return None
+            if _pd().isna(dt_ini) or _pd().isna(dt_fim): return None
             yy = str(dt_fim.year)[2:]
             if dt_ini.month == 1 and dt_ini.day == 1:
                 if dt_fim.month == 3: return f'1Q{yy}'
@@ -463,7 +518,7 @@ class CVMScraper:
                 if len(vals) >= 1: merged[col] = vals[0]
             merged['QA_CONFLICT'] = has_conflict
             final_rows.append(merged)
-        return pd.DataFrame(final_rows), [], qa_errors
+        return _pd().DataFrame(final_rows), [], qa_errors
 
     def _identify_period_years(self, df):
         import re
@@ -480,7 +535,7 @@ class CVMScraper:
         h1, h2, h3, ha = c1 in df.columns, c2 in df.columns, c3 in df.columns, ca in df.columns
         if not any([h1, h2, h3, ha]): return df, []
         
-        s1 = df[c1].copy() if h1 else pd.Series(float('nan'), index=df.index)
+        s1 = df[c1].copy() if h1 else _pd().Series(float('nan'), index=df.index)
         s2 = (df[c2] - df[c1].fillna(0)) if h2 and h1 else (df[c2] if h2 else s1*0)
         s3 = (df[c3] - df[c2].fillna(0)) if h3 and h2 else (df[c3] if h3 else s1*0)
         s4 = (df[ca] - df[c3].fillna(0)) if ha and h3 else (df[ca] - df[c2].fillna(0) if ha and h2 else s1*0)
@@ -495,7 +550,7 @@ class CVMScraper:
         ers = []
         diff = ((s1.fillna(0) + s2.fillna(0) + s3.fillna(0) + s4.fillna(0)) - ann).abs()
         for idx in df.index:
-            if not pd.isna(ann.loc[idx]) and diff.loc[idx] > DFC_VALIDATION_TOLERANCE:
+            if not _pd().isna(ann.loc[idx]) and diff.loc[idx] > DFC_VALIDATION_TOLERANCE:
                 ers.append({'type': 'DFC_VALIDATION_FAILED', 'statement': stmt, 'year': year, 'diff': float(diff.loc[idx])})
         return ers
 
@@ -551,7 +606,7 @@ class CVMScraper:
         
         for attempt in range(1, self.max_excel_lock_retries + 1):
             try:
-                with pd.ExcelWriter(path, engine='openpyxl') as writer:
+                with _pd().ExcelWriter(path, engine='openpyxl') as writer:
                     for s, df in final.items():
                         df.to_excel(writer, sheet_name=s, startrow=2, index=False)
                         ws = writer.sheets[s]
@@ -630,7 +685,7 @@ class CVMScraper:
             len(tasks) or 1,
             "Baixando e extraindo demonstracoes CVM.",
         )
-        with ThreadPoolExecutor(max_workers=4) as pool:
+        with ThreadPoolExecutor(max_workers=min(8, max(1, len(tasks)))) as pool:
             futures = {pool.submit(self.download_and_extract, year, dt): (year, dt)
                        for year, dt in tasks}
             for fut in as_completed(futures):
@@ -722,7 +777,7 @@ class CVMScraper:
                 "persist_reports",
                 completed,
                 total_companies or 1,
-                f"Gravando relatórios e persistindo dados de {name}.",
+                f"Gravando relatorios e persistindo dados de {name}.",
             )
             while attempt < self.company_db_max_retries:
                 attempt += 1

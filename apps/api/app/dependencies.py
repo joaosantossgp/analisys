@@ -13,6 +13,7 @@ from src.startup import StartupReport, collect_startup_report
 API_VERSION = "v2-phase1"
 REQUIRED_TABLES = ("financial_reports", "companies")
 SUPPORTED_STATEMENTS = frozenset({"BPA", "BPP", "DRE", "DFC", "DVA", "DMPL"})
+_API_READY_CACHE: dict[tuple[str, str, str], StartupReport] = {}
 
 
 @dataclass(frozen=True)
@@ -71,8 +72,25 @@ def collect_api_startup_report(
     )
 
 
+def _api_ready_cache_key(settings: AppSettings) -> tuple[str, str, str]:
+    return (
+        settings.database_url or "",
+        str(settings.paths.db_path),
+        str(settings.paths.project_root),
+    )
+
+
+def clear_api_ready_cache() -> None:
+    _API_READY_CACHE.clear()
+
+
 def ensure_api_ready(settings: AppSettings) -> StartupReport:
-    report = collect_api_startup_report(settings, warn_on_legacy_data=False)
+    key = _api_ready_cache_key(settings)
+    report = _API_READY_CACHE.get(key)
+    if report is None:
+        report = collect_api_startup_report(settings, warn_on_legacy_data=False)
+        if report.ok:
+            _API_READY_CACHE[key] = report
     if not report.ok:
         first_error = report.errors[0]
         raise ServiceUnavailableError(first_error.message)

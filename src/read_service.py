@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import io
 import zipfile
 from collections import defaultdict
@@ -157,12 +158,21 @@ class CVMReadService:
         rows = [row.to_dict() for row in self.search_companies(search)]
         return pd.DataFrame(rows)
 
-    def get_company_info(self, cd_cvm: int) -> CompanyInfoDTO | None:
-        payload = self.query_layer.get_company_info(cd_cvm)
+    def get_company_info(
+        self,
+        cd_cvm: int,
+        *,
+        allow_catalog_lookup: bool = True,
+    ) -> CompanyInfoDTO | None:
+        payload = self.query_layer.get_company_info_with_read_model_state(cd_cvm)
         if payload:
-            return self._with_company_read_model_state(
-                self._build_company_info_dto(payload, default_cd_cvm=cd_cvm)
+            return self._apply_company_read_model_state(
+                self._build_company_info_dto(payload, default_cd_cvm=cd_cvm),
+                payload,
             )
+
+        if not allow_catalog_lookup:
+            return None
 
         catalog_entry = self.company_catalog.lookup_company(cd_cvm)
         if catalog_entry is None:
@@ -178,6 +188,7 @@ class CVMReadService:
         info = self.get_company_info(cd_cvm)
         return info.to_dict() if info else {}
 
+    @functools.lru_cache(maxsize=10)
     def get_available_years(self, cd_cvm: int) -> list[int]:
         return self.query_layer.get_available_years(cd_cvm)
 
@@ -227,6 +238,13 @@ class CVMReadService:
             int(dto.cd_cvm),
             {},
         )
+        return self._apply_company_read_model_state(dto, state)
+
+    def _apply_company_read_model_state(
+        self,
+        dto: CompanyInfoDTO,
+        state: dict[str, Any],
+    ) -> CompanyInfoDTO:
         readable_years_count = int(state.get("readable_years_count") or 0)
         latest_readable_year = (
             int(state["latest_readable_year"])
@@ -307,6 +325,7 @@ class CVMReadService:
             )
         return True
 
+    @functools.lru_cache(maxsize=10)
     def list_companies(
         self,
         *,
@@ -438,6 +457,7 @@ class CVMReadService:
         )
         return CompanyFiltersDTO(sectors=sectors)
 
+    @functools.lru_cache(maxsize=128)
     def suggest_companies(
         self,
         q: str,
