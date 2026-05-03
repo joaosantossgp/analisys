@@ -37,9 +37,12 @@ test("detalhe com historico renderiza o dashboard de analise na visao geral", as
   await page.goto("/empresas/4170");
 
   await expect(page.locator("h1").first()).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByTestId("company-analysis-panel")).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText(/visao anual em um unico painel/i)).toBeVisible();
-  await expect(page.getByText(/tabela anual/i)).toBeVisible();
+  const analysisPanel = page.getByTestId("company-analysis-panel");
+  await expect(analysisPanel).toBeVisible({ timeout: 30_000 });
+  await expect(
+    analysisPanel.getByRole("heading", { name: /visao anual/i }),
+  ).toBeVisible();
+  await expect(analysisPanel.getByText(/tabela anual/i)).toBeVisible();
 });
 
 test("home suggestions usam a rota same-origin", async ({ page }) => {
