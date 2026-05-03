@@ -18,8 +18,10 @@ from apps.api.app.presenters import ErrorResponsePayload
 from apps.api.app.routes.analytics import router as analytics_router
 from apps.api.app.routes.companies import router as companies_router
 from apps.api.app.routes.health import router as health_router
+from apps.api.app.routes.refresh import router as refresh_router
 from apps.api.app.routes.sectors import router as sectors_router
 from apps.api.app.routes.status import router as status_router
+from apps.api.app.services.refresh_jobs import ApiRefreshJobManager
 from src.database import init_db_tables
 from src.read_service import CVMReadService
 from src.settings import AppSettings, get_settings as get_shared_settings
@@ -49,6 +51,7 @@ def create_app(
     *,
     settings: AppSettings | None = None,
     read_service: CVMReadService | None = None,
+    refresh_job_manager: ApiRefreshJobManager | None = None,
 ) -> FastAPI:
     _init_sentry()
     resolved_settings = settings or get_shared_settings()
@@ -70,6 +73,10 @@ def create_app(
     )
     app.state.settings = resolved_settings
     app.state.read_service = resolved_service
+    app.state.refresh_job_manager = refresh_job_manager or ApiRefreshJobManager(
+        settings=resolved_settings,
+        read_service=resolved_service,
+    )
 
     _raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
     _allowed_origins = [origin.strip() for origin in _raw_origins.split(",") if origin.strip()]
@@ -137,6 +144,7 @@ def create_app(
     app.include_router(sectors_router)
     app.include_router(status_router)
     app.include_router(analytics_router)
+    app.include_router(refresh_router)
     return app
 
 
