@@ -46,3 +46,7 @@ logs/
 
 # Browser test artifacts
 .playwright-cli/
+
+# Desktop build artifacts
+desktop/node_portable/
+desktop/__pycache__/
