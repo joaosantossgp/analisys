@@ -532,7 +532,7 @@ export function UpdateBasePage() {
       addLog("Ja existe uma atualizacao em andamento.", "warning");
       if (dispatch.job_id) {
         setJobId(dispatch.job_id);
-        startPolling(dispatch.job_id, Date.now());
+        startPolling(dispatch.job_id);
       }
       return;
     }
@@ -554,10 +554,11 @@ export function UpdateBasePage() {
     setJobId(jid);
     setTotalFromJob(queuedCount);
     addLog(`Job ${jid.slice(0, 8)} enfileirado (${queuedCount} empresas).`, "dim");
-    startPolling(jid, Date.now());
+    startPolling(jid);
   }
 
-  function startPolling(jid: string, startedAt: number) {
+  function startPolling(jid: string) {
+    const startedAt = Date.now();
     intervalRef.current = setInterval(() => {
       void (async () => {
         let status: Awaited<ReturnType<typeof fetchBatchJobStatus>>;
