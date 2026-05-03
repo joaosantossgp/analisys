@@ -39,7 +39,9 @@
       "tests/**",
       "apps/api/tests/**",
       "main.py",
-      "requirements.txt"
+      "requirements.txt",
+      "requirements-dashboard.txt",
+      "migrations/**"
     ],
     "master": [
       "apps/web/**",
@@ -50,7 +52,9 @@
       "tests/**",
       "apps/api/tests/**",
       "main.py",
-      "requirements.txt"
+      "requirements.txt",
+      "requirements-dashboard.txt",
+      "migrations/**"
     ],
     "ops-quality": [
       ".github/**",
@@ -86,6 +90,7 @@
         "README.md",
         "COMO_RODAR.md",
         "docs/AGENTS.md",
+        "docs/INTERFACE_MAP.md",
         "docs/GOVERNANCE_QUICK_REFERENCE.md",
         "docs/governance/**",
         ".claude/launch.json",
@@ -94,6 +99,7 @@
         ".claude/skills/**",
         ".claudeignore",
         "docs/STUDENT_PACK_PLAN.md",
+        "docs/PERF_BASELINE.md",
         ".github/**",
         "skills/**",
         ".gitignore"
