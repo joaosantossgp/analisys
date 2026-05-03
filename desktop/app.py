@@ -5,10 +5,15 @@ Uso:
   python -m desktop.app --dev    # Next.js dev server em :3000 + FastAPI em :8000
   python -m desktop.app          # standalone server em .next/standalone/server.js
   python -m desktop.app --debug  # abre DevTools no modo que estiver ativo
+
+Quando empacotado via PyInstaller (sys.frozen=True):
+  - server.js lido de sys._MEIPASS/web_standalone/server.js
+  - node.exe lido de sys._MEIPASS/node.exe (copiado pelo build_desktop.ps1)
 """
 
 from __future__ import annotations
 
+import os
 import socket
 import subprocess
 import sys
@@ -20,22 +25,45 @@ import webview
 from desktop.bridge import CVMBridge
 
 _DEV_URL = "http://localhost:3000"
-_STANDALONE = Path(__file__).parent.parent / "apps" / "web" / ".next" / "standalone" / "server.js"
-_STATIC_DIR = Path(__file__).parent.parent / "apps" / "web" / ".next" / "standalone"
 _WIDTH, _HEIGHT = 1280, 820
 _BG = "#0a0a0a"
-_STARTUP_TIMEOUT = 10  # seconds to wait for the standalone server to be ready
+_STARTUP_TIMEOUT = 15  # segundos — bundle pode demorar mais no primeiro boot
+
+
+def _bundled() -> bool:
+    return getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS")
+
+
+def _bundle_dir() -> Path:
+    return Path(sys._MEIPASS)  # type: ignore[attr-defined]
+
+
+def _repo_root() -> Path:
+    return Path(__file__).parent.parent
+
+
+def _standalone_path() -> Path:
+    if _bundled():
+        return _bundle_dir() / "web_standalone" / "server.js"
+    return _repo_root() / "apps" / "web" / ".next" / "standalone" / "server.js"
+
+
+def _node_exe() -> str:
+    """Retorna o caminho do node a usar: bundled primeiro, depois PATH."""
+    if _bundled():
+        node = _bundle_dir() / "node.exe"
+        if node.exists():
+            return str(node)
+    return "node"
 
 
 def _free_port() -> int:
-    """Devolve uma porta TCP livre em 127.0.0.1."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("127.0.0.1", 0))
         return s.getsockname()[1]
 
 
 def _wait_for_port(port: int, timeout: float = _STARTUP_TIMEOUT) -> bool:
-    """Aguarda até o servidor responder em 127.0.0.1:<port>."""
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         try:
@@ -46,19 +74,11 @@ def _wait_for_port(port: int, timeout: float = _STARTUP_TIMEOUT) -> bool:
     return False
 
 
-def _start_standalone_server() -> tuple[subprocess.Popen[bytes], int]:
-    """
-    Inicia .next/standalone/server.js em uma porta aleatória.
-    Retorna (processo, porta).
-    """
+def _start_standalone_server(standalone: Path) -> tuple[subprocess.Popen[bytes], int]:
     port = _free_port()
     proc = subprocess.Popen(
-        ["node", str(_STANDALONE)],
-        env={
-            **__import__("os").environ,
-            "PORT": str(port),
-            "HOSTNAME": "127.0.0.1",
-        },
+        [_node_exe(), str(standalone)],
+        env={**os.environ, "PORT": str(port), "HOSTNAME": "127.0.0.1"},
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
@@ -76,14 +96,15 @@ def main() -> None:
     if dev_mode:
         url = _DEV_URL
     else:
-        if not _STANDALONE.exists():
+        standalone = _standalone_path()
+        if not standalone.exists():
             sys.exit(
-                f"[desktop] Standalone server não encontrado em {_STANDALONE}.\n"
+                f"[desktop] Standalone server não encontrado em {standalone}.\n"
                 "Execute primeiro:\n"
-                "  npm --prefix apps/web run build\n"
-                "O build gera .next/standalone/server.js automaticamente."
+                "  .\\desktop\\build_desktop.ps1\n"
+                "(ou: npm --prefix apps/web run build)"
             )
-        server_proc, port = _start_standalone_server()
+        server_proc, port = _start_standalone_server(standalone)
         if not _wait_for_port(port):
             server_proc.terminate()
             sys.exit(
