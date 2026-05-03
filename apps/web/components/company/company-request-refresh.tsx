@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { LoaderCircleIcon, RotateCcwIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -240,7 +240,7 @@ export function CompanyRequestRefresh({
             <Badge
               variant="outline"
               className={cn(
-                "w-fit rounded-full border px-2.5 py-0.5 text-[0.7rem] uppercase tracking-[0.18em]",
+                "w-fit rounded-full border px-2.5 py-0.5 text-xs uppercase tracking-[0.18em]",
                 view.stepClassName,
               )}
             >
@@ -261,7 +261,7 @@ export function CompanyRequestRefresh({
               <div className="rounded-[1.25rem] border border-border/65 bg-background/82 px-4 py-4 shadow-[0_1px_0_rgba(255,255,255,0.22)]">
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-[0.7rem] font-medium uppercase tracking-[0.22em] text-muted-foreground">
+                    <p className="text-xs font-medium uppercase tracking-[0.22em] text-muted-foreground">
                       Progresso do refresh
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">

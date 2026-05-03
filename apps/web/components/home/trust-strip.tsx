@@ -1,4 +1,4 @@
-import type { LucideIcon } from "lucide-react";
+﻿import type { LucideIcon } from "lucide-react";
 import { Building2, FileText, BarChart3, Zap } from "lucide-react";
 
 import type { HealthResponse } from "@/lib/api";
@@ -36,10 +36,10 @@ function TrustStat({ icon: Icon, label, value, hint, live }: TrustStatProps) {
             />
           ) : null}
         </div>
-        <p className="mt-0.5 text-[0.72rem] font-medium uppercase tracking-[0.15em] text-muted-foreground">
+        <p className="mt-0.5 text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
           {label}
         </p>
-        <p className="mt-0.5 text-[0.72rem] text-muted-foreground/70">{hint}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground/70">{hint}</p>
       </div>
     </div>
   );

@@ -28,7 +28,7 @@ export default async function SetoresPage() {
 
   if (!directory) {
     return (
-      <PageShell density="relaxed" className="max-w-4xl">
+      <PageShell density="relaxed">
         <SurfaceCard tone="hero" padding="hero" className="space-y-6">
           <SectionHeading
             eyebrow="PG-05 - Hub de setores"
@@ -36,7 +36,7 @@ export default async function SetoresPage() {
             titleAs="h1"
             description="O hub de setores nao respondeu agora. O restante da navegacao publica continua disponivel."
           />
-          <Alert className="rounded-[1.75rem] border border-destructive/25 bg-destructive/6 px-5 py-5 text-left">
+          <Alert variant="destructive-soft">
             <AlertTitle>Falha controlada do hub setorial</AlertTitle>
             <AlertDescription>
               {directoryError ??

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
@@ -209,7 +209,7 @@ export function LeadsTable({
       }`}>
         {source}
         {!isOrganic && (
-          <span className="ml-1 text-xs opacity-60">↗</span>
+          <span className="ml-1 text-xs opacity-60">â†—</span>
         )}
       </div>
     );
@@ -270,8 +270,8 @@ export function LeadsTable({
     }).join(' ');
 
     // Better colors for dark mode
-    const upColor = isDark ? "#22c55e" : "#16a34a";   // Softer green for dark mode
-    const downColor = isDark ? "#f87171" : "#dc2626"; // Softer red for dark mode
+    const upColor = isDark ? "var(--chart-1)" : "var(--chart-1)";   // Softer green for dark mode
+    const downColor = isDark ? "var(--destructive)" : "var(--destructive)"; // Softer red for dark mode
 
     return (
       <div className="w-16 h-6">

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 
@@ -52,7 +52,7 @@ function SvgBarChart({ points }: { points: ChartPoint[] }) {
   if (points.length < 2) {
     return (
       <div className="flex h-[160px] items-center justify-center text-sm text-muted-foreground">
-        Dados insuficientes para o gráfico.
+        Dados insuficientes para o grÃ¡fico.
       </div>
     );
   }
@@ -183,7 +183,7 @@ export function CompanyHeroChart({ series }: CompanyHeroChartProps) {
 
   const stats = computeStats(filteredPoints);
 
-  const pillBase = "rounded-full border px-3 py-1 text-[0.75rem] font-medium transition-colors";
+  const pillBase = "rounded-full border px-3 py-1 text-xs font-medium transition-colors";
 
   if (series.length === 0 || !currentSeries) return null;
 
@@ -215,7 +215,7 @@ export function CompanyHeroChart({ series }: CompanyHeroChartProps) {
               type="button"
               onClick={() => setActivePeriod(p.id)}
               className={cn(
-                "rounded-full border px-2.5 py-0.5 text-[0.72rem] font-medium transition-colors",
+                "rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors",
                 p.id === activePeriod
                   ? "border-border bg-muted text-foreground"
                   : "border-transparent text-muted-foreground hover:text-foreground",
@@ -240,17 +240,17 @@ export function CompanyHeroChart({ series }: CompanyHeroChartProps) {
               value:
                 stats.cagr !== null
                   ? `${stats.cagr >= 0 ? "+" : ""}${(stats.cagr * 100).toFixed(1)}%`
-                  : "—",
+                  : "â€”",
             },
-            { label: "Média", value: fmtShort(stats.avg) },
-            { label: "Máx", value: fmtShort(stats.max) },
-            { label: "Mín", value: fmtShort(stats.min) },
+            { label: "MÃ©dia", value: fmtShort(stats.avg) },
+            { label: "MÃ¡x", value: fmtShort(stats.max) },
+            { label: "MÃ­n", value: fmtShort(stats.min) },
           ].map(({ label, value }) => (
             <div key={label} className="px-4 first:pl-0 last:pr-0 text-center">
-              <p className="text-[0.65rem] uppercase tracking-[0.15em] text-muted-foreground">
+              <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
                 {label}
               </p>
-              <p className="mt-0.5 font-mono text-[0.85rem] font-medium tabular-nums text-foreground">
+              <p className="mt-0.5 font-mono text-sm font-medium tabular-nums text-foreground">
                 {value}
               </p>
             </div>

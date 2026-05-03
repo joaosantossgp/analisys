@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState, type ReactNode } from "react";
 import { SearchIcon } from "lucide-react";
@@ -83,7 +83,7 @@ export function CompanyAnalysisPanel({
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <p className="text-[0.72rem] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
               Analise de indicadores
             </p>
             <CompanyHelpTip>
@@ -114,7 +114,7 @@ export function CompanyAnalysisPanel({
       <div className="space-y-4 rounded-[1.35rem] border border-border/60 bg-muted/16 p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-2">
-            <p className="text-[0.72rem] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
               Tabela anual
             </p>
             <CompanyHelpTip>

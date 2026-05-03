@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 
 import {
   SectionHeading,
@@ -67,7 +67,7 @@ export function CompareKpiTable({
                     >
                       {company.company_name}
                     </Link>
-                    <p className="text-[0.65rem] uppercase tracking-[0.16em] text-muted-foreground">
+                    <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
                       {company.ticker_b3 ?? "sem ticker"} - CVM {company.cd_cvm}
                       {index === 0 ? " - base" : ""}
                     </p>
@@ -82,7 +82,7 @@ export function CompareKpiTable({
                 <TableCell className="sticky left-0 z-10 bg-background px-5">
                   <div className="space-y-1">
                     <p className="font-medium text-foreground">{row.label}</p>
-                    <p className="text-[0.68rem] uppercase tracking-[0.15em] text-muted-foreground">
+                    <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
                       {row.kpiId}
                     </p>
                   </div>

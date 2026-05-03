@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 
 import { CompanyDirectoryFilters } from "@/components/companies/company-directory-filters";
 import { CompanyDirectoryList } from "@/components/companies/company-directory-list";
@@ -82,7 +82,7 @@ export function CompaniesDirectoryPageContent({
             titleAs="h1"
             description="A listagem de empresas nao respondeu agora. O fluxo de busca e navegacao pode ser retomado assim que a API voltar a responder."
           />
-          <Alert className="rounded-[1.75rem] border border-destructive/25 bg-destructive/6 px-5 py-5 text-left">
+          <Alert variant="destructive-soft">
             <AlertTitle>Falha controlada da listagem</AlertTitle>
             <AlertDescription>
               {data.directoryError ??
@@ -129,13 +129,13 @@ export function CompaniesDirectoryPageContent({
     <PageShell density="default" className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="mb-1 text-[0.72rem] font-medium uppercase tracking-[0.26em] text-muted-foreground">
+          <p className="mb-1 text-xs font-medium uppercase tracking-[0.26em] text-muted-foreground">
             Diretorio / CVM
           </p>
           <h1 className="font-heading text-[clamp(1.75rem,4vw,2.5rem)] font-medium leading-tight tracking-[-0.04em] text-foreground">
             Todas as companhias abertas
           </h1>
-          <p className="mt-1.5 text-[0.9rem] text-muted-foreground">
+          <p className="mt-1.5 text-sm text-muted-foreground">
             {formatCompactInteger(directory.pagination.total_items)} empresas
             {currentSearch ? ` / "${currentSearch}"` : ""}
             {currentSector ? ` / ${currentSector}` : ""}
@@ -180,14 +180,14 @@ export function CompaniesDirectoryPageContent({
       </div>
 
       {directoryError ? (
-        <Alert className="rounded-[1.75rem] border border-border/70 bg-background/85 px-5 py-4">
+        <Alert className="rounded-3xl border-border/70 bg-background/85 px-5 py-4">
           <AlertTitle>Atualizacao parcial da listagem</AlertTitle>
           <AlertDescription>{directoryError}</AlertDescription>
         </Alert>
       ) : null}
 
       {filtersError ? (
-        <Alert className="rounded-[1.75rem] border border-border/70 bg-background/85 px-5 py-4">
+        <Alert className="rounded-3xl border-border/70 bg-background/85 px-5 py-4">
           <AlertTitle>Filtro setorial indisponivel</AlertTitle>
           <AlertDescription>
             {filtersError} A busca livre e a paginacao continuam disponiveis.
@@ -203,7 +203,7 @@ export function CompaniesDirectoryPageContent({
           >
             <span
               className={cn(
-                "inline-flex rounded-full border px-2 py-0.5 text-[0.62rem] font-medium uppercase tracking-[0.14em]",
+                "inline-flex rounded-full border px-2 py-0.5 text-xs font-medium uppercase tracking-[0.14em]",
                 item.className,
               )}
             >

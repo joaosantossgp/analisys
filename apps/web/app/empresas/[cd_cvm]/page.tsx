@@ -63,7 +63,7 @@ function DetailPageError({
           titleAs="h1"
           description="Nao foi possivel carregar os dados desta companhia agora."
         />
-        <Alert className="rounded-[1.75rem] border border-destructive/25 bg-destructive/6 px-5 py-5 text-left">
+        <Alert variant="destructive-soft">
           <AlertTitle>Falha na leitura detalhada</AlertTitle>
           <AlertDescription>{message}</AlertDescription>
         </Alert>
@@ -212,7 +212,7 @@ export default async function EmpresaDetailPage({
             selectedYears={selectedYears}
           />
         ) : (
-          <Alert className="rounded-[1.75rem] border border-destructive/25 bg-destructive/6 px-5 py-5 text-left">
+          <Alert variant="destructive-soft">
             <AlertTitle>Visao geral indisponivel</AlertTitle>
             <AlertDescription>
               {contentError ??
@@ -247,7 +247,7 @@ export default async function EmpresaDetailPage({
           {statement ? (
             <CompanyStatementsLazy matrix={statement} />
           ) : (
-            <Alert className="rounded-[1.75rem] border border-destructive/25 bg-destructive/6 px-5 py-5 text-left">
+            <Alert variant="destructive-soft">
               <AlertTitle>Demonstracao indisponivel</AlertTitle>
               <AlertDescription>
                 {contentError ??

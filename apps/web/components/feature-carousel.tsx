@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
@@ -146,9 +146,9 @@ export function FeatureCarousel() {
   return (
     <div className="w-full max-w-7xl mx-auto md:p-8">
       <div className="relative overflow-hidden rounded-[2.5rem] lg:rounded-[4rem] flex flex-col lg:flex-row min-h-[600px] lg:aspect-video border border-border/40">
-        <div className="w-full lg:w-[40%] min-h-[350px] md:min-h-[450px] lg:h-full relative z-30 flex flex-col items-start justify-center overflow-hidden px-8 md:px-16 lg:pl-16 bg-[#62B2FE] ">
-          <div className="absolute inset-x-0 top-0 h-12 md:h-20 lg:h-16 bg-gradient-to-b from-[#62B2FE] via-[#62B2FE]/80 to-transparent z-40" />
-          <div className="absolute inset-x-0 bottom-0 h-12 md:h-20 lg:h-16 bg-gradient-to-t from-[#62B2FE] via-[#62B2FE]/80 to-transparent z-40" />
+        <div className="w-full lg:w-[40%] min-h-[350px] md:min-h-[450px] lg:h-full relative z-30 flex flex-col items-start justify-center overflow-hidden px-8 md:px-16 lg:pl-16 bg-[var(--chart-3)] ">
+          <div className="absolute inset-x-0 top-0 h-12 md:h-20 lg:h-16 bg-gradient-to-b from-[var(--chart-3)] via-[var(--chart-3)]/80 to-transparent z-40" />
+          <div className="absolute inset-x-0 bottom-0 h-12 md:h-20 lg:h-16 bg-gradient-to-t from-[var(--chart-3)] via-[var(--chart-3)]/80 to-transparent z-40" />
           <div className="relative w-full h-full flex items-center justify-center lg:justify-start z-20">
             {FEATURES.map((feature, index) => {
               const isActive = index === currentIndex;
@@ -185,14 +185,14 @@ export function FeatureCarousel() {
                     className={cn(
                       "relative flex items-center gap-4 px-6 md:px-10 lg:px-8 py-3.5 md:py-5 lg:py-4 rounded-full transition-all duration-700 text-left group border",
                       isActive
-                        ? "bg-white text-[#62B2FE] border-white z-10"
+                        ? "bg-white text-[var(--chart-3)] border-white z-10"
                         : "bg-transparent text-white/60 border-white/20 hover:border-white/40 hover:text-white"
                     )}
                   >
                     <div
                       className={cn(
                         "flex items-center justify-center transition-colors duration-500",
-                        isActive ? "text-[#62B2FE]" : "text-white/40"
+                        isActive ? "text-[var(--chart-3)]" : "text-white/40"
                       )}
                     >
                       <HugeiconsIcon
@@ -261,7 +261,7 @@ export function FeatureCarousel() {
                         className="absolute inset-x-0 bottom-0 p-10 pt-32 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col justify-end pointer-events-none"
                       >
                         <div className="bg-background text-foreground px-4 py-1.5 rounded-full text-[11px] font-normal uppercase tracking-[0.2em] w-fit shadow-lg mb-3 border border-border/50">
-                          {index + 1} • {feature.label}
+                          {index + 1} â€¢ {feature.label}
                         </div>
                         <p className="text-white font-normal text-xl md:text-2xl leading-tight drop-shadow-md tracking-tight">
                           {feature.description}

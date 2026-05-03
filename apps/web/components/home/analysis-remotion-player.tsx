@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Player } from "@remotion/player";
 import {
@@ -93,8 +93,8 @@ function AnalysisRemotionVideo() {
   const activeIndex = Math.floor(interpolate(loop, [0, 180], [0, capabilities.length])) % capabilities.length;
 
   return (
-    <AbsoluteFill className="overflow-hidden bg-[#050908] text-white">
-      <div className="absolute inset-0 bg-[linear-gradient(135deg,#061410_0%,#09110f_52%,#050605_100%)]" />
+    <AbsoluteFill className="overflow-hidden bg-[var(--background)] text-white">
+      <div className="absolute inset-0 bg-[linear-gradient(135deg,var(--background)_0%,var(--background)_52%,var(--background)_100%)]" />
       <div
         className="absolute -left-20 top-0 h-[28rem] w-[28rem] rounded-full bg-teal-400/14 blur-3xl"
         style={{
@@ -123,14 +123,14 @@ function AnalysisRemotionVideo() {
         <section className="flex min-w-0 flex-col">
           <div className="mb-8 flex items-start justify-between gap-8 border-b border-white/10 pb-6">
             <div>
-              <div className="mb-3 text-[0.7rem] font-medium uppercase tracking-[0.18em] text-teal-100/52">
+              <div className="mb-3 text-xs font-medium uppercase tracking-[0.18em] text-teal-100/52">
                 Analise guiada
               </div>
               <h3 className="max-w-[34rem] font-heading text-[2.65rem] font-semibold leading-[0.95] tracking-[-0.02em]">
                 Financial intelligence for every CVM filing.
               </h3>
             </div>
-            <div className="mt-2 shrink-0 rounded-full border border-teal-200/18 bg-teal-200/[0.08] px-4 py-2 text-[0.78rem] font-medium text-teal-50/86">
+            <div className="mt-2 shrink-0 rounded-full border border-teal-200/18 bg-teal-200/[0.08] px-4 py-2 text-sm font-medium text-teal-50/86">
               Live model
             </div>
           </div>
@@ -140,10 +140,10 @@ function AnalysisRemotionVideo() {
               <div>
                 <div className="mb-3 flex items-center justify-between text-white/58">
                   <div>
-                    <div className="text-[0.84rem] font-medium text-white/72">
+                    <div className="text-sm font-medium text-white/72">
                       Equity command center
                     </div>
-                    <div className="mt-1 text-[0.72rem] text-white/42">
+                    <div className="mt-1 text-xs text-white/42">
                       Annual view with peer signal
                     </div>
                   </div>
@@ -174,7 +174,7 @@ function AnalysisRemotionVideo() {
               <div className="mt-7 space-y-4">
                 {rows.map((row, index) => (
                   <div key={row.label}>
-                    <div className="mb-2 grid grid-cols-[1fr_auto_auto] items-center gap-5 text-[0.84rem]">
+                    <div className="mb-2 grid grid-cols-[1fr_auto_auto] items-center gap-5 text-sm">
                       <span className="text-white/58">{row.label}</span>
                       <span className="font-heading font-semibold text-white/92">
                         {row.value}
@@ -217,7 +217,7 @@ function AnalysisRemotionVideo() {
                   }}
                 >
                   <item.icon className="mb-3 size-4 text-teal-100/80" />
-                  <div className="text-[0.7rem] uppercase tracking-[0.12em] text-white/38">
+                  <div className="text-xs uppercase tracking-[0.12em] text-white/38">
                     {item.label}
                   </div>
                   <div className="mt-1 font-heading text-[1rem] font-semibold">
@@ -231,13 +231,13 @@ function AnalysisRemotionVideo() {
 
         <section className="relative min-w-0 border-l border-white/10 pl-12">
           <div className="mb-8">
-            <div className="mb-3 text-[0.7rem] font-medium uppercase tracking-[0.18em] text-white/42">
+            <div className="mb-3 text-xs font-medium uppercase tracking-[0.18em] text-white/42">
               Recursos em movimento
             </div>
             <h4 className="max-w-[25rem] font-heading text-[2.35rem] font-semibold leading-[0.96] tracking-[-0.02em]">
               One calm flow from source data to decision.
             </h4>
-            <p className="mt-4 max-w-[28rem] text-[0.96rem] leading-6 text-white/58">
+            <p className="mt-4 max-w-[28rem] text-base leading-6 text-white/58">
               Busca, demonstracoes, KPIs, comparacao e setores aparecem como uma
               unica trilha de trabalho, sem blocos competindo pela atencao.
             </p>
@@ -266,7 +266,7 @@ function AnalysisRemotionVideo() {
                     }}
                   >
                     <div
-                      className="relative z-10 flex size-10 items-center justify-center rounded-full border bg-[#07110f]"
+                      className="relative z-10 flex size-10 items-center justify-center rounded-full border bg-[var(--background)]"
                       style={{
                         borderColor: isActive ? feature.color : "rgba(255,255,255,0.13)",
                         color: feature.color,
@@ -282,7 +282,7 @@ function AnalysisRemotionVideo() {
                       <div className="font-heading text-[1.04rem] font-semibold leading-tight">
                         {feature.title}
                       </div>
-                      <div className="mt-1 text-[0.84rem] leading-5 text-white/54">
+                      <div className="mt-1 text-sm leading-5 text-white/54">
                         {feature.detail}
                       </div>
                     </div>

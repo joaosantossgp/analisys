@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { ArrowRightIcon, SearchIcon, XIcon } from "lucide-react";
 import { useDeferredValue, useEffect, useRef, useState, useTransition } from "react";
@@ -102,7 +102,7 @@ export function CompanySearchHero() {
             de quem esta na bolsa.
           </span>
         </h1>
-        <p className="max-w-[560px] mx-auto text-[1.0625rem] leading-[1.55] text-muted-foreground">
+        <p className="max-w-[560px] mx-auto text-lg leading-[1.55] text-muted-foreground">
           Pesquise qualquer companhia aberta brasileira. Leia DRE, balanco e KPIs
           com 10+ anos de historico, direto da CVM.
         </p>
@@ -157,7 +157,7 @@ export function CompanySearchHero() {
 
         {showDropdown ? (
           <div className="absolute inset-x-0 top-full z-20 overflow-hidden rounded-[0_0_1.25rem_1.25rem] border border-t-0 border-ring/50 bg-card shadow-[0_20px_60px_-30px_rgba(16,30,24,0.25)]">
-            <div className="border-t border-border bg-muted/30 px-5 py-1.5 text-[0.7rem] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+            <div className="border-t border-border bg-muted/30 px-5 py-1.5 text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
               {loadingSuggestions
                 ? "Buscando..."
                 : suggestionError
@@ -197,7 +197,7 @@ export function CompanySearchHero() {
                       <span className="font-semibold text-sm text-foreground">{item.company_name}</span>
                       {item.ticker_b3 ? (
                         <span
-                          className="font-mono text-[0.7rem] font-medium px-1.5 py-0.5 rounded-[0.35rem]"
+                          className="font-mono text-xs font-medium px-1.5 py-0.5 rounded-[0.35rem]"
                           style={{
                             background: `color-mix(in oklch, ${color} 12%, transparent)`,
                             border: `1px solid color-mix(in oklch, ${color} 25%, transparent)`,
@@ -208,18 +208,18 @@ export function CompanySearchHero() {
                         </span>
                       ) : null}
                     </div>
-                    <p className="text-[0.8rem] text-muted-foreground mt-0.5">
+                    <p className="text-sm text-muted-foreground mt-0.5">
                       {sectorName ?? "Setor nao informado"}
                     </p>
-                    <p className="text-[0.72rem] text-muted-foreground mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       Abra a pagina; se faltar historico local, solicite dados on-demand.
                     </p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-[0.72rem] uppercase tracking-[0.15em] text-muted-foreground">
+                    <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
                       CVM
                     </p>
-                    <p className="mt-0.5 font-mono text-[0.78rem] font-medium text-foreground tabular-nums">
+                    <p className="mt-0.5 font-mono text-sm font-medium text-foreground tabular-nums">
                       {item.cd_cvm}
                     </p>
                   </div>
@@ -231,7 +231,7 @@ export function CompanySearchHero() {
       </div>
 
       <div className="flex flex-wrap justify-center items-center gap-2">
-        <span className="text-[0.8rem] text-muted-foreground">Tente:</span>
+        <span className="text-sm text-muted-foreground">Tente:</span>
         {QUICK_CHIPS.map((chip) => (
           <button
             key={chip}
@@ -240,7 +240,7 @@ export function CompanySearchHero() {
               setQuery(chip);
               setTimeout(() => inputRef.current?.focus(), 0);
             }}
-            className="rounded-full border border-border bg-card px-3 py-1 font-mono text-[0.75rem] text-muted-foreground transition-colors hover:border-primary/35 hover:text-primary"
+            className="rounded-full border border-border bg-card px-3 py-1 font-mono text-xs text-muted-foreground transition-colors hover:border-primary/35 hover:text-primary"
           >
             {chip}
           </button>

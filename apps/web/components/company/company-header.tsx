@@ -40,12 +40,7 @@ export function CompanyHeader({ company, selectedYears }: CompanyHeaderProps) {
         </ol>
       </nav>
 
-      <div
-        className="overflow-hidden rounded-2xl border border-border/60 px-6 py-6 lg:px-8 lg:py-8"
-        style={{
-          background: `linear-gradient(135deg, color-mix(in oklch, ${sectorColor} 10%, var(--card)) 0%, var(--card) 70%)`,
-        }}
-      >
+      <div className="overflow-hidden rounded-2xl border border-border/60 bg-[linear-gradient(135deg,color-mix(in_oklch,var(--primary)_10%,var(--card))_0%,var(--card)_70%)] px-6 py-6 lg:px-8 lg:py-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
             <div

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useState } from "react";
@@ -69,7 +69,7 @@ function CompanyCard({ co }: { co: CompanyDirectoryItem }) {
         <div className="min-w-0 flex-1">
           <div className="mb-2 flex flex-wrap items-center gap-2">
             <div
-              className="inline-block rounded-[0.35rem] px-1.5 py-0.5 font-mono text-[0.7rem] font-medium"
+              className="inline-block rounded-[0.35rem] px-1.5 py-0.5 font-mono text-xs font-medium"
               style={{
                 background: `color-mix(in oklch, ${color} 12%, transparent)`,
                 border: `1px solid color-mix(in oklch, ${color} 25%, transparent)`,
@@ -80,20 +80,20 @@ function CompanyCard({ co }: { co: CompanyDirectoryItem }) {
             </div>
             <span
               className={cn(
-                "rounded-full border px-2 py-0.5 text-[0.62rem] font-medium uppercase tracking-[0.14em]",
+                "rounded-full border px-2 py-0.5 text-xs font-medium uppercase tracking-[0.14em]",
                 getAvailabilityBadgeClassName(availability.kind),
               )}
             >
               {availability.badge}
             </span>
           </div>
-          <p className="line-clamp-1 text-[0.95rem] font-semibold text-foreground">
+          <p className="line-clamp-1 text-base font-semibold text-foreground">
             {co.company_name}
           </p>
           {co.sector_name ? (
-            <p className="mt-0.5 text-[0.75rem] text-muted-foreground">{co.sector_name}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{co.sector_name}</p>
           ) : null}
-          <p className="mt-2 text-[0.78rem] leading-6 text-muted-foreground">
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
             {availability.detail}
           </p>
         </div>
@@ -124,14 +124,14 @@ function CompanyCard({ co }: { co: CompanyDirectoryItem }) {
       </div>
       <div className="flex items-end justify-between border-t border-dashed border-border/60 pt-3">
         <div>
-          <p className="text-[0.65rem] uppercase tracking-[0.15em] text-muted-foreground">
+          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
             Historico local
           </p>
           <p className="mt-0.5 font-mono text-sm font-medium text-foreground tabular-nums">
             {historyLabel}
           </p>
         </div>
-        <div className="flex items-center gap-1 text-[0.8rem] font-medium text-muted-foreground transition-colors group-hover:text-primary">
+        <div className="flex items-center gap-1 text-sm font-medium text-muted-foreground transition-colors group-hover:text-primary">
           <span>{availability.actionLabel}</span>
           <ArrowRightIcon className="size-3.5" />
         </div>
@@ -153,11 +153,11 @@ function DestaquCard({ co, rank }: { co: CompanyDirectoryItem; rank: number }) {
       onClick={() => window.location.assign(`/empresas/${co.cd_cvm}`)}
       className="flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-left transition-colors hover:bg-accent/60"
     >
-      <span className="w-5 shrink-0 font-mono text-[0.8rem] text-muted-foreground tabular-nums">
+      <span className="w-5 shrink-0 font-mono text-sm text-muted-foreground tabular-nums">
         {rank}
       </span>
       <span
-        className="shrink-0 rounded-[0.35rem] px-1.5 py-0.5 font-mono text-[0.7rem] font-medium"
+        className="shrink-0 rounded-[0.35rem] px-1.5 py-0.5 font-mono text-xs font-medium"
         style={{
           background: `color-mix(in oklch, ${color} 12%, transparent)`,
           border: `1px solid color-mix(in oklch, ${color} 25%, transparent)`,
@@ -166,7 +166,7 @@ function DestaquCard({ co, rank }: { co: CompanyDirectoryItem; rank: number }) {
       >
         {co.ticker_b3 ?? `${co.cd_cvm}`}
       </span>
-      <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[0.9rem] text-foreground">
+      <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm text-foreground">
         {co.company_name}
       </span>
       {sparkPts ? (
@@ -183,7 +183,7 @@ function DestaquCard({ co, rank }: { co: CompanyDirectoryItem; rank: number }) {
       ) : null}
       <span
         className={cn(
-          "shrink-0 rounded-full border px-2 py-0.5 text-[0.62rem] font-medium uppercase tracking-[0.14em]",
+          "shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium uppercase tracking-[0.14em]",
           getAvailabilityBadgeClassName(availability.kind),
         )}
       >
@@ -203,7 +203,7 @@ export function DiscoverySection({
     <section className="w-full max-w-5xl mx-auto space-y-6 text-left">
       <div className="flex items-end justify-between flex-wrap gap-4">
         <div>
-          <p className="mb-1 text-[0.72rem] font-medium uppercase tracking-[0.26em] text-muted-foreground">
+          <p className="mb-1 text-xs font-medium uppercase tracking-[0.26em] text-muted-foreground">
             Descobrir
           </p>
           <h2 className="font-heading text-[2rem] font-medium leading-tight tracking-[-0.04em] text-foreground">
@@ -221,7 +221,7 @@ export function DiscoverySection({
               type="button"
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                "rounded-full px-3.5 py-1.5 text-[0.8rem] font-medium transition-all duration-150",
+                "rounded-full px-3.5 py-1.5 text-sm font-medium transition-all duration-150",
                 activeTab === tab.id
                   ? "bg-card text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground",
@@ -249,7 +249,7 @@ export function DiscoverySection({
         <div className="rounded-[1.25rem] border border-border/60 bg-card p-5">
           <div className="mb-3 flex items-center gap-2">
             <TrendingUpIcon className="size-4 text-[color:var(--chart-1)]" />
-            <span className="text-[0.95rem] font-semibold">Mais visitadas</span>
+            <span className="text-base font-semibold">Mais visitadas</span>
           </div>
           <div className="flex flex-col gap-0.5">
             {destaqueCompanies.length > 0 ? (
@@ -282,10 +282,10 @@ export function DiscoverySection({
                 <div className="size-3 rounded-full" style={{ backgroundColor: color }} />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[0.88rem] font-semibold text-foreground leading-tight">
+                <p className="text-sm font-semibold text-foreground leading-tight">
                   {sector}
                 </p>
-                <p className="mt-0.5 text-[0.72rem] text-muted-foreground">Ver empresas</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">Ver empresas</p>
               </div>
             </Link>
           ))}

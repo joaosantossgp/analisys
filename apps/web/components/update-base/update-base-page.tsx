@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   AlertTriangleIcon,
@@ -205,7 +205,7 @@ function nowAsLogTime() {
 
 function Eyebrow({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <p className={cn("text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground", className)}>
+    <p className={cn("text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground", className)}>
       {children}
     </p>
   );
@@ -227,7 +227,7 @@ function StatusBadge({
   };
 
   return (
-    <span className={cn("inline-flex items-center rounded-full border px-2.5 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.14em]", styles[tone])}>
+    <span className={cn("inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.14em]", styles[tone])}>
       {children}
     </span>
   );
@@ -321,7 +321,7 @@ function AdminSelect({
 }) {
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-[0.7rem] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+      <span className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
         {label}
       </span>
       <select
@@ -358,7 +358,7 @@ function AdminInput({
 }) {
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-[0.7rem] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+      <span className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
         {label}
       </span>
       <input
@@ -382,7 +382,7 @@ function LogEntry({ line }: { line: LogLine }) {
   };
 
   return (
-    <div className="grid grid-cols-[4rem_1fr] gap-3 py-0.5 font-mono text-[0.75rem] leading-5">
+    <div className="grid grid-cols-[4rem_1fr] gap-3 py-0.5 font-mono text-xs leading-5">
       <span className="text-muted-foreground">{line.time}</span>
       <span className={colors[line.type]}>{line.message}</span>
     </div>
@@ -763,7 +763,7 @@ export function UpdateBasePage() {
                       setAppState(state);
                     }}
                     className={cn(
-                      "rounded-[0.7rem] px-2.5 py-1.5 font-mono text-[0.65rem] transition",
+                      "rounded-[0.7rem] px-2.5 py-1.5 font-mono text-xs transition",
                       appState === state ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
                     )}
                   >
@@ -952,7 +952,7 @@ export function UpdateBasePage() {
                             <span
                               key={step}
                               className={cn(
-                                "rounded-full border px-2.5 py-1 font-mono text-[0.68rem]",
+                                "rounded-full border px-2.5 py-1 font-mono text-xs",
                                 currentStep === step
                                   ? "border-primary/35 bg-primary/12 text-primary"
                                   : "border-border/55 text-muted-foreground",

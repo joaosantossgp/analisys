@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { InboxIcon } from "lucide-react";
 
 import { CompanyCard } from "@/components/companies/company-card";
@@ -68,7 +68,7 @@ export function CompanyDirectoryList({
                   <div className="min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="truncate font-medium text-foreground">{item.company_name}</p>
-                      <span className="rounded-full border border-primary/20 bg-primary/8 px-2 py-0.5 text-[0.62rem] font-medium uppercase tracking-[0.14em] text-primary/80">
+                      <span className="rounded-full border border-primary/20 bg-primary/8 px-2 py-0.5 text-xs font-medium uppercase tracking-[0.14em] text-primary/80">
                         Solicitar dados
                       </span>
                     </div>

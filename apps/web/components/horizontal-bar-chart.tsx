@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import type { JSX } from 'react';
 
@@ -22,17 +22,17 @@ type MetricItem = {
 };
 
 const CATEGORY_DATA: CategoryData[] = [
-  { key: 'Brute Force', value: 100, color: '#9152EE' },
-  { key: 'Web Attack', value: 80, color: '#40D3F4' },
-  { key: 'Malware', value: 120, color: '#40E5D1' },
-  { key: 'Phishing', value: 90, color: '#4C86FF' },
+  { key: 'Brute Force', value: 100, color: 'var(--chart-5)' },
+  { key: 'Web Attack', value: 80, color: 'var(--chart-4)' },
+  { key: 'Malware', value: 120, color: 'var(--chart-1)' },
+  { key: 'Phishing', value: 90, color: 'var(--chart-3)' },
 ];
 
 const MAX_CATEGORY_VALUE = Math.max(...CATEGORY_DATA.map((item) => item.value));
 
 function DiamondAlertIcon({
   className,
-  fill = '#E84045',
+  fill = 'var(--destructive)',
 }: {
   className?: string;
   fill?: string;
@@ -48,7 +48,7 @@ function DiamondAlertIcon({
 
 function CircleAlertIcon({
   className,
-  fill = '#E84045',
+  fill = 'var(--destructive)',
 }: {
   className?: string;
   fill?: string;
@@ -64,7 +64,7 @@ function CircleAlertIcon({
 
 function TriangleAlertIcon({
   className,
-  fill = '#40E5D1',
+  fill = 'var(--chart-1)',
 }: {
   className?: string;
   fill?: string;
@@ -72,8 +72,8 @@ function TriangleAlertIcon({
   return (
     <svg className={className} width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
       <path d="M10 2.5 18 17H2L10 2.5Z" fill={fill} />
-      <rect x="9.2" y="7" width="1.6" height="5.8" rx="0.8" fill="#05211D" />
-      <circle cx="10" cy="14.8" r="1" fill="#05211D" />
+      <rect x="9.2" y="7" width="1.6" height="5.8" rx="0.8" fill="var(--background)" />
+      <circle cx="10" cy="14.8" r="1" fill="var(--background)" />
     </svg>
   );
 }
@@ -85,8 +85,8 @@ function TrendBadge({ direction }: { direction: TrendDirection }) {
     <span
       className={
         isUp
-          ? 'inline-flex h-7 w-7 items-center justify-center rounded-full bg-[rgba(232,64,69,0.18)] text-[#F08083]'
-          : 'inline-flex h-7 w-7 items-center justify-center rounded-full bg-[rgba(64,229,209,0.22)] text-[#40E5D1]'
+          ? 'inline-flex h-7 w-7 items-center justify-center rounded-full bg-[rgba(232,64,69,0.18)] text-[var(--destructive)]'
+          : 'inline-flex h-7 w-7 items-center justify-center rounded-full bg-[rgba(64,229,209,0.22)] text-[var(--chart-1)]'
       }
       aria-hidden
     >
@@ -138,11 +138,11 @@ function ChartBar({ item, index }: { item: CategoryData; index: number }) {
       transition={{ delay: 0.05 * index }}
       className="space-y-2"
     >
-      <div className="flex items-center justify-between gap-3 text-xs uppercase tracking-[0.18em] text-neutral-500 dark:text-[#9A9AAF]">
+      <div className="flex items-center justify-between gap-3 text-xs uppercase tracking-[0.18em] text-neutral-500 dark:text-[var(--muted-foreground)]">
         <span>{item.key}</span>
-        <span className="font-mono text-[0.72rem]">{item.value}</span>
+        <span className="font-mono text-xs">{item.value}</span>
       </div>
-      <div className="h-3 overflow-hidden rounded-full bg-neutral-200 dark:bg-[#1A1A23]">
+      <div className="h-3 overflow-hidden rounded-full bg-neutral-200 dark:bg-[var(--muted)]">
         <motion.div
           initial={{ width: 0 }}
           animate={{ width }}
@@ -163,12 +163,12 @@ function IncidentSummaryCard(): JSX.Element {
       </h3>
 
       <div className="flex-grow px-6">
-        <div className="rounded-[1.5rem] border border-neutral-200/80 bg-neutral-50/90 p-5 dark:border-[#1F1F29] dark:bg-[#101018]">
+        <div className="rounded-[1.5rem] border border-neutral-200/80 bg-neutral-50/90 p-5 dark:border-[var(--border)] dark:bg-[var(--card)]">
           <div className="mb-4 flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-500 dark:text-[#9A9AAF]">
+            <span className="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-500 dark:text-[var(--muted-foreground)]">
               Threat mix
             </span>
-            <span className="rounded-full border border-neutral-200 px-2.5 py-1 text-[0.7rem] font-medium text-neutral-500 dark:border-[#262631] dark:text-[#9A9AAF]">
+            <span className="rounded-full border border-neutral-200 px-2.5 py-1 text-xs font-medium text-neutral-500 dark:border-[var(--muted)] dark:text-[var(--muted-foreground)]">
               Placeholder demo
             </span>
           </div>
@@ -180,7 +180,7 @@ function IncidentSummaryCard(): JSX.Element {
         </div>
       </div>
 
-      <div className="flex flex-col divide-y divide-neutral-200 px-8 pt-8 font-mono dark:divide-[#262631]">
+      <div className="flex flex-col divide-y divide-neutral-200 px-8 pt-8 font-mono dark:divide-[var(--muted)]">
         {METRICS.map((metric) => (
           <motion.div
             key={metric.id}
@@ -189,7 +189,7 @@ function IncidentSummaryCard(): JSX.Element {
             transition={{ delay: metric.delay }}
             className="flex w-full items-center gap-2 pt-4 pb-4"
           >
-            <div className="flex w-1/2 items-center gap-2 text-base text-neutral-500 dark:text-[#9A9AAF]">
+            <div className="flex w-1/2 items-center gap-2 text-base text-neutral-500 dark:text-[var(--muted-foreground)]">
               <metric.icon />
               <span className="truncate" title={metric.label}>
                 {metric.label}
