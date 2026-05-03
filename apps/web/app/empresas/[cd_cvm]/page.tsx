@@ -207,7 +207,6 @@ export default async function EmpresaDetailPage({
           <CompanyOverview
             company={company}
             bundle={bundle}
-            cdCvm={cdCvm}
             pathname={pathname}
             availableYears={readableYears}
             selectedYears={selectedYears}
