@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 
 import type { CompanyDirectoryItem } from "@/lib/api";
 import { getCompanyAvailability } from "@/lib/company-discovery";
@@ -72,7 +72,7 @@ export function CompanyCard({ item }: CompanyCardProps) {
           </div>
           {item.ticker_b3 ? (
             <span
-              className="rounded-[0.35rem] border px-1.5 py-0.5 font-mono text-[0.7rem] font-medium"
+              className="rounded-[0.35rem] border px-1.5 py-0.5 font-mono text-xs font-medium"
               style={{
                 background: `color-mix(in oklch, ${color} 10%, transparent)`,
                 borderColor: `color-mix(in oklch, ${color} 22%, transparent)`,
@@ -85,7 +85,7 @@ export function CompanyCard({ item }: CompanyCardProps) {
         </div>
         <span
           className={cn(
-            "rounded-full border px-2.5 py-1 text-[0.64rem] font-medium uppercase tracking-[0.14em]",
+            "rounded-full border px-2.5 py-1 text-xs font-medium uppercase tracking-[0.14em]",
             getAvailabilityBadgeClassName(availability.kind),
           )}
         >
@@ -110,13 +110,13 @@ export function CompanyCard({ item }: CompanyCardProps) {
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="line-clamp-2 font-heading text-[0.95rem] font-medium leading-tight text-foreground">
+        <p className="line-clamp-2 font-heading text-base font-medium leading-tight text-foreground">
           {item.company_name}
         </p>
         {item.sector_name ? (
-          <p className="mt-0.5 text-[0.75rem] text-muted-foreground">{item.sector_name}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{item.sector_name}</p>
         ) : null}
-        <p className="mt-2 text-[0.78rem] leading-6 text-muted-foreground">
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
           {availability.detail}
         </p>
       </div>
@@ -133,10 +133,10 @@ export function CompanyCard({ item }: CompanyCardProps) {
           ] as const
         ).map(({ label, value }) => (
           <div key={label} className="px-2 first:pl-0 last:pr-0">
-            <p className="text-[0.62rem] uppercase tracking-[0.12em] text-muted-foreground">
+            <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
               {label}
             </p>
-            <p className="mt-0.5 text-[0.78rem] font-medium text-foreground/78">
+            <p className="mt-0.5 text-sm font-medium text-foreground/78">
               {value}
             </p>
           </div>

@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import {
   ArrowUpRightIcon,
   ChevronDownIcon,
@@ -183,7 +183,7 @@ function CompanyQuoteCard({ company }: CompanyMarketSidebarProps) {
       <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-primary/35 to-transparent" />
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-3">
-          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.26em] text-muted-foreground">
+          <p className="text-xs font-semibold uppercase tracking-[0.26em] text-muted-foreground">
             COTACAO
           </p>
           <div className="flex flex-wrap items-center gap-2.5">
@@ -216,7 +216,7 @@ function CompanyQuoteCard({ company }: CompanyMarketSidebarProps) {
         <QuoteSparkline points={quote.points} />
       </div>
 
-      <div className="mt-2 flex items-center gap-1.5 text-[0.72rem] font-semibold text-muted-foreground">
+      <div className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
         {PERIODS.map((period) => {
           const isSelected = period === "1A";
 
@@ -269,7 +269,7 @@ function CompanyNewsCard({ company }: CompanyMarketSidebarProps) {
                 {item.title}
               </h4>
               <p className="text-xs leading-4 text-muted-foreground">
-                {item.timeLabel} · {item.source}
+                {item.timeLabel} Â· {item.source}
               </p>
             </div>
           </article>

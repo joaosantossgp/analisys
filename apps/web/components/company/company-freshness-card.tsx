@@ -1,4 +1,4 @@
-import { CompanyRequestRefreshLazy } from "@/components/company/company-request-refresh-lazy";
+﻿import { CompanyRequestRefreshLazy } from "@/components/company/company-request-refresh-lazy";
 import { CompanyHelpTip } from "@/components/company/company-help-tip";
 import { SurfaceCard } from "@/components/shared/design-system-recipes";
 import {
@@ -122,13 +122,13 @@ export async function CompanyFreshnessCard({
         <div className="flex flex-wrap items-center gap-2">
           <span
             className={cn(
-              "rounded-full border px-2.5 py-1 text-[0.64rem] font-medium uppercase tracking-[0.16em]",
+              "rounded-full border px-2.5 py-1 text-xs font-medium uppercase tracking-[0.16em]",
               getStatusBadgeClassName(summary.badgeTone),
             )}
           >
             {summary.badgeLabel}
           </span>
-          <span className="rounded-full border border-border/65 px-2.5 py-1 text-[0.64rem] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+          <span className="rounded-full border border-border/65 px-2.5 py-1 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
             {sourceLabel}
           </span>
         </div>

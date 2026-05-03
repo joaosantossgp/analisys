@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { ChevronRightIcon } from "lucide-react";
 
 import type { CompanyDirectoryItem } from "@/lib/api";
@@ -75,12 +75,12 @@ export function CompanyRow({ item }: CompanyRowProps) {
 
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="truncate text-[0.9rem] font-medium text-foreground">
+          <span className="truncate text-sm font-medium text-foreground">
             {item.company_name}
           </span>
           {item.ticker_b3 ? (
             <span
-              className="shrink-0 rounded-[0.35rem] border px-1.5 py-0.5 font-mono text-[0.68rem] font-medium"
+              className="shrink-0 rounded-[0.35rem] border px-1.5 py-0.5 font-mono text-xs font-medium"
               style={{
                 background: `color-mix(in oklch, ${color} 10%, transparent)`,
                 borderColor: `color-mix(in oklch, ${color} 22%, transparent)`,
@@ -92,22 +92,22 @@ export function CompanyRow({ item }: CompanyRowProps) {
           ) : null}
           <span
             className={cn(
-              "shrink-0 rounded-full border px-2 py-0.5 text-[0.62rem] font-medium uppercase tracking-[0.14em]",
+              "shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium uppercase tracking-[0.14em]",
               getAvailabilityBadgeClassName(availability.kind),
             )}
           >
             {availability.badge}
           </span>
         </div>
-        <p className="mt-0.5 text-[0.72rem] text-muted-foreground">
+        <p className="mt-0.5 text-xs text-muted-foreground">
           CVM {item.cd_cvm}
         </p>
-        <p className="mt-1 hidden text-[0.72rem] text-muted-foreground sm:block">
+        <p className="mt-1 hidden text-xs text-muted-foreground sm:block">
           {availability.detail}
         </p>
       </div>
 
-      <p className="hidden truncate text-[0.82rem] text-muted-foreground sm:block">
+      <p className="hidden truncate text-sm text-muted-foreground sm:block">
         {item.sector_name ?? "--"}
       </p>
 
@@ -124,13 +124,13 @@ export function CompanyRow({ item }: CompanyRowProps) {
             />
           </svg>
         ) : null}
-        <span className="whitespace-nowrap font-mono text-[0.72rem] tabular-nums text-muted-foreground">
+        <span className="whitespace-nowrap font-mono text-xs tabular-nums text-muted-foreground">
           {yearsRange}
         </span>
       </div>
 
       <div className="hidden text-right lg:block">
-        <span className="text-[0.78rem] text-muted-foreground">
+        <span className="text-sm text-muted-foreground">
           {availability.summary}
         </span>
       </div>

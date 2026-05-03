@@ -14,10 +14,10 @@ export default function RootLoading() {
         <Skeleton className="mt-4 h-14 w-full rounded-[1.25rem]" />
       </SurfaceCard>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Skeleton className="h-44 rounded-[1.75rem]" />
-        <Skeleton className="h-44 rounded-[1.75rem]" />
-        <Skeleton className="h-44 rounded-[1.75rem]" />
-        <Skeleton className="h-44 rounded-[1.75rem]" />
+        <Skeleton className="h-44 rounded-3xl" />
+        <Skeleton className="h-44 rounded-3xl" />
+        <Skeleton className="h-44 rounded-3xl" />
+        <Skeleton className="h-44 rounded-3xl" />
       </div>
     </PageShell>
   );

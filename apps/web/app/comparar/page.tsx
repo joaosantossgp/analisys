@@ -136,14 +136,14 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
       />
 
       {compareData.dataError ? (
-        <Alert className="rounded-[1.75rem] border border-destructive/25 bg-destructive/6 px-5 py-5 text-left">
+        <Alert variant="destructive-soft">
           <AlertTitle>Comparacao indisponivel no estado atual</AlertTitle>
           <AlertDescription>{compareData.dataError}</AlertDescription>
         </Alert>
       ) : null}
 
       {compareData.partialErrors.length > 0 ? (
-        <Alert className="rounded-[1.75rem] border border-border/70 bg-background/85 px-5 py-4 text-left">
+        <Alert className="rounded-3xl border-border/70 bg-background/85 px-5 py-4 text-left">
           <AlertTitle>Alguns dados nao puderam ser carregados</AlertTitle>
           <AlertDescription>{partialErrorDescription}</AlertDescription>
         </Alert>

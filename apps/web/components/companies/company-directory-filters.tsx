@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { SearchIcon, XIcon } from "lucide-react";
 import { startTransition, useState } from "react";
@@ -107,7 +107,7 @@ export function CompanyDirectoryFilters({
               )}
             >
               <SelectValue
-                placeholder={sectorFilterUnavailable ? "Indisponível" : "Todos os setores"}
+                placeholder={sectorFilterUnavailable ? "IndisponÃ­vel" : "Todos os setores"}
               />
             </SelectTrigger>
             <SelectContent>
@@ -116,7 +116,7 @@ export function CompanyDirectoryFilters({
                 {!sectorFilterUnavailable
                   ? sectors.map((sector) => (
                       <SelectItem key={sector.sector_slug} value={sector.sector_slug}>
-                        {sector.sector_name} · {sector.company_count}
+                        {sector.sector_name} Â· {sector.company_count}
                       </SelectItem>
                     ))
                   : null}
@@ -133,7 +133,7 @@ export function CompanyDirectoryFilters({
       {hasActiveFilters && (
         <div className="flex flex-wrap items-center gap-2">
           {currentSearch && (
-            <span className="flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/8 px-3 py-1 text-[0.75rem] font-medium text-primary">
+            <span className="flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/8 px-3 py-1 text-xs font-medium text-primary">
               &ldquo;{currentSearch}&rdquo;
               <button
                 type="button"
@@ -145,7 +145,7 @@ export function CompanyDirectoryFilters({
             </span>
           )}
           {currentSector && hasCurrentSector && (
-            <span className="flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/8 px-3 py-1 text-[0.75rem] font-medium text-primary">
+            <span className="flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/8 px-3 py-1 text-xs font-medium text-primary">
               {sectors.find((s) => s.sector_slug === currentSector)?.sector_name ??
                 currentSector}
               <button
@@ -160,7 +160,7 @@ export function CompanyDirectoryFilters({
           <button
             type="button"
             onClick={handleClear}
-            className="text-[0.75rem] text-muted-foreground hover:text-foreground"
+            className="text-xs text-muted-foreground hover:text-foreground"
           >
             Limpar tudo
           </button>

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import {
@@ -117,9 +117,10 @@ function NavDropdown({ label, items }: DropdownMenuProps) {
         type="button"
         className={cn(
           buttonVariants({ variant: "ghost", size: "sm" }),
-          "rounded-full px-4 text-[0.84rem] text-foreground/78 hover:text-foreground gap-1"
+          "rounded-full px-4 text-sm text-foreground/78 hover:text-foreground gap-1"
         )}
         aria-expanded={open}
+        aria-label={`Abrir menu ${label}`}
       >
         {label}
         <ChevronDownIcon
@@ -141,16 +142,16 @@ function NavDropdown({ label, items }: DropdownMenuProps) {
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-[0.88rem] font-medium text-foreground">
+                      <span className="text-sm font-medium text-foreground">
                         {item.label}
                       </span>
                       {item.soon && (
-                        <span className="rounded-full bg-muted px-1.5 py-0.5 text-[0.58rem] font-medium uppercase tracking-[0.1em] text-muted-foreground">
+                        <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs font-medium uppercase tracking-[0.1em] text-muted-foreground">
                           Em breve
                         </span>
                       )}
                     </div>
-                    <p className="mt-0.5 text-[0.75rem] text-muted-foreground">
+                    <p className="mt-0.5 text-xs text-muted-foreground">
                       {item.description}
                     </p>
                   </div>
@@ -212,7 +213,7 @@ export function SiteHeader() {
               href={item.href}
               className={cn(
                 buttonVariants({ variant: "ghost", size: "sm" }),
-                "rounded-full px-4 text-[0.84rem] text-foreground/78 hover:text-foreground",
+                "rounded-full px-4 text-sm text-foreground/78 hover:text-foreground",
                 pathname === item.href && "bg-muted text-foreground",
               )}
             >
@@ -259,7 +260,7 @@ export function SiteHeader() {
                 href={item.href}
                 className={cn(
                   buttonVariants({ variant: "ghost", size: "sm" }),
-                  "justify-start rounded-2xl px-4 py-3 text-[0.95rem] text-foreground/80",
+                  "justify-start rounded-2xl px-4 py-3 text-base text-foreground/80",
                   pathname === item.href && "bg-muted text-foreground",
                 )}
               >
@@ -269,7 +270,7 @@ export function SiteHeader() {
 
             {/* Mobile Dropdown Sections */}
             <div className="mt-2 border-t border-border/60 pt-4">
-              <p className="mb-2 px-4 text-[0.68rem] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+              <p className="mb-2 px-4 text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
                 Analise
               </p>
               {DROPDOWN_ITEMS.analise.map((item) =>
@@ -279,7 +280,7 @@ export function SiteHeader() {
                     href={item.href}
                     className={cn(
                       buttonVariants({ variant: "ghost", size: "sm" }),
-                      "w-full justify-start gap-3 rounded-2xl px-4 py-3 text-[0.95rem] text-foreground/80",
+                      "w-full justify-start gap-3 rounded-2xl px-4 py-3 text-base text-foreground/80",
                     )}
                   >
                     <item.icon className="size-4 text-primary" />
@@ -288,13 +289,13 @@ export function SiteHeader() {
                 ) : (
                   <div
                     key={item.label}
-                    className="flex items-center justify-between rounded-2xl px-4 py-3 text-[0.95rem] text-muted-foreground"
+                    className="flex items-center justify-between rounded-2xl px-4 py-3 text-base text-muted-foreground"
                   >
                     <div className="flex items-center gap-3">
                       <item.icon className="size-4" />
                       <span>{item.label}</span>
                     </div>
-                    <span className="text-[0.68rem] font-medium uppercase tracking-[0.15em]">
+                    <span className="text-xs font-medium uppercase tracking-[0.15em]">
                       Em breve
                     </span>
                   </div>
@@ -303,7 +304,7 @@ export function SiteHeader() {
             </div>
 
             <div className="mt-2 border-t border-border/60 pt-4">
-              <p className="mb-2 px-4 text-[0.68rem] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+              <p className="mb-2 px-4 text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
                 Recursos
               </p>
               {DROPDOWN_ITEMS.recursos.map((item) =>
@@ -313,7 +314,7 @@ export function SiteHeader() {
                     href={item.href}
                     className={cn(
                       buttonVariants({ variant: "ghost", size: "sm" }),
-                      "w-full justify-start gap-3 rounded-2xl px-4 py-3 text-[0.95rem] text-foreground/80",
+                      "w-full justify-start gap-3 rounded-2xl px-4 py-3 text-base text-foreground/80",
                     )}
                   >
                     <item.icon className="size-4 text-primary" />
@@ -322,13 +323,13 @@ export function SiteHeader() {
                 ) : (
                   <div
                     key={item.label}
-                    className="flex items-center justify-between rounded-2xl px-4 py-3 text-[0.95rem] text-muted-foreground"
+                    className="flex items-center justify-between rounded-2xl px-4 py-3 text-base text-muted-foreground"
                   >
                     <div className="flex items-center gap-3">
                       <item.icon className="size-4" />
                       <span>{item.label}</span>
                     </div>
-                    <span className="text-[0.68rem] font-medium uppercase tracking-[0.15em]">
+                    <span className="text-xs font-medium uppercase tracking-[0.15em]">
                       Em breve
                     </span>
                   </div>

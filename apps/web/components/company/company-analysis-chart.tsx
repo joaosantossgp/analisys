@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState } from "react";
 
@@ -393,7 +393,7 @@ export function CompanyAnalysisChart({
 
       {hoveredYear !== null && hoveredEntries.length > 0 ? (
         <div className="rounded-[1.25rem] border border-border/60 bg-muted/18 px-4 py-3">
-          <p className="text-[0.72rem] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
             Ano em foco
           </p>
           <div className="mt-2 flex flex-wrap items-start gap-3">
