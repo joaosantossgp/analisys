@@ -1359,8 +1359,9 @@ class DesktopRefreshJobManager:
             }
 
         try:
-            companies = self._resolve_companies(p, mode=mode)
-            start_year, end_year = self._resolve_year_range(p)
+            selection = self._resolve_batch_selection(p, mode=mode)
+            companies = list(selection.companies)
+            start_year, end_year = selection.start_year, selection.end_year
         except Exception as exc:
             return {
                 "status": "error",
@@ -1538,32 +1539,22 @@ class DesktopRefreshJobManager:
         )
         self._cleanup_job_runtime(job_id)
 
+    def _resolve_batch_selection(self, params: dict[str, Any], *, mode: str):
+        from src.read_service import resolve_refresh_batch_selection  # noqa: PLC0415
+
+        return resolve_refresh_batch_selection(
+            self._read_service(),
+            params,
+            mode=mode,
+            default_start_year=self.DEFAULT_START_YEAR,
+        )
+
     def _cleanup_job_runtime(self, job_id: str) -> None:
         self._threads.pop(job_id, None)
         self._cancel_events.pop(job_id, None)
 
     def _resolve_companies(self, params: dict[str, Any], *, mode: str) -> list[str]:
-        cd_cvm = params.get("cd_cvm")
-        if cd_cvm not in (None, ""):
-            return [str(int(cd_cvm))]
-
-        service = self._read_service()
-        sector_slug = params.get("sector_slug") or params.get("sector")
-        page = service.list_companies(
-            search=str(params.get("search") or ""),
-            sector_slug=str(sector_slug) if sector_slug else None,
-            page=1,
-            page_size=int(params.get("limit") or 10000),
-        )
-        companies = [str(item.cd_cvm) for item in page.items]
-        companies = self._filter_cvm_range(companies, params.get("cvm_range"))
-
-        status_filter = params.get("status_filter")
-        if mode == "failed" and not status_filter:
-            status_filter = "failed"
-        if status_filter:
-            companies = self._filter_by_status(companies, str(status_filter))
-        return companies
+        return list(self._resolve_batch_selection(params, mode=mode).companies)
 
     def _read_service(self):
         if self.read_service is None:

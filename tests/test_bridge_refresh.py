@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 from types import SimpleNamespace
 
+from apps.api.app.services.refresh_jobs import ApiRefreshJobManager
 from desktop.bridge import CVMBridge
 from desktop.services import DesktopRefreshJobManager
 from src.contracts import CompanyRefreshResult, RefreshResult
@@ -12,9 +13,10 @@ from src.settings import build_settings
 
 
 class FakeReadService:
-    def __init__(self, items=None, statuses=None):
+    def __init__(self, items=None, statuses=None, complete_years=None):
         self.items = items or [SimpleNamespace(cd_cvm=9512)]
         self.statuses = statuses or []
+        self.complete_years = complete_years or {}
         self.calls = []
 
     def list_companies(self, **kwargs):
@@ -23,6 +25,16 @@ class FakeReadService:
 
     def list_refresh_status(self):
         return tuple(self.statuses)
+
+    def _load_complete_annual_years_map(self, cd_cvms, *, start_year, end_year):
+        return {
+            int(cd_cvm): tuple(
+                int(year)
+                for year in self.complete_years.get(int(cd_cvm), ())
+                if int(start_year) <= int(year) <= int(end_year)
+            )
+            for cd_cvm in cd_cvms
+        }
 
 
 class FakeRefreshService:
@@ -147,6 +159,94 @@ def test_request_refresh_applies_sector_status_and_cvm_range_filters(tmp_path: P
         "start_year": 2023,
         "end_year": 2024,
     }
+
+
+def test_api_and_desktop_batch_refresh_resolve_same_companies(tmp_path: Path):
+    items = [
+        SimpleNamespace(cd_cvm=100),
+        SimpleNamespace(cd_cvm=150),
+        SimpleNamespace(cd_cvm=180),
+        SimpleNamespace(cd_cvm=250),
+    ]
+    statuses = [
+        SimpleNamespace(
+            cd_cvm=100,
+            tracking_state="success",
+            last_status="success",
+            latest_attempt_outcome="success",
+            freshness_summary_code="refresh_completed_readable",
+            freshness_summary_severity="success",
+            has_readable_current_data=True,
+            latest_readable_year=2024,
+            last_end_year=2024,
+        ),
+        SimpleNamespace(
+            cd_cvm=150,
+            tracking_state="success",
+            last_status="success",
+            latest_attempt_outcome="success",
+            freshness_summary_code="mixed_no_new_data_readable",
+            freshness_summary_severity="warning",
+            has_readable_current_data=True,
+            latest_readable_year=2023,
+            last_end_year=2023,
+        ),
+        SimpleNamespace(
+            cd_cvm=180,
+            tracking_state="error",
+            last_status="error",
+            latest_attempt_outcome="error",
+            is_retry_allowed=True,
+            has_readable_current_data=True,
+        ),
+    ]
+    params = {
+        "mode": "outdated",
+        "sector": "energia",
+        "cvm_from": 100,
+        "cvm_to": 200,
+        "start_year": 2023,
+        "end_year": 2024,
+    }
+    settings = build_settings(project_root=tmp_path)
+    api_manager = ApiRefreshJobManager(
+        settings=settings,
+        read_service=FakeReadService(items=items, statuses=statuses),
+        autostart=False,
+    )
+    desktop_manager = _make_manager(
+        tmp_path,
+        read_service=FakeReadService(items=items, statuses=statuses),
+        autostart=False,
+    )
+
+    api_dispatch = api_manager.request_refresh(params)
+    desktop_dispatch = desktop_manager.request_refresh(params)
+
+    api_job = api_manager._jobs[str(api_dispatch["job_id"])]
+    saved = json.loads((tmp_path / "data" / "refresh_jobs.json").read_text(encoding="utf-8"))
+    desktop_job = saved["jobs"][0]
+    assert api_dispatch["queued"] == desktop_dispatch["queued"] == 1
+    assert api_job["request"] == desktop_job["request"] == {
+        "companies": ["150"],
+        "start_year": 2023,
+        "end_year": 2024,
+    }
+
+
+def test_desktop_refresh_rejects_invalid_batch_range(tmp_path: Path):
+    manager = _make_manager(tmp_path, autostart=False)
+
+    dispatch = manager.request_refresh(
+        {
+            "mode": "full",
+            "cvm_range": {"start": 300, "end": 100},
+        }
+    )
+
+    assert dispatch["status"] == "error"
+    assert dispatch["status_reason_code"] == "invalid_request"
+    assert "cvm_range.start" in dispatch["message"]
 
 
 def test_running_jobs_are_marked_interrupted_after_restart(tmp_path: Path):
