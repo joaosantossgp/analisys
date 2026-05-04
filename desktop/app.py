@@ -2,7 +2,7 @@
 CVM Analytics — entry point pywebview.
 
 Uso:
-  python -m desktop.app --dev    # Next.js dev server em :3000 + FastAPI em :8000
+  python -m desktop.app --dev    # inicia/reusa Next.js dev server em :3000
   python -m desktop.app          # standalone server em .next/standalone/server.js
   python -m desktop.app --debug  # abre DevTools no modo que estiver ativo
 
@@ -25,7 +25,8 @@ import webview
 
 from desktop.bridge import CVMBridge
 
-_DEV_URL = "http://localhost:3000"
+_DEV_PORT = 3000
+_DEV_URL = f"http://127.0.0.1:{_DEV_PORT}"
 _WIDTH, _HEIGHT = 1280, 820
 _BG = "#0a0a0a"
 _STARTUP_TIMEOUT = 15  # segundos — bundle pode demorar mais no primeiro boot
@@ -43,10 +44,14 @@ def _repo_root() -> Path:
     return Path(__file__).parent.parent
 
 
+def _web_dir() -> Path:
+    return _repo_root() / "apps" / "web"
+
+
 def _standalone_path() -> Path:
     if _bundled():
         return _bundle_dir() / "web_standalone" / "server.js"
-    return _repo_root() / "apps" / "web" / ".next" / "standalone" / "server.js"
+    return _web_dir() / ".next" / "standalone" / "server.js"
 
 
 def _node_exe() -> str:
@@ -58,21 +63,55 @@ def _node_exe() -> str:
     return "node"
 
 
+def _npm_cmd() -> str:
+    return "npm.cmd" if os.name == "nt" else "npm"
+
+
 def _free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("127.0.0.1", 0))
         return s.getsockname()[1]
 
 
+def _port_open(port: int) -> bool:
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=0.5):
+            return True
+    except OSError:
+        return False
+
+
 def _wait_for_port(port: int, timeout: float = _STARTUP_TIMEOUT) -> bool:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        try:
-            with socket.create_connection(("127.0.0.1", port), timeout=0.5):
-                return True
-        except OSError:
-            time.sleep(0.2)
+        if _port_open(port):
+            return True
+        time.sleep(0.2)
     return False
+
+
+def _start_dev_server() -> tuple[subprocess.Popen[bytes], int]:
+    web_dir = _web_dir()
+    if not (web_dir / "package.json").exists():
+        sys.exit(f"[desktop] Web app nao encontrado em {web_dir}.")
+
+    proc = subprocess.Popen(
+        [
+            _npm_cmd(),
+            "run",
+            "dev",
+            "--",
+            "--hostname",
+            "127.0.0.1",
+            "--port",
+            str(_DEV_PORT),
+        ],
+        cwd=str(web_dir),
+        env={**os.environ, "BROWSER": "none"},
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return proc, _DEV_PORT
 
 
 def _start_standalone_server(standalone: Path) -> tuple[subprocess.Popen[bytes], int]:
@@ -95,7 +134,17 @@ def main() -> None:
     server_proc: subprocess.Popen[bytes] | None = None
 
     if dev_mode:
-        url = _DEV_URL
+        if _port_open(_DEV_PORT):
+            url = _DEV_URL
+        else:
+            server_proc, port = _start_dev_server()
+            if not _wait_for_port(port, timeout=30):
+                server_proc.terminate()
+                sys.exit(
+                    f"[desktop] Next.js dev server nao respondeu na porta {port} "
+                    "apos 30s."
+                )
+            url = _DEV_URL
     else:
         standalone = _standalone_path()
         if not standalone.exists():

@@ -1,12 +1,13 @@
 # CVM Reports Capture
 
-Projeto para captura, tratamento e consulta de demonstracoes financeiras da CVM, com persistencia em SQLite/PostgreSQL, app desktop operacional em PyQt6, dashboard analitico em Streamlit, API read-only da V2 em FastAPI e primeiro slice web em Next.js.
+Projeto para captura, tratamento e consulta de demonstracoes financeiras da CVM, com persistencia em SQLite/PostgreSQL, app desktop local em pywebview + UI Next.js, dashboard analitico em Streamlit, API read-only da V2 em FastAPI e app web em Next.js. O app PyQt6 continua no repositorio como legado.
 
 > Este repositorio tem proposito duplo: manter o sistema operacional atual funcionando e servir como trilha de aprendizado para evolui-lo rumo a uma web app mais proxima de producao. A direcao da V2 esta registrada em [docs/decisions/0002-student-pack-v2-stack.md](docs/decisions/0002-student-pack-v2-stack.md), [docs/STUDENT_PACK_PLAN.md](docs/STUDENT_PACK_PLAN.md), [docs/WEBAPP_TRANSFORMATION_PLAN.md](docs/WEBAPP_TRANSFORMATION_PLAN.md), [docs/V2_PHASE1_BACKEND.md](docs/V2_PHASE1_BACKEND.md), [docs/V2_API_CONTRACT.md](docs/V2_API_CONTRACT.md) e [docs/V2_PHASE2_WEB_SLICE.md](docs/V2_PHASE2_WEB_SLICE.md).
 
 ## Estrutura principal
 
-- `desktop/cvm_pyqt_app.py`: interface operacional principal para atualizacao local.
+- `desktop/app.py`: app local oficial em pywebview com a UI do site (`apps/web`) e bridge Python local.
+- `desktop/cvm_pyqt_app.py`: interface PyQt6 legada, mantida apenas para fallback operacional.
 - `main.py`: CLI suportada para refresh pontual.
 - `apps/api/`: API `FastAPI` read-only da V2.
 - `apps/web/`: primeiro slice web da V2 em `Next.js`.
@@ -46,13 +47,20 @@ python scripts/setup_db.py
 python scripts/setup_companies_table.py
 ```
 
-5. Atualizar dados:
+5. Abrir o app local oficial:
 
 ```bash
-python -m desktop.cvm_pyqt_app
+python -m desktop.app --dev
 ```
 
-6. Alternativas headless:
+6. Gerar executavel local quando precisar distribuir/validar standalone:
+
+```powershell
+.\desktop\build_desktop.ps1
+.\dist\CVMAnalytics\CVMAnalytics.exe
+```
+
+7. Alternativas headless:
 
 ```bash
 python main.py --companies PETROBRAS --start_year 2021 --end_year 2025 --type consolidated --skip_complete
@@ -60,7 +68,7 @@ python scripts/batch_completo.py --dry-run
 python scripts/atualizar_todos.py --anos 2024 2025
 ```
 
-7. Subir superficies de leitura:
+8. Subir superficies de leitura separadas, quando necessario:
 
 ```bash
 streamlit run dashboard/app.py
@@ -97,13 +105,17 @@ Regras detalhadas:
 
 ## Interfaces oficiais
 
-### 1. App Desktop PyQt6
+### 1. App local desktop
 
-Interface operacional principal para atualizar a base local. Reaproveita `src/refresh_service.py` e concentra ranking, lotes e saude da base.
+Interface principal local. Abre a UI do site (`apps/web`) em uma janela pywebview e usa o bridge Python local para leitura e refresh sem depender da API FastAPI.
 
 ```powershell
-python -m desktop.cvm_pyqt_app
+python -m desktop.app --dev
+.\desktop\build_desktop.ps1
+.\dist\CVMAnalytics\CVMAnalytics.exe
 ```
+
+`desktop/cvm_pyqt_app.py` e legado e deve ser usado apenas como fallback.
 
 ### 2. Dashboard Streamlit
 
@@ -186,8 +198,9 @@ python scripts/db_portability_smoke.py --database-url postgresql://user:pass@hos
 
 ## Observacoes
 
-- Prefira `desktop/cvm_pyqt_app.py` como interface operacional principal.
-- Prefira executar o app desktop como modulo: `python -m desktop.cvm_pyqt_app`.
+- Prefira `desktop/app.py` como app local oficial.
+- Prefira executar o app local como modulo em desenvolvimento: `python -m desktop.app --dev`.
+- `desktop/cvm_pyqt_app.py` e legado; nao o ressuscite como experiencia principal.
 - Prefira `src/refresh_service.py` e `src/read_service.py` como contratos de nucleo.
 - O frontend da V2 deve consumir a API, nao reimplementar queries do `src/`.
 - O dashboard atual continua sendo fallback read-only durante a transicao.

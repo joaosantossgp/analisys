@@ -1,10 +1,10 @@
 # Como Rodar - CVM Analytics
 
-Guia pratico para subir a V1 operacional e o primeiro slice da V2 no ambiente local.
+Guia pratico para subir o app local oficial e as superficies de desenvolvimento.
 
 Fluxo principal atual:
 
-`runtime_doctor.py -> setup_db.py -> setup_companies_table.py -> python -m desktop.cvm_pyqt_app -> dashboard/app.py -> apps/api -> apps/web`
+`runtime_doctor.py -> setup_db.py -> setup_companies_table.py -> python -m desktop.app --dev -> desktop/build_desktop.ps1 -> dist/CVMAnalytics/CVMAnalytics.exe`
 
 ---
 
@@ -101,13 +101,20 @@ python scripts/expand_tickers.py --dry-run
 ### Opcao A - App desktop oficial
 
 ```powershell
-python -m desktop.cvm_pyqt_app
+python -m desktop.app --dev
 ```
 
-Compatibilidade:
+Para validar o modo distribuivel:
 
 ```powershell
-python desktop/cvm_pyqt_app.py
+.\desktop\build_desktop.ps1
+.\dist\CVMAnalytics\CVMAnalytics.exe
+```
+
+Compatibilidade legada:
+
+```powershell
+python -m desktop.cvm_pyqt_app
 ```
 
 ### Opcao B - CLI pontual
@@ -232,31 +239,22 @@ diretamente, sem precisar do servidor FastAPI para leitura.
 
 ### Modo dev (recomendado para desenvolvimento)
 
-Requer Next.js dev server e FastAPI rodando:
+O comando abaixo inicia ou reutiliza o Next.js dev server em `127.0.0.1:3000`
+e abre a janela pywebview. FastAPI nao e necessario para a leitura local,
+porque o bridge Python responde direto para a UI.
 
 ```powershell
-# Terminal 1 — FastAPI
-uvicorn apps.api.app.main:app --reload
-
-# Terminal 2 — Next.js
-cd apps/web
-npm run dev
-
-# Terminal 3 — janela pywebview
 python -m desktop.app --dev
 ```
 
 ### Modo standalone (sem npm run dev)
 
-Gere o build uma vez; o app sobe o servidor Node.js embutido automaticamente:
+Gere o executavel; o app empacotado sobe o servidor Node.js embutido
+automaticamente:
 
 ```powershell
-# Build (so precisa rodar quando a UI mudar)
-npm --prefix apps/web run build
-# → gera .next/standalone/server.js
-
-# Abrir o app (sem npm run dev, sem FastAPI)
-python -m desktop.app
+.\desktop\build_desktop.ps1
+.\dist\CVMAnalytics\CVMAnalytics.exe
 ```
 
 > O bridge Python responde diretamente no modo standalone; FastAPI nao e necessario
@@ -266,7 +264,7 @@ python -m desktop.app
 
 | Flag | Efeito |
 |---|---|
-| `--dev` | Carrega `http://localhost:3000` (Next.js dev server) |
+| `--dev` | Inicia ou reutiliza `http://127.0.0.1:3000` (Next.js dev server) |
 | `--debug` | Abre DevTools no modo ativo |
 | (nenhuma) | Inicia `.next/standalone/server.js` e carrega o app |
 
@@ -276,10 +274,10 @@ Abra o console do DevTools e execute:
 
 ```javascript
 await window.pywebview.api.ping()
-// → {pong: true, ts: 1234567890.0}
+// => {pong: true, ts: 1234567890.0}
 
 await window.pywebview.api.get_companies({page: 1, page_size: 5})
-// → {items: [...], pagination: {...}}
+// => {items: [...], pagination: {...}}
 ```
 
 ---
@@ -288,7 +286,7 @@ await window.pywebview.api.get_companies({page: 1, page_size: 5})
 
 | O que aconteceu | O que fazer |
 |---|---|
-| `ModuleNotFoundError` ao abrir o desktop | Prefira `python -m desktop.cvm_pyqt_app`; o entrypoint por arquivo tambem deve funcionar no estado atual. |
+| `ModuleNotFoundError` ao abrir o desktop | Prefira `python -m desktop.app --dev`; o PyQt6 (`desktop.cvm_pyqt_app`) e legado. |
 | `python` nao reconhecido | Instale o Python e coloque no `PATH`. |
 | `runtime_doctor.py` falha com `venv-broken` | Recrie a `.venv` com `python -m venv .venv`. |
 | App desktop abre sem empresas | Rode `setup_db.py`, `setup_companies_table.py` e atualize dados. |
@@ -296,5 +294,4 @@ await window.pywebview.api.get_companies({page: 1, page_size: 5})
 | API responde `503` | Valide o banco, tabelas obrigatorias e o `runtime_doctor.py`. |
 | Web app sem dados | Verifique `API_BASE_URL` e se `uvicorn apps.api.app.main:app --reload` esta rodando. |
 | Erro de permissao no PowerShell | Rode `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`. |
-| Standalone server nao encontrado | Execute `npm --prefix apps/web run build` para gerar `.next/standalone/server.js`. |
 | Servidor standalone nao respondeu | Verifique se `node` esta no PATH e se o build foi concluido com sucesso. |
