@@ -2,6 +2,11 @@
 
 Projeto para captura, tratamento e consulta de demonstracoes financeiras da CVM, com persistencia em SQLite/PostgreSQL, app desktop operacional em PyQt6, dashboard analitico em Streamlit, API read-only da V2 em FastAPI e primeiro slice web em Next.js.
 
+Canal publico recomendado:
+
+- Landing estatica de download: `landing/`
+- Download Windows: `https://github.com/joaosantossgp/analisys/releases/latest/download/CVMAnalytics-windows.zip`
+
 > Este repositorio tem proposito duplo: manter o sistema operacional atual funcionando e servir como trilha de aprendizado para evolui-lo rumo a uma web app mais proxima de producao. A direcao da V2 esta registrada em [docs/decisions/0002-student-pack-v2-stack.md](docs/decisions/0002-student-pack-v2-stack.md), [docs/STUDENT_PACK_PLAN.md](docs/STUDENT_PACK_PLAN.md), [docs/WEBAPP_TRANSFORMATION_PLAN.md](docs/WEBAPP_TRANSFORMATION_PLAN.md), [docs/V2_PHASE1_BACKEND.md](docs/V2_PHASE1_BACKEND.md), [docs/V2_API_CONTRACT.md](docs/V2_API_CONTRACT.md) e [docs/V2_PHASE2_WEB_SLICE.md](docs/V2_PHASE2_WEB_SLICE.md).
 
 ## Estrutura principal
@@ -18,6 +23,16 @@ Projeto para captura, tratamento e consulta de demonstracoes financeiras da CVM,
 - `docs/`: contexto, roadmap e contratos da V2.
 
 ## Fluxo recomendado
+
+Para uso final no Windows, prefira baixar a ultima release do app desktop:
+
+```text
+https://github.com/joaosantossgp/analisys/releases/latest/download/CVMAnalytics-windows.zip
+```
+
+Depois de baixar, extraia o ZIP e abra o executavel do CVM Analytics.
+
+Para desenvolvimento local:
 
 1. Instalar dependencias Python:
 
@@ -60,7 +75,7 @@ python scripts/batch_completo.py --dry-run
 python scripts/atualizar_todos.py --anos 2024 2025
 ```
 
-7. Subir superficies de leitura:
+7. Subir superficies de leitura para desenvolvimento:
 
 ```bash
 streamlit run dashboard/app.py
@@ -138,7 +153,7 @@ Docs:
 
 ### 4. Web App V2 Slice 1
 
-Aplicacao `Next.js` em `apps/web`, consumindo exclusivamente a API V2.
+Aplicacao `Next.js` em `apps/web`, consumindo exclusivamente a API V2. Esta superficie e mantida para desenvolvimento local e para o desktop standalone; o canal publico de distribuicao e a landing estatica com download da release.
 
 Rotas entregues:
 - `/`
@@ -186,6 +201,8 @@ python scripts/db_portability_smoke.py --database-url postgresql://user:pass@hos
 
 ## Observacoes
 
+- O deploy publico em Vercel foi aposentado. Use `landing/` para a pagina publica de download.
+- `apps/web/next.config.ts` deve continuar com build standalone porque o desktop usa esse pacote.
 - Prefira `desktop/cvm_pyqt_app.py` como interface operacional principal.
 - Prefira executar o app desktop como modulo: `python -m desktop.cvm_pyqt_app`.
 - Prefira `src/refresh_service.py` e `src/read_service.py` como contratos de nucleo.

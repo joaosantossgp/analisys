@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="pt-BR" class="scroll-smooth">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="CVM Analytics e um app desktop gratuito para baixar e consultar demonstracoes financeiras da CVM no seu PC."
+    />
+    <title>CVM Analytics - Download Windows</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              ink: "#0f172a",
+              cyanDeep: "#0e7490",
+              cyanMain: "#0891b2",
+              mint: "#10b981",
+            },
+            fontFamily: {
+              sans: ["Inter", "ui-sans-serif", "system-ui", "Segoe UI", "Arial", "sans-serif"],
+            },
+            boxShadow: {
+              lift: "0 24px 70px rgba(15, 23, 42, 0.14)",
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      @media (max-width: 640px) {
+        .mobile-viewport {
+          width: calc(100vw - 2.5rem);
+          max-width: calc(100vw - 2.5rem);
+        }
+      }
+    </style>
+  </head>
+  <body class="overflow-x-hidden bg-slate-50 text-slate-900 antialiased">
+    <header class="fixed inset-x-0 top-0 z-40 border-b border-white/50 bg-white/88 backdrop-blur">
+      <nav class="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-5">
+        <a href="#top" class="flex min-w-0 items-center gap-3 font-extrabold tracking-normal text-ink">
+          <span class="grid h-9 w-9 place-items-center rounded-lg bg-ink text-sm text-white">CVM</span>
+          <span class="truncate">CVM Analytics</span>
+        </a>
+        <div class="hidden items-center gap-8 text-sm font-semibold text-slate-600 md:flex">
+          <a class="hover:text-ink" href="#instalar">Instalar</a>
+          <a class="hover:text-ink" href="#screenshots">Screenshots</a>
+          <a class="hover:text-ink" href="#faq">FAQ</a>
+        </div>
+        <a
+          href="https://github.com/joaosantossgp/analisys/releases/latest/download/CVMAnalytics-windows.zip"
+          class="hidden h-10 shrink-0 items-center justify-center rounded-md bg-cyanMain px-4 text-sm font-bold text-white shadow-sm transition hover:bg-cyanDeep focus:outline-none focus:ring-2 focus:ring-cyanMain focus:ring-offset-2 sm:inline-flex"
+        >
+          Download Windows
+        </a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="min-h-[92vh] overflow-hidden bg-white pt-28">
+        <div class="mx-auto grid max-w-6xl min-w-0 items-center gap-12 px-5 pb-16 md:grid-cols-[0.9fr_1.1fr] md:pb-20">
+          <div class="mobile-viewport min-w-0 max-w-[350px] md:max-w-none">
+            <h1 class="max-w-2xl text-[2.35rem] font-black leading-[1.04] tracking-normal text-ink sm:text-5xl md:text-7xl">
+              Analise CVM no seu PC. Gratis.
+            </h1>
+            <p class="mt-6 max-w-xl text-lg leading-8 text-slate-600">
+              Baixe demonstracoes financeiras da CVM, atualize sua base local e consulte empresas brasileiras sem depender de um servidor pago.
+            </p>
+            <div class="mt-8 flex flex-col gap-3 sm:flex-row">
+              <a
+                href="https://github.com/joaosantossgp/analisys/releases/latest/download/CVMAnalytics-windows.zip"
+                class="inline-flex h-12 items-center justify-center rounded-md bg-cyanMain px-6 text-base font-extrabold text-white shadow-sm transition hover:bg-cyanDeep focus:outline-none focus:ring-2 focus:ring-cyanMain focus:ring-offset-2"
+              >
+                Baixar para Windows
+              </a>
+              <a
+                href="https://github.com/joaosantossgp/analisys/releases/latest"
+                class="inline-flex h-12 items-center justify-center rounded-md border border-slate-300 bg-white px-6 text-base font-bold text-ink transition hover:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2"
+              >
+                Ver ultima release
+              </a>
+            </div>
+            <dl class="mt-10 grid max-w-lg grid-cols-1 gap-5 border-t border-slate-200 pt-7 sm:grid-cols-3">
+              <div>
+                <dt class="text-2xl font-black text-ink">449+</dt>
+                <dd class="mt-1 text-sm leading-5 text-slate-500">empresas publicas</dd>
+              </div>
+              <div>
+                <dt class="text-2xl font-black text-ink">Local</dt>
+                <dd class="mt-1 text-sm leading-5 text-slate-500">SQLite no seu PC</dd>
+              </div>
+              <div>
+                <dt class="text-2xl font-black text-ink">Gratis</dt>
+                <dd class="mt-1 text-sm leading-5 text-slate-500">sem Vercel</dd>
+              </div>
+            </dl>
+          </div>
+          <div class="mobile-viewport relative min-w-0 max-w-[350px] md:max-w-none">
+            <div class="absolute -right-24 -top-20 h-72 w-72 rounded-full bg-cyan-100 blur-3xl"></div>
+            <img
+              src="assets/desktop-overview.svg"
+              alt="Screenshot do CVM Analytics exibindo filtros e demonstracoes financeiras"
+              class="relative block w-full min-w-0 max-w-full rounded-2xl shadow-lift ring-1 ring-slate-200"
+              width="1280"
+              height="820"
+            />
+          </div>
+        </div>
+        <div class="mx-auto max-w-6xl border-t border-slate-200 px-5 py-6 text-sm font-semibold text-slate-500">
+          Proximo: instale em poucos minutos e mantenha os dados financeiros no seu computador.
+        </div>
+      </section>
+
+      <section id="instalar" class="bg-slate-50 py-20">
+        <div class="mx-auto max-w-6xl px-5">
+          <div class="grid min-w-0 gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
+            <div class="min-w-0">
+              <h2 class="text-4xl font-black leading-tight text-ink">Como instalar</h2>
+              <p class="mt-4 text-lg leading-8 text-slate-600">
+                O app e distribuido como um pacote Windows. Baixe, extraia e abra o executavel. As atualizacoes futuras usam GitHub Releases.
+              </p>
+              <a
+                href="https://github.com/joaosantossgp/analisys/releases/latest/download/CVMAnalytics-windows.zip"
+                class="mt-7 inline-flex h-12 items-center justify-center rounded-md bg-ink px-6 text-base font-extrabold text-white transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2"
+              >
+                Download Windows
+              </a>
+            </div>
+            <img
+              src="assets/download-flow.svg"
+              alt="Screenshot ilustrando os tres passos de instalacao do CVM Analytics"
+              class="block w-full min-w-0 max-w-full rounded-2xl shadow-lift ring-1 ring-slate-200"
+              width="1120"
+              height="620"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section id="screenshots" class="bg-white py-20">
+        <div class="mx-auto max-w-6xl px-5">
+          <div class="max-w-3xl">
+            <h2 class="text-4xl font-black leading-tight text-ink">Screenshots</h2>
+            <p class="mt-4 text-lg leading-8 text-slate-600">
+              A interface prioriza operacoes locais: atualizar base, acompanhar saude dos dados e consultar demonstracoes financeiras por empresa.
+            </p>
+          </div>
+          <div class="mt-10 grid min-w-0 gap-6 lg:grid-cols-2">
+            <img
+              src="assets/desktop-overview.svg"
+              alt="Screenshot principal do app com filtros e tabela financeira"
+              class="block h-full w-full min-w-0 max-w-full rounded-2xl object-cover shadow-lift ring-1 ring-slate-200"
+              width="1280"
+              height="820"
+            />
+            <div class="grid gap-6">
+              <div class="rounded-2xl border border-slate-200 bg-slate-50 p-8">
+                <h3 class="text-2xl font-black text-ink">Dados ficam locais</h3>
+                <p class="mt-3 leading-7 text-slate-600">
+                  A base SQLite fica na maquina do usuario. O processamento real acontece no desktop.
+                </p>
+              </div>
+              <div class="rounded-2xl border border-slate-200 bg-slate-50 p-8">
+                <h3 class="text-2xl font-black text-ink">Atualizacao sob demanda</h3>
+                <p class="mt-3 leading-7 text-slate-600">
+                  Use o app para atualizar empresas e anos quando precisar, com logs locais para auditoria.
+                </p>
+              </div>
+              <div class="rounded-2xl border border-slate-200 bg-slate-50 p-8">
+                <h3 class="text-2xl font-black text-ink">Download publico</h3>
+                <p class="mt-3 leading-7 text-slate-600">
+                  A landing estatica aponta sempre para o pacote mais recente publicado nas releases do GitHub.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="faq" class="bg-slate-50 py-20">
+        <div class="mx-auto max-w-4xl px-5">
+          <h2 class="text-4xl font-black leading-tight text-ink">FAQ</h2>
+          <div class="mt-10 divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
+            <details class="group p-6" open>
+              <summary class="cursor-pointer list-none text-lg font-extrabold text-ink">Preciso de conta?</summary>
+              <p class="mt-3 leading-7 text-slate-600">Nao. O app desktop roda localmente e nao exige login para consultar a base no seu computador.</p>
+            </details>
+            <details class="group p-6">
+              <summary class="cursor-pointer list-none text-lg font-extrabold text-ink">Os dados saem do meu PC?</summary>
+              <p class="mt-3 leading-7 text-slate-600">Nao para o fluxo local. O app baixa dados publicos da CVM e persiste a base localmente.</p>
+            </details>
+            <details class="group p-6">
+              <summary class="cursor-pointer list-none text-lg font-extrabold text-ink">Por que nao usar Vercel?</summary>
+              <p class="mt-3 leading-7 text-slate-600">O processamento depende do banco local do usuario. A landing estatica reduz custo e deixa o site focado no download do desktop.</p>
+            </details>
+            <details class="group p-6">
+              <summary class="cursor-pointer list-none text-lg font-extrabold text-ink">Como atualizo?</summary>
+              <p class="mt-3 leading-7 text-slate-600">Baixe a ultima release ou use o mecanismo de atualizacao do app quando uma nova versao estiver disponivel.</p>
+            </details>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="border-t border-slate-200 bg-white py-8">
+      <div class="mx-auto flex max-w-6xl flex-col gap-4 px-5 text-sm text-slate-500 md:flex-row md:items-center md:justify-between">
+        <p>CVM Analytics - app desktop local-first para dados publicos da CVM.</p>
+        <a class="font-bold text-cyanDeep hover:text-ink" href="https://github.com/joaosantossgp/analisys">GitHub</a>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="820" viewBox="0 0 1280 820" role="img" aria-labelledby="title desc">
+  <title id="title">Tela principal do CVM Analytics</title>
+  <desc id="desc">Mockup da area de analise local com filtros, saude da base e tabela de demonstracoes financeiras.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#0f172a"/>
+      <stop offset="1" stop-color="#164e63"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f8fafc"/>
+    </linearGradient>
+    <filter id="shadow" x="-8%" y="-12%" width="116%" height="130%">
+      <feDropShadow dx="0" dy="24" stdDeviation="26" flood-color="#020617" flood-opacity=".24"/>
+    </filter>
+  </defs>
+  <rect width="1280" height="820" fill="url(#bg)"/>
+  <path d="M0 700 C210 620 370 760 560 690 C780 608 910 640 1280 540 L1280 820 L0 820 Z" fill="#0891b2" opacity=".18"/>
+  <g filter="url(#shadow)">
+    <rect x="86" y="82" width="1108" height="656" rx="24" fill="url(#panel)"/>
+    <rect x="86" y="82" width="1108" height="70" rx="24" fill="#111827"/>
+    <circle cx="126" cy="117" r="8" fill="#ef4444"/>
+    <circle cx="154" cy="117" r="8" fill="#f59e0b"/>
+    <circle cx="182" cy="117" r="8" fill="#22c55e"/>
+    <text x="228" y="124" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700" fill="#f8fafc">CVM Analytics</text>
+    <rect x="922" y="102" width="220" height="30" rx="15" fill="#0e7490"/>
+    <text x="952" y="123" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="700" fill="#ecfeff">Base local atualizada</text>
+    <rect x="126" y="190" width="270" height="502" rx="18" fill="#eef6f7"/>
+    <text x="154" y="236" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="800" fill="#0f172a">Atualizar base</text>
+    <text x="154" y="268" font-family="Inter, Arial, sans-serif" font-size="15" fill="#475569">Escolha empresas, anos e tipo de demonstracao.</text>
+    <rect x="154" y="310" width="214" height="48" rx="10" fill="#ffffff" stroke="#cbd5e1"/>
+    <text x="174" y="340" font-family="Inter, Arial, sans-serif" font-size="14" fill="#334155">PETROBRAS</text>
+    <rect x="154" y="378" width="96" height="38" rx="9" fill="#0f172a"/>
+    <text x="183" y="402" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="700" fill="#ffffff">2025</text>
+    <rect x="264" y="378" width="96" height="38" rx="9" fill="#ffffff" stroke="#cbd5e1"/>
+    <text x="293" y="402" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="700" fill="#334155">2024</text>
+    <rect x="154" y="450" width="214" height="54" rx="12" fill="#0891b2"/>
+    <text x="204" y="484" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="800" fill="#ffffff">Atualizar agora</text>
+    <rect x="154" y="548" width="214" height="96" rx="14" fill="#ffffff" stroke="#dbeafe"/>
+    <text x="178" y="584" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="800" fill="#0f172a">Saude da base</text>
+    <rect x="178" y="604" width="166" height="10" rx="5" fill="#dbeafe"/>
+    <rect x="178" y="604" width="132" height="10" rx="5" fill="#10b981"/>
+    <text x="178" y="634" font-family="Inter, Arial, sans-serif" font-size="12" fill="#64748b">449 empresas catalogadas</text>
+    <text x="442" y="230" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="850" fill="#0f172a">Demonstracoes financeiras</text>
+    <text x="442" y="262" font-family="Inter, Arial, sans-serif" font-size="15" fill="#64748b">Dados baixados da CVM e consultados direto no computador.</text>
+    <g transform="translate(442 308)">
+      <rect width="688" height="68" rx="16" fill="#f8fafc" stroke="#e2e8f0"/>
+      <text x="26" y="43" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700" fill="#334155">Empresa</text>
+      <text x="255" y="43" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700" fill="#334155">Periodo</text>
+      <text x="390" y="43" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700" fill="#334155">Receita</text>
+      <text x="542" y="43" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700" fill="#334155">Lucro</text>
+    </g>
+    <g font-family="Inter, Arial, sans-serif" font-size="15" fill="#334155">
+      <rect x="442" y="394" width="688" height="62" rx="14" fill="#ffffff" stroke="#e2e8f0"/>
+      <text x="468" y="433" font-weight="700">PETROBRAS</text><text x="697" y="433">2025</text><text x="833" y="433">R$ 123,8 bi</text><text x="985" y="433">R$ 31,2 bi</text>
+      <rect x="442" y="472" width="688" height="62" rx="14" fill="#ffffff" stroke="#e2e8f0"/>
+      <text x="468" y="511" font-weight="700">VALE</text><text x="697" y="511">2025</text><text x="833" y="511">R$ 89,4 bi</text><text x="985" y="511">R$ 18,5 bi</text>
+      <rect x="442" y="550" width="688" height="62" rx="14" fill="#ffffff" stroke="#e2e8f0"/>
+      <text x="468" y="589" font-weight="700">ITAUUNIBANCO</text><text x="697" y="589">2025</text><text x="833" y="589">R$ 74,1 bi</text><text x="985" y="589">R$ 10,8 bi</text>
+      <rect x="442" y="628" width="688" height="62" rx="14" fill="#ffffff" stroke="#e2e8f0"/>
+      <text x="468" y="667" font-weight="700">WEG</text><text x="697" y="667">2025</text><text x="833" y="667">R$ 33,7 bi</text><text x="985" y="667">R$ 6,1 bi</text>
+    </g>
+  </g>
+</svg>

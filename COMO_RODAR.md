@@ -1,14 +1,36 @@
 # Como Rodar - CVM Analytics
 
-Guia pratico para subir a V1 operacional e o primeiro slice da V2 no ambiente local.
+Guia pratico para baixar o app desktop e, quando necessario, subir a V1 operacional e o primeiro slice da V2 no ambiente local.
 
 Fluxo principal atual:
+
+`download da release -> extrair ZIP -> abrir CVM Analytics`
+
+Fluxo de desenvolvimento:
 
 `runtime_doctor.py -> setup_db.py -> setup_companies_table.py -> python -m desktop.cvm_pyqt_app -> dashboard/app.py -> apps/api -> apps/web`
 
 ---
 
-## 1. Preparar o ambiente
+## 1. Baixar o app desktop
+
+Para uso final no Windows, baixe a ultima release:
+
+```text
+https://github.com/joaosantossgp/analisys/releases/latest/download/CVMAnalytics-windows.zip
+```
+
+Depois:
+
+1. Extraia o ZIP em uma pasta fixa.
+2. Abra o executavel do CVM Analytics.
+3. Atualize a base local pelo proprio app.
+
+A pagina publica de download vive em `landing/` e e publicada via GitHub Pages. O deploy Vercel foi aposentado.
+
+---
+
+## 2. Preparar o ambiente de desenvolvimento
 
 Entre na pasta do projeto:
 
@@ -54,7 +76,7 @@ powershell -ExecutionPolicy Bypass -File scripts/pr_complete.ps1 -Pr 28
 
 ---
 
-## 2. Diagnosticar o runtime
+## 3. Diagnosticar o runtime
 
 Bootstrap minimo:
 
@@ -79,7 +101,7 @@ python scripts/db_portability_smoke.py --database-url postgresql://user:pass@hos
 
 ---
 
-## 3. Inicializar o banco
+## 4. Inicializar o banco
 
 Em maquina nova ou depois de migracao:
 
@@ -96,7 +118,7 @@ python scripts/expand_tickers.py --dry-run
 
 ---
 
-## 4. Atualizar dados financeiros
+## 5. Atualizar dados financeiros
 
 ### Opcao A - App desktop oficial
 
@@ -127,7 +149,7 @@ Os logs ficam em `output/logs/`.
 
 ---
 
-## 5. Abrir o dashboard Streamlit
+## 6. Abrir o dashboard Streamlit
 
 ```powershell
 streamlit run dashboard/app.py
@@ -140,7 +162,7 @@ Uso:
 
 ---
 
-## 6. Subir a API da V2
+## 7. Subir a API da V2
 
 ```powershell
 uvicorn apps.api.app.main:app --reload
@@ -170,7 +192,9 @@ Invoke-RestMethod http://127.0.0.1:8000/companies/filters
 
 ---
 
-## 7. Subir o web app da V2
+## 8. Subir o web app da V2
+
+O web app em `apps/web` e mantido para desenvolvimento local e para o desktop standalone. Ele nao e mais o canal publico em Vercel.
 
 Em outro terminal:
 
@@ -195,7 +219,7 @@ Observacoes:
 
 ---
 
-## 8. Validar tudo
+## 9. Validar tudo
 
 Suite principal:
 
@@ -225,7 +249,7 @@ python scripts/final_verification.py --xlsx output/reports/PETROBRAS_financials.
 
 ---
 
-## 9. Desktop pywebview (Fase 3)
+## 10. Desktop pywebview (Fase 3)
 
 App nativo com janela pywebview + UI Next.js. O bridge Python responde
 diretamente, sem precisar do servidor FastAPI para leitura.
