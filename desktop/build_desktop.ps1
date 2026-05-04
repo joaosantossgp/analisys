@@ -54,15 +54,25 @@ if (-not $SkipNextBuild) {
 Write-Host "[2/5] Injetando versao em desktop/__version__.py..." -ForegroundColor Yellow
 
 if (-not $Version) {
-    $gitTag = (git -C $Root describe --tags --abbrev=0 2>$null)
-    if ($LASTEXITCODE -eq 0 -and $gitTag) {
+    $gitTag = ""
+    $gitDescribeExitCode = 1
+    try {
+        $gitTag = (git -C $Root describe --tags --abbrev=0 2>$null)
+        $gitDescribeExitCode = $LASTEXITCODE
+    } catch {
+        $gitTag = ""
+        $gitDescribeExitCode = 1
+    }
+    if ($gitDescribeExitCode -eq 0 -and $gitTag) {
         $Version = $gitTag -replace '^v', ''
     } else {
         $Version = "0.1.0"
     }
 }
 $VersionPy = Join-Path $DesktopDir "__version__.py"
-"__version__ = `"$Version`"" | Set-Content $VersionPy -Encoding utf8
+$VersionContent = "__version__ = `"$Version`""
+$Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText($VersionPy, "$VersionContent`n", $Utf8NoBom)
 Write-Host "  OK: versao $Version injetada em __version__.py" -ForegroundColor Green
 
 # ---------------------------------------------------------------------------
