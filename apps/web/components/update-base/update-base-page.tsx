@@ -29,8 +29,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import {
   cancelBatchJob,
+  type CompanySectorFilter,
   fetchBatchJobStatus,
   fetchBatchRefresh,
+  resolveBatchRefreshCvmRange,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -115,16 +117,6 @@ const UPDATE_TYPE_META: Record<
     icon: RotateCcwIcon,
   },
 };
-
-const SECTORS = [
-  "Todos os setores",
-  "Petroleo e Gas",
-  "Mineracao",
-  "Financeiro",
-  "Energia Eletrica",
-  "Varejo",
-  "Telecomunicacoes",
-];
 
 const STATUS_OPTIONS = [
   { value: "all", label: "Todos os status" },
@@ -434,13 +426,18 @@ function ConfirmationDialog({
   );
 }
 
-export function UpdateBasePage() {
+type UpdateBasePageProps = {
+  initialSectors?: CompanySectorFilter[];
+};
+
+export function UpdateBasePage({ initialSectors = [] }: UpdateBasePageProps) {
   const [appState, setAppState] = useState<AppState>("idle");
   const [updateType, setUpdateType] = useState<UpdateType>("full");
-  const [filterSector, setFilterSector] = useState("Todos os setores");
+  const [filterSector, setFilterSector] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterCvmFrom, setFilterCvmFrom] = useState("");
   const [filterCvmTo, setFilterCvmTo] = useState("");
+  const [dispatchError, setDispatchError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [processed, setProcessed] = useState(0);
   const [successCount, setSuccessCount] = useState(0);
@@ -460,17 +457,36 @@ export function UpdateBasePage() {
   const isCompleted = appState === "completed";
   const canRun = appState === "idle";
   const total = totalFromJob || UPDATE_TYPE_META[updateType].affected;
+  const sectorOptions = useMemo(
+    () => [
+      { value: "all", label: "Todos os setores" },
+      ...initialSectors.map((sector) => ({
+        value: sector.sector_slug,
+        label: `${sector.sector_name} (${formatNumber(sector.company_count)})`,
+      })),
+    ],
+    [initialSectors],
+  );
+  const selectedSector = initialSectors.find(
+    (sector) => sector.sector_slug === filterSector,
+  );
+  const resolvedCvmRange = useMemo(
+    () => resolveBatchRefreshCvmRange(filterCvmFrom, filterCvmTo),
+    [filterCvmFrom, filterCvmTo],
+  );
+  const cvmRangeError = resolvedCvmRange.error;
+  const hasInvalidCvmRange = cvmRangeError !== null;
 
   const activeFilters = useMemo(() => {
     const filters: string[] = [];
-    if (filterSector !== "Todos os setores") filters.push(`Setor: ${filterSector}`);
+    if (selectedSector) filters.push(`Setor: ${selectedSector.sector_name}`);
     if (filterStatus !== "all") {
       filters.push(`Status: ${STATUS_OPTIONS.find((item) => item.value === filterStatus)?.label ?? filterStatus}`);
     }
     if (filterCvmFrom) filters.push(`CVM >= ${filterCvmFrom}`);
     if (filterCvmTo) filters.push(`CVM <= ${filterCvmTo}`);
     return filters;
-  }, [filterCvmFrom, filterCvmTo, filterSector, filterStatus]);
+  }, [filterCvmFrom, filterCvmTo, filterStatus, selectedSector]);
 
   const navItems: NavItem[] = useMemo(
     () => [
@@ -495,9 +511,18 @@ export function UpdateBasePage() {
   }
 
   async function handleConfirm() {
+    const currentRange = resolveBatchRefreshCvmRange(filterCvmFrom, filterCvmTo);
+
+    if (currentRange.error) {
+      setAppState("idle");
+      setDispatchError(currentRange.error);
+      return;
+    }
+
     clearTimer();
     lastLogCountRef.current = 0;
     setAppState("running");
+    setDispatchError(null);
     setProgress(0);
     setProcessed(0);
     setSuccessCount(0);
@@ -516,14 +541,18 @@ export function UpdateBasePage() {
     try {
       dispatch = await fetchBatchRefresh({
         mode: updateType,
-        sector: filterSector !== "Todos os setores" ? filterSector : null,
+        sectorSlug: selectedSector?.sector_slug ?? null,
         statusFilter: filterStatus !== "all" ? filterStatus : null,
-        cvmFrom: filterCvmFrom ? parseInt(filterCvmFrom, 10) : null,
-        cvmTo: filterCvmTo ? parseInt(filterCvmTo, 10) : null,
+        cvmRange: currentRange.cvmRange,
       });
-    } catch {
+    } catch (error) {
       setAppState("source_unavailable");
-      addLog("Falha ao conectar ao servico de atualizacao.", "error");
+      addLog(
+        error instanceof Error
+          ? error.message
+          : "Falha ao conectar ao servico de atualizacao.",
+        "error",
+      );
       return;
     }
 
@@ -619,6 +648,7 @@ export function UpdateBasePage() {
   function handleReset() {
     clearTimer();
     setAppState("idle");
+    setDispatchError(null);
     setProgress(0);
     setProcessed(0);
     setSuccessCount(0);
@@ -627,6 +657,15 @@ export function UpdateBasePage() {
     setCurrentStep("");
     setElapsed(0);
     setLogs([]);
+  }
+
+  function handleStartRequest() {
+    if (cvmRangeError) {
+      setDispatchError(cvmRangeError);
+      return;
+    }
+    setDispatchError(null);
+    setAppState("confirming");
   }
 
   function scrollToSection(id: string) {
@@ -754,24 +793,6 @@ export function UpdateBasePage() {
                   Nova operacao
                 </Button>
               ) : null}
-              <div className="flex rounded-[0.9rem] border border-border/65 bg-muted/35 p-1">
-                {(["idle", "source_unavailable", "no_permission", "already_running"] as AppState[]).map((state) => (
-                  <button
-                    key={state}
-                    type="button"
-                    onClick={() => {
-                      clearTimer();
-                      setAppState(state);
-                    }}
-                    className={cn(
-                      "rounded-[0.7rem] px-2.5 py-1.5 font-mono text-xs transition",
-                      appState === state ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {state}
-                  </button>
-                ))}
-              </div>
             </div>
           </header>
 
@@ -856,21 +877,27 @@ export function UpdateBasePage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    setFilterSector("Todos os setores");
+                    setFilterSector("all");
                     setFilterStatus("all");
                     setFilterCvmFrom("");
                     setFilterCvmTo("");
+                    setDispatchError(null);
                   }}
                 >
                   Limpar
                 </Button>
               </CardHeader>
               <CardContent className="grid gap-3 px-5 sm:grid-cols-2 xl:grid-cols-4">
-                <AdminSelect label="Setor" value={filterSector} onChange={setFilterSector} options={SECTORS} disabled={!canRun} />
+                <AdminSelect label="Setor" value={filterSector} onChange={setFilterSector} options={sectorOptions} disabled={!canRun || sectorOptions.length === 1} />
                 <AdminSelect label="Status" value={filterStatus} onChange={setFilterStatus} options={STATUS_OPTIONS} disabled={!canRun} />
-                <AdminInput label="Cod. CVM - de" placeholder="Ex: 1000" value={filterCvmFrom} onChange={setFilterCvmFrom} disabled={!canRun} />
-                <AdminInput label="Cod. CVM - ate" placeholder="Ex: 9999" value={filterCvmTo} onChange={setFilterCvmTo} disabled={!canRun} />
+                <AdminInput label="Cod. CVM - de" placeholder="Ex: 1000" value={filterCvmFrom} onChange={(value) => { setFilterCvmFrom(value); setDispatchError(null); }} disabled={!canRun} />
+                <AdminInput label="Cod. CVM - ate" placeholder="Ex: 9999" value={filterCvmTo} onChange={(value) => { setFilterCvmTo(value); setDispatchError(null); }} disabled={!canRun} />
               </CardContent>
+              {dispatchError || hasInvalidCvmRange ? (
+                <div className="mx-5 mb-4 rounded-[0.95rem] border border-destructive/20 bg-destructive/8 px-4 py-3 text-sm text-destructive">
+                  {dispatchError ?? cvmRangeError}
+                </div>
+              ) : null}
               {activeFilters.length ? (
                 <div className="flex items-center gap-2 px-5 pb-4 text-xs text-primary">
                   <FilterIcon className="size-4" />
@@ -881,7 +908,7 @@ export function UpdateBasePage() {
 
             {canRun ? (
               <div className="mt-4 flex flex-wrap items-center gap-3">
-                <Button size="lg" onClick={() => setAppState("confirming")}>
+                <Button size="lg" onClick={handleStartRequest} disabled={hasInvalidCvmRange}>
                   <PlayIcon className="size-4" />
                   Iniciar atualizacao
                 </Button>

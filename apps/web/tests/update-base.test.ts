@@ -5,6 +5,7 @@ import {
   fetchBatchRefresh,
   fetchBatchJobStatus,
   cancelBatchJob,
+  resolveBatchRefreshCvmRange,
 } from "../lib/api.ts";
 import {
   bridgeRequestBatchRefresh,
@@ -79,7 +80,7 @@ test("fetchBatchRefresh (web) posts to /api/refresh-batch and returns dispatch r
   }
 });
 
-test("fetchBatchRefresh (web) passes filters in the request body", async () => {
+test("fetchBatchRefresh (web) passes canonical filters in the request body", async () => {
   let capturedBody: Record<string, unknown> = {};
 
   const restore = withFetchMock((async (_: RequestInfo | URL, init?: RequestInit) => {
@@ -93,16 +94,17 @@ test("fetchBatchRefresh (web) passes filters in the request body", async () => {
   try {
     await fetchBatchRefresh({
       mode: "outdated",
-      sector: "Financeiro",
+      sectorSlug: "financeiro",
       statusFilter: "failed",
-      cvmFrom: 100,
-      cvmTo: 999,
+      cvmRange: { start: 100, end: 999 },
     });
     assert.equal(capturedBody.mode, "outdated");
-    assert.equal(capturedBody.sector, "Financeiro");
+    assert.equal(capturedBody.sector_slug, "financeiro");
     assert.equal(capturedBody.status_filter, "failed");
-    assert.equal(capturedBody.cvm_from, 100);
-    assert.equal(capturedBody.cvm_to, 999);
+    assert.deepEqual(capturedBody.cvm_range, { start: 100, end: 999 });
+    assert.equal("sector" in capturedBody, false);
+    assert.equal("cvm_from" in capturedBody, false);
+    assert.equal("cvm_to" in capturedBody, false);
   } finally {
     restore();
   }
@@ -207,7 +209,7 @@ test("bridgeRequestBatchRefresh calls request_refresh with mode param", async ()
   }
 });
 
-test("bridgeRequestBatchRefresh passes optional filters", async () => {
+test("bridgeRequestBatchRefresh passes canonical optional filters", async () => {
   let capturedParams: Record<string, unknown> = {};
 
   const restore = withPywebview({
@@ -220,15 +222,35 @@ test("bridgeRequestBatchRefresh passes optional filters", async () => {
   try {
     await bridgeRequestBatchRefresh({
       mode: "missing",
-      sector: "Energia Eletrica",
-      cvmFrom: 200,
+      sectorSlug: "energia",
+      statusFilter: "failed",
+      cvmRange: { start: 200 },
     });
-    assert.equal(capturedParams.sector, "Energia Eletrica");
-    assert.equal(capturedParams.cvm_from, 200);
+    assert.equal(capturedParams.sector_slug, "energia");
+    assert.equal(capturedParams.status_filter, "failed");
+    assert.deepEqual(capturedParams.cvm_range, { start: 200 });
+    assert.equal("sector" in capturedParams, false);
+    assert.equal("cvm_from" in capturedParams, false);
     assert.equal("cvm_to" in capturedParams, false);
   } finally {
     restore();
   }
+});
+
+test("resolveBatchRefreshCvmRange blocks invalid client ranges before dispatch", () => {
+  assert.deepEqual(resolveBatchRefreshCvmRange("4000", "12000"), {
+    cvmRange: { start: 4000, end: 12000 },
+    error: null,
+  });
+  assert.deepEqual(resolveBatchRefreshCvmRange("4000", ""), {
+    cvmRange: { start: 4000 },
+    error: null,
+  });
+  assert.equal(resolveBatchRefreshCvmRange("abc", "12000").cvmRange, null);
+  assert.match(
+    resolveBatchRefreshCvmRange("12000", "4000").error ?? "",
+    /inicial nao pode ser maior/i,
+  );
 });
 
 // ---------------------------------------------------------------------------

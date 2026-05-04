@@ -240,6 +240,60 @@ export type BatchJobStatus = {
   error?: string | null;
 };
 
+export type BatchRefreshMode = "full" | "missing" | "outdated" | "failed";
+
+export type BatchRefreshCvmRange = {
+  start?: number;
+  end?: number;
+};
+
+export type BatchRefreshRequest = {
+  mode: BatchRefreshMode;
+  sectorSlug?: string | null;
+  cvmRange?: BatchRefreshCvmRange | null;
+  statusFilter?: string | null;
+};
+
+function parseCvmRangeInput(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (!/^\d+$/.test(trimmed)) return Number.NaN;
+  return Number(trimmed);
+}
+
+export function resolveBatchRefreshCvmRange(
+  from: string,
+  to: string,
+): { cvmRange: BatchRefreshCvmRange | null; error: string | null } {
+  const start = parseCvmRangeInput(from);
+  const end = parseCvmRangeInput(to);
+
+  if (Number.isNaN(start) || Number.isNaN(end)) {
+    return { cvmRange: null, error: "Use apenas numeros no intervalo CVM." };
+  }
+
+  if ((start != null && start <= 0) || (end != null && end <= 0)) {
+    return { cvmRange: null, error: "O codigo CVM deve ser maior que zero." };
+  }
+
+  if (start != null && end != null && start > end) {
+    return {
+      cvmRange: null,
+      error: "O codigo CVM inicial nao pode ser maior que o final.",
+    };
+  }
+
+  const cvmRange =
+    start != null || end != null
+      ? {
+          ...(start != null ? { start } : {}),
+          ...(end != null ? { end } : {}),
+        }
+      : null;
+
+  return { cvmRange, error: null };
+}
+
 export type TabularDataRow = Record<string, string | number | boolean | null>;
 
 export type TabularData = {
@@ -1280,26 +1334,34 @@ export async function fetchCompanyFreshness(
   return items[0] ? normalizeRefreshStatusItem(items[0]) : null;
 }
 
-export async function fetchBatchRefresh(params: {
-  mode: "full" | "missing" | "outdated" | "failed";
-  sector?: string | null;
-  statusFilter?: string | null;
-  cvmFrom?: number | null;
-  cvmTo?: number | null;
-}): Promise<BatchDispatchResponse> {
+function buildBatchRefreshBody(params: BatchRefreshRequest): Record<string, unknown> {
+  const cvmRange =
+    params.cvmRange &&
+    (params.cvmRange.start != null || params.cvmRange.end != null)
+      ? {
+          ...(params.cvmRange.start != null ? { start: params.cvmRange.start } : {}),
+          ...(params.cvmRange.end != null ? { end: params.cvmRange.end } : {}),
+        }
+      : null;
+
+  return {
+    mode: params.mode,
+    ...(params.sectorSlug ? { sector_slug: params.sectorSlug } : {}),
+    ...(cvmRange ? { cvm_range: cvmRange } : {}),
+    ...(params.statusFilter ? { status_filter: params.statusFilter } : {}),
+  };
+}
+
+export async function fetchBatchRefresh(
+  params: BatchRefreshRequest,
+): Promise<BatchDispatchResponse> {
   if (isDesktopMode()) return bridgeRequestBatchRefresh(params);
   return (await routeFetch<BatchDispatchResponse>(
     "/api/refresh-batch",
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        mode: params.mode,
-        ...(params.sector != null ? { sector: params.sector } : {}),
-        ...(params.statusFilter != null ? { status_filter: params.statusFilter } : {}),
-        ...(params.cvmFrom != null ? { cvm_from: params.cvmFrom } : {}),
-        ...(params.cvmTo != null ? { cvm_to: params.cvmTo } : {}),
-      }),
+      body: JSON.stringify(buildBatchRefreshBody(params)),
     },
     { invalidResponseMessage: "A rota interna retornou um payload invalido para o batch refresh." },
   )) as BatchDispatchResponse;

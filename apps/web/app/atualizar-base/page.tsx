@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { UpdateBasePage } from "@/components/update-base/update-base-page";
+import { fetchCompanyFilters } from "@/lib/api";
 
 export const metadata: Metadata = {
   title: "Atualizar base",
@@ -8,6 +9,7 @@ export const metadata: Metadata = {
     "Painel administrativo para acompanhar e iniciar atualizacoes em massa da base empresarial.",
 };
 
-export default function AtualizarBaseRoute() {
-  return <UpdateBasePage />;
+export default async function AtualizarBaseRoute() {
+  const filters = await fetchCompanyFilters().catch(() => null);
+  return <UpdateBasePage initialSectors={filters?.sectors ?? []} />;
 }
