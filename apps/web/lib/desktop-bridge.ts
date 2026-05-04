@@ -57,6 +57,8 @@ interface PywebviewApi {
   get_refresh_status(params?: Record<string, unknown>): Promise<unknown>;
   request_refresh(params: Record<string, unknown>): Promise<unknown>;
   cancel_refresh(params: Record<string, unknown>): Promise<unknown>;
+  check_update(params?: Record<string, unknown>): Promise<unknown>;
+  apply_update(params?: Record<string, unknown>): Promise<unknown>;
 }
 
 // ---------------------------------------------------------------------------
@@ -256,4 +258,18 @@ export async function bridgeCancelRefresh(
   jobId: string,
 ): Promise<{ ok: boolean; message: string }> {
   return callBridge<{ ok: boolean; message: string }>("cancel_refresh", { job_id: jobId });
+}
+
+export type CheckUpdateResponse = {
+  available: boolean;
+  version: string;
+  url: string;
+};
+
+export async function bridgeCheckUpdate(): Promise<CheckUpdateResponse> {
+  return callBridge<CheckUpdateResponse>("check_update", {});
+}
+
+export async function bridgeApplyUpdate(): Promise<void> {
+  await callBridge<unknown>("apply_update", {});
 }
