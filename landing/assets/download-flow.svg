@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="620" viewBox="0 0 1120 620" role="img" aria-labelledby="title desc">
+  <title id="title">Fluxo de instalacao do CVM Analytics</title>
+  <desc id="desc">Tres passos para baixar, extrair e abrir o aplicativo local.</desc>
+  <rect width="1120" height="620" rx="32" fill="#f8fafc"/>
+  <circle cx="960" cy="90" r="86" fill="#cffafe"/>
+  <circle cx="160" cy="522" r="110" fill="#dcfce7"/>
+  <g font-family="Inter, Arial, sans-serif">
+    <text x="78" y="96" font-size="34" font-weight="850" fill="#0f172a">Instalacao em 3 passos</text>
+    <text x="78" y="132" font-size="17" fill="#475569">Sem servidor pago, sem conta obrigatoria, sem mandar seus dados para fora.</text>
+    <g transform="translate(78 190)">
+      <rect width="286" height="300" rx="24" fill="#ffffff" stroke="#dbeafe"/>
+      <circle cx="48" cy="52" r="24" fill="#0f172a"/>
+      <text x="41" y="61" font-size="23" font-weight="850" fill="#ffffff">1</text>
+      <text x="34" y="114" font-size="23" font-weight="850" fill="#0f172a">Baixe o ZIP</text>
+      <text x="34" y="154" font-size="15" fill="#475569">Use o botao Windows para pegar a ultima release publicada no GitHub.</text>
+      <rect x="34" y="204" width="218" height="54" rx="14" fill="#0891b2"/>
+      <text x="77" y="237" font-size="15" font-weight="800" fill="#ffffff">Download Windows</text>
+    </g>
+    <g transform="translate(418 190)">
+      <rect width="286" height="300" rx="24" fill="#ffffff" stroke="#dbeafe"/>
+      <circle cx="48" cy="52" r="24" fill="#0f172a"/>
+      <text x="41" y="61" font-size="23" font-weight="850" fill="#ffffff">2</text>
+      <text x="34" y="114" font-size="23" font-weight="850" fill="#0f172a">Extraia a pasta</text>
+      <text x="34" y="154" font-size="15" fill="#475569">Coloque a pasta em um local fixo, como Documentos ou Aplicativos.</text>
+      <rect x="34" y="210" width="218" height="20" rx="10" fill="#e2e8f0"/>
+      <rect x="34" y="244" width="152" height="20" rx="10" fill="#cbd5e1"/>
+    </g>
+    <g transform="translate(758 190)">
+      <rect width="286" height="300" rx="24" fill="#ffffff" stroke="#dbeafe"/>
+      <circle cx="48" cy="52" r="24" fill="#0f172a"/>
+      <text x="41" y="61" font-size="23" font-weight="850" fill="#ffffff">3</text>
+      <text x="34" y="114" font-size="23" font-weight="850" fill="#0f172a">Abra o app</text>
+      <text x="34" y="154" font-size="15" fill="#475569">Execute o CVM Analytics e atualize a base local quando precisar.</text>
+      <rect x="34" y="204" width="218" height="54" rx="14" fill="#0f172a"/>
+      <text x="85" y="237" font-size="15" font-weight="800" fill="#ffffff">CVMAnalytics.exe</text>
+    </g>
+  </g>
+</svg>
