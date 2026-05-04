@@ -5,6 +5,7 @@ import { IBM_Plex_Mono, Manrope, Space_Grotesk } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { SiteFooter } from "@/components/shared/site-footer";
 import { SiteHeader } from "@/components/shared/site-header";
+import { UpdatePrompt } from "@/components/update-prompt";
 import "./globals.css";
 
 const bodyFont = Manrope({
@@ -58,6 +59,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
             <main className="flex-1">{children}</main>
             <SiteFooter />
           </div>
+          <UpdatePrompt />
         </Providers>
       </body>
     </html>
