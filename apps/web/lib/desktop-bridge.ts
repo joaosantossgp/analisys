@@ -23,6 +23,7 @@ import type {
   HealthResponse,
   RefreshDispatchResponse,
   RefreshStatusItem,
+  BatchRefreshRequest,
   BatchDispatchResponse,
   BatchJobStatus,
 } from "./api.ts";
@@ -234,19 +235,23 @@ export async function bridgeRequestRefresh(
   });
 }
 
-export async function bridgeRequestBatchRefresh(params: {
-  mode: "full" | "missing" | "outdated" | "failed";
-  sector?: string | null;
-  statusFilter?: string | null;
-  cvmFrom?: number | null;
-  cvmTo?: number | null;
-}): Promise<BatchDispatchResponse> {
+export async function bridgeRequestBatchRefresh(
+  params: BatchRefreshRequest,
+): Promise<BatchDispatchResponse> {
+  const cvmRange =
+    params.cvmRange &&
+    (params.cvmRange.start != null || params.cvmRange.end != null)
+      ? {
+          ...(params.cvmRange.start != null ? { start: params.cvmRange.start } : {}),
+          ...(params.cvmRange.end != null ? { end: params.cvmRange.end } : {}),
+        }
+      : null;
+
   return callBridge<BatchDispatchResponse>("request_refresh", {
     mode: params.mode,
-    ...(params.sector != null ? { sector: params.sector } : {}),
-    ...(params.statusFilter != null ? { status_filter: params.statusFilter } : {}),
-    ...(params.cvmFrom != null ? { cvm_from: params.cvmFrom } : {}),
-    ...(params.cvmTo != null ? { cvm_to: params.cvmTo } : {}),
+    ...(params.sectorSlug ? { sector_slug: params.sectorSlug } : {}),
+    ...(cvmRange ? { cvm_range: cvmRange } : {}),
+    ...(params.statusFilter ? { status_filter: params.statusFilter } : {}),
   });
 }
 
