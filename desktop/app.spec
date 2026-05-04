@@ -14,6 +14,7 @@ from pathlib import Path
 ROOT = Path(SPECPATH).parent  # repo root (spec está em desktop/, ROOT é um nível acima)
 STANDALONE_DIR = ROOT / "apps" / "web" / ".next" / "standalone"
 NODE_EXE = ROOT / "desktop" / "node_portable" / "node.exe"
+UPDATE_HELPER = ROOT / "desktop" / "update_helper.ps1"
 
 datas = []
 
@@ -22,6 +23,9 @@ if STANDALONE_DIR.exists():
 
 if NODE_EXE.exists():
     datas.append((str(NODE_EXE), "."))
+
+# Bundled PowerShell helper used by the auto-updater to swap files after exit.
+datas.append((str(UPDATE_HELPER), "."))
 
 a = Analysis(
     [str(ROOT / "desktop" / "app.py")],
