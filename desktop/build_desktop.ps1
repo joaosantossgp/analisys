@@ -4,6 +4,7 @@
 # Uso:
 #   .\desktop\build_desktop.ps1
 #   .\desktop\build_desktop.ps1 -SkipNextBuild   # pula o next build (UI nao mudou)
+#   .\desktop\build_desktop.ps1 -Version 0.2.0   # versao explícita (default: git tag)
 #   .\desktop\build_desktop.ps1 -Verbose
 #
 # Saída:
@@ -16,7 +17,8 @@
 
 param(
     [switch]$SkipNextBuild,
-    [switch]$Verbose
+    [switch]$Verbose,
+    [string]$Version = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -33,7 +35,7 @@ Write-Host ""
 # Passo 1 — Next.js standalone build
 # ---------------------------------------------------------------------------
 if (-not $SkipNextBuild) {
-    Write-Host "[1/4] next build (output: standalone)..." -ForegroundColor Yellow
+    Write-Host "[1/5] next build (output: standalone)..." -ForegroundColor Yellow
     Push-Location $WebDir
     try {
         & node_modules\.bin\next build
@@ -43,14 +45,31 @@ if (-not $SkipNextBuild) {
     }
     Write-Host "  OK: .next/standalone/ gerado" -ForegroundColor Green
 } else {
-    Write-Host "[1/4] Pulando next build (-SkipNextBuild)" -ForegroundColor Gray
+    Write-Host "[1/5] Pulando next build (-SkipNextBuild)" -ForegroundColor Gray
 }
+
+# ---------------------------------------------------------------------------
+# Passo 1.5 — Injetar versao em desktop/__version__.py
+# ---------------------------------------------------------------------------
+Write-Host "[2/5] Injetando versao em desktop/__version__.py..." -ForegroundColor Yellow
+
+if (-not $Version) {
+    $gitTag = (git -C $Root describe --tags --abbrev=0 2>$null)
+    if ($LASTEXITCODE -eq 0 -and $gitTag) {
+        $Version = $gitTag -replace '^v', ''
+    } else {
+        $Version = "0.1.0"
+    }
+}
+$VersionPy = Join-Path $DesktopDir "__version__.py"
+"__version__ = `"$Version`"" | Set-Content $VersionPy -Encoding utf8
+Write-Host "  OK: versao $Version injetada em __version__.py" -ForegroundColor Green
 
 # ---------------------------------------------------------------------------
 # Passo 2 — Copiar public/ e .next/static/ para dentro de standalone/
 # (Next.js nao copia esses assets automaticamente no standalone output)
 # ---------------------------------------------------------------------------
-Write-Host "[2/4] Copiando assets estaticos para standalone/..." -ForegroundColor Yellow
+Write-Host "[3/5] Copiando assets estaticos para standalone/..." -ForegroundColor Yellow
 
 $StandaloneDir = Join-Path $WebDir ".next\standalone"
 $PublicSrc     = Join-Path $WebDir "public"
@@ -81,7 +100,7 @@ if (Test-Path $StaticSrc) {
 # Copia o node.exe do sistema para desktop/node_portable/
 # (PyInstaller inclui esse arquivo no bundle via app.spec)
 # ---------------------------------------------------------------------------
-Write-Host "[3/4] Preparando node.exe portátil..." -ForegroundColor Yellow
+Write-Host "[4/5] Preparando node.exe portátil..." -ForegroundColor Yellow
 
 $NodePortableDir = Join-Path $DesktopDir "node_portable"
 $NodePortableExe = Join-Path $NodePortableDir "node.exe"
@@ -101,7 +120,7 @@ if (-not (Test-Path $NodePortableExe)) {
 # ---------------------------------------------------------------------------
 # Passo 4 — PyInstaller
 # ---------------------------------------------------------------------------
-Write-Host "[4/4] PyInstaller bundle..." -ForegroundColor Yellow
+Write-Host "[5/5] PyInstaller bundle..." -ForegroundColor Yellow
 
 $SpecFile = Join-Path $DesktopDir "app.spec"
 if (-not (Test-Path $SpecFile)) {

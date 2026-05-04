@@ -20,6 +20,10 @@ class CVMBridge:
         self._company_info_cache: dict[int, dict[str, Any]] = {}
         self._company_info_pending: set[int] = set()
         self._company_info_lock = threading.RLock()
+        # auto-updater state
+        self._update_info: dict | None = None
+        self._update_progress: dict = {"status": "idle", "percent": 0, "error": None}
+        self._update_lock = threading.Lock()
 
     def _svc(self):
         if self._service is None:
@@ -273,6 +277,85 @@ class CVMBridge:
             return self._refresh().cancel_job(params or {})
         except Exception as exc:
             return {"ok": False, "message": str(exc)}
+
+    # ------------------------------------------------------------------
+    # Auto-updater
+    # ------------------------------------------------------------------
+
+    def _start_update_check(self) -> None:
+        """Called from a daemon thread in app.py after window creation."""
+        try:
+            from desktop.__version__ import __version__  # noqa: PLC0415
+            from desktop.updater import UpdateChecker  # noqa: PLC0415
+            checker = UpdateChecker()
+            info = checker.check_for_update(__version__)
+            with self._update_lock:
+                self._update_info = info
+        except Exception:
+            pass
+
+    def check_update(self, params=None) -> dict:
+        with self._update_lock:
+            info = self._update_info
+        if not info:
+            return {"available": False}
+        return {
+            "available": True,
+            "version": info["version"],
+            "zip_url": info["zip_url"],
+        }
+
+    def apply_update(self, params=None) -> dict:
+        with self._update_lock:
+            info = self._update_info
+            if not info:
+                return {"error": "no_update_available"}
+            if self._update_progress.get("status") == "downloading":
+                return {"error": "already_in_progress"}
+            self._update_progress = {"status": "downloading", "percent": 0, "error": None}
+
+        def _run() -> None:
+            try:
+                from desktop.updater import UpdateChecker  # noqa: PLC0415
+                checker = UpdateChecker()
+
+                def _progress(status: str, percent: int) -> None:
+                    with self._update_lock:
+                        self._update_progress = {"status": status, "percent": percent, "error": None}
+
+                staged = checker.download_and_stage(info, _progress)
+
+                with self._update_lock:
+                    self._update_progress = {"status": "swapping", "percent": 100, "error": None}
+
+                checker.spawn_helper_and_exit(staged)
+
+                import webview  # noqa: PLC0415
+                for w in webview.windows:
+                    w.destroy()
+
+            except Exception as exc:
+                with self._update_lock:
+                    self._update_progress = {"status": "error", "percent": 0, "error": str(exc)}
+
+        threading.Thread(target=_run, name="desktop-apply-update", daemon=True).start()
+        return {"started": True}
+
+    def get_update_progress(self, params=None) -> dict:
+        with self._update_lock:
+            return dict(self._update_progress)
+
+    def snooze_update(self, params=None) -> dict:
+        with self._update_lock:
+            info = self._update_info
+        if not info:
+            return {"ok": False, "error": "no_update_info"}
+        try:
+            from desktop.updater import UpdateChecker  # noqa: PLC0415
+            UpdateChecker().snooze(info["tag"])
+            return {"ok": True}
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
 
     # ------------------------------------------------------------------
     # Health / diagnostico

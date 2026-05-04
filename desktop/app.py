@@ -17,6 +17,7 @@ import os
 import socket
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -122,6 +123,13 @@ def main() -> None:
         background_color=_BG,
         min_size=(800, 600),
     )
+
+    threading.Thread(
+        target=bridge._start_update_check,
+        name="desktop-update-check",
+        daemon=True,
+    ).start()
+
     webview.start(debug=debug_mode)
 
     if server_proc is not None:
