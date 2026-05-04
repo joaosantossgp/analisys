@@ -223,8 +223,15 @@ Regras do endpoint:
 - `202` quando o lote foi aceito, ja esta em execucao, ou nao encontrou empresas elegiveis
 - `mode` aceita `full`, `missing`, `outdated` e `failed`
 - `sector_slug`, `cvm_range`, `status_filter`, `search`, `cd_cvm`, `start_year`, `end_year` e `limit` sao filtros opcionais
-- `mode = failed` aplica `status_filter = failed` quando nenhum filtro de status foi informado
+- para equivalencia com o bridge desktop, `sector` e aceito como alias de `sector_slug`, e `cvm_from`/`cvm_to` como alias de `cvm_range`
+- os filtros sao compostos antes da regra do `mode`; `limit` corta a lista final ja resolvida
+- `mode = full` enfileira todas as empresas restantes depois dos filtros explicitos
+- `mode = missing` enfileira apenas empresas com lacuna real de cobertura anual completa (`BPA`, `BPP`, `DRE`, `DFC`) dentro de `start_year`/`end_year`
+- `mode = outdated` enfileira apenas empresas marcadas como desatualizadas pelos metadados de freshness/status ja existentes
+- `mode = failed` aplica `status_filter = failed` quando nenhum filtro de status foi informado e enfileira somente falhas retryable
 - `cvm_range` aceita objeto `{start, end}`, objeto `{from, to}`, lista `[start, end]` ou string `"start-end"`
+- `cvm_range.start > cvm_range.end`, `start_year > end_year`, `cd_cvm` invalido e `limit` fora de `1..10000` retornam `422 invalid_request`
+- `queued` e sempre igual ao numero de empresas resolvidas para o job
 - a API permite um job de batch ativo por processo; novo disparo durante execucao retorna `already_running` com o `job_id` ativo
 - `job_id` pode vir `null` quando `status = already_current`
 

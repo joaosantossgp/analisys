@@ -235,7 +235,7 @@ lote disponivel para consumo.
 
 | Endpoint | Params | Para que serve |
 |---|---|---|
-| `POST /refresh/batch` | body `{mode, sector_slug?, cvm_range?, status_filter?}` | Dispara refresh em lote com os filtros do painel |
+| `POST /refresh/batch` | body `{mode, sector_slug?, cvm_range?, status_filter?, search?, cd_cvm?, start_year?, end_year?, limit?}` | Dispara refresh em lote; `full`, `missing`, `outdated` e `failed` resolvem exatamente as empresas elegiveis antes de enfileirar |
 | `GET /refresh/jobs` | - | Lista jobs ativos do refresh em lote |
 | `GET /refresh/jobs/{job_id}` | - | Polling de progresso, falhas, CVM atual e logs |
 
@@ -244,7 +244,8 @@ lote disponivel para consumo.
 - os estados de fonte indisponivel e permissao insuficiente seguem simulados
   na propria tela ate existir contrato dedicado de auth/roles;
 - a API de batch exposta nesta fase cobre start, lista de jobs ativos e polling
-  de progresso; cancelamento e historico ficam para contrato futuro.
+  de progresso; tambem aceita os aliases do bridge desktop (`sector`,
+  `cvm_from`, `cvm_to`); cancelamento e historico ficam para contrato futuro.
 
 ---
 
@@ -320,4 +321,4 @@ for entregue.
 
 ---
 
-_Ultima atualizacao: 2026-05-03 - API batch de atualizacao da base_
+_Ultima atualizacao: 2026-05-04 - API batch de atualizacao da base_

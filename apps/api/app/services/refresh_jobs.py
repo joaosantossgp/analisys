@@ -44,8 +44,12 @@ class ApiRefreshJobManager:
         if mode not in self.VALID_MODES:
             raise RefreshBatchRequestError(f"Modo de refresh invalido: {mode}")
 
-        companies = self._resolve_companies(request_params, mode=mode)
-        start_year, end_year = self._resolve_year_range(request_params)
+        try:
+            selection = self._resolve_batch_selection(request_params, mode=mode)
+        except ValueError as exc:
+            raise RefreshBatchRequestError(str(exc)) from exc
+        companies = list(selection.companies)
+        start_year, end_year = selection.start_year, selection.end_year
         if not companies:
             now = self._now_iso()
             return {
@@ -201,27 +205,18 @@ class ApiRefreshJobManager:
         )
         self._threads.pop(job_id, None)
 
-    def _resolve_companies(self, params: dict[str, Any], *, mode: str) -> list[str]:
-        cd_cvm = params.get("cd_cvm")
-        if cd_cvm not in (None, ""):
-            return [str(int(cd_cvm))]
+    def _resolve_batch_selection(self, params: dict[str, Any], *, mode: str):
+        from src.read_service import resolve_refresh_batch_selection  # noqa: PLC0415
 
-        sector_slug = params.get("sector_slug") or params.get("sector")
-        page = self.read_service.list_companies(
-            search=str(params.get("search") or ""),
-            sector_slug=str(sector_slug) if sector_slug else None,
-            page=1,
-            page_size=int(params.get("limit") or 10000),
+        return resolve_refresh_batch_selection(
+            self.read_service,
+            params,
+            mode=mode,
+            default_start_year=self.DEFAULT_START_YEAR,
         )
-        companies = [str(item.cd_cvm) for item in page.items]
-        companies = self._filter_cvm_range(companies, params.get("cvm_range"))
 
-        status_filter = params.get("status_filter")
-        if mode == "failed" and not status_filter:
-            status_filter = "failed"
-        if status_filter:
-            companies = self._filter_by_status(companies, str(status_filter))
-        return companies
+    def _resolve_companies(self, params: dict[str, Any], *, mode: str) -> list[str]:
+        return list(self._resolve_batch_selection(params, mode=mode).companies)
 
     def _filter_by_status(self, companies: list[str], status_filter: str) -> list[str]:
         normalized = status_filter.strip().lower()

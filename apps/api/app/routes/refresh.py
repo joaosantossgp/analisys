@@ -19,7 +19,10 @@ router = APIRouter(prefix="/refresh", tags=["operations"])
 class RefreshBatchRequestPayload(BaseModel):
     mode: str = Field(default="missing", description="full, missing, outdated ou failed.")
     sector_slug: str | None = None
-    cvm_range: dict[str, int] | list[int] | str | None = None
+    sector: str | None = None
+    cvm_range: dict[str, Any] | list[Any] | str | None = None
+    cvm_from: int | None = None
+    cvm_to: int | None = None
     status_filter: str | None = None
     search: str | None = None
     cd_cvm: int | None = None

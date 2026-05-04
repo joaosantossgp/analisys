@@ -70,6 +70,29 @@ class RefreshRequest:
 
 
 @dataclass(frozen=True)
+class RefreshBatchSelection:
+    mode: str
+    companies: tuple[str, ...]
+    start_year: int
+    end_year: int
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "mode", str(self.mode).strip().lower())
+        object.__setattr__(
+            self,
+            "companies",
+            tuple(str(company) for company in self.companies),
+        )
+        object.__setattr__(self, "start_year", int(self.start_year))
+        object.__setattr__(self, "end_year", int(self.end_year))
+
+    def to_dict(self) -> dict[str, Any]:
+        payload = asdict(self)
+        payload["companies"] = list(self.companies)
+        return payload
+
+
+@dataclass(frozen=True)
 class CompanyRefreshResult:
     company_name: str
     cvm_code: int
